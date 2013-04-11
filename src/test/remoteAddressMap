@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo 1.1.1.0/24 group1
+echo 2.2.2.0/24 group2
+echo 3.3.3.0/24 group3

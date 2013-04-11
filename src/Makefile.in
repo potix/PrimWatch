@@ -1,0 +1,18 @@
+LIBS = -L/usr/lib/x86_64-linux-gnu -L/opt/local/lib -L/usr/local/lib  -levent -lyajl
+INCS =  -I. -I./bson -I/usr/include/x86_64-linux-gnu -I/opt/local/include -I/usr/local/include
+CFLAGS = -O3 -pipe -Wall -std=gnu99
+#PROF = -pg
+#DEBUG = -g3 -ggdb3
+CC = gcc
+
+DAEMON_PROG = primwatchd
+DAEMON_SRCS = daemon_main.c string_util.c bhash.c config_manager.c json_parser.c shared_buffer.c watcher.c executor.c bson_helper.c bson/bson.c bson/encoding.c bson/numbers.c logger.c address_util.c
+DAEMON_OBJS = $(DAEMON_SRCS:%.c=%.o)
+DAEMON_HEADERS = common_macro.h common_define.h config_manager.h bhash.h json_parser.h  string_util.h json_parser.h shared_buffer.h watcher.h executor.h bson_helper.h  bson/bson.h bson/encoding.h logger.h address_util.h record.h
+
+$(DAEMON_PROG): $(DAEMON_OBJS)
+	$(CC) $(CFLAGS) $(PROF) -o $@ $(DAEMON_OBJS) $(LIBS)
+.c.o: $(DAEMON_HEADERS) 
+	$(CC) $(CFLAGS) $(INCS) $(DEBUG) $(PROF) -o $(patsubst %.c,%.o,$<) -c $<
+clean:
+	rm -rf *.o */*.o $(DAEMON_PROG)
