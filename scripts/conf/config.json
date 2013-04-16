@@ -30,7 +30,7 @@
                 },
                 "URL": {
                     "codes": [200],
-                    "url": "http://pfapp-vm00.bp.iiji.jp/trac/"
+                    "url": "http://aa.example.jp/trac/"
                 }
             }
         },
@@ -43,7 +43,7 @@
                 },
                 "URL": {
                     "codes": [200],
-                    "url": "http://pfapp-vm36.bp.iiji.jp/"
+                    "url": "http://bb.example.jp/"
                 }
             }
         }
