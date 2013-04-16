@@ -1,0 +1,51 @@
+{
+    "logging": {
+        "type": "syslog",
+        "file": "/var/log/primwatch/healthcheck.log",
+        "level": "DEBUG"
+    },
+    "workers": 4,
+    "default_timeout": 5,
+    "default_retry": 1,
+    "targets": {
+        "local": {
+            "address": "127.0.0.1",
+            "watches": {
+                "ICMP": {
+                    "retry": 5,
+                    "timeout": 3
+                },
+                "URL": {
+                    "codes": [200],
+                    "url": "http://localhost:8080"
+                }
+            }
+        },
+        "vm00": {
+            "address": "10.110.6.11",
+            "watches": {
+                "ICMP": {
+                    "retry": 5,
+                    "timeout": 3
+                },
+                "URL": {
+                    "codes": [200],
+                    "url": "http://pfapp-vm00.bp.iiji.jp/trac/"
+                }
+            }
+        },
+        "vm36": {
+            "address": "10.110.5.25",
+            "watches": {
+                "ICMP": {
+                    "retry": 5,
+                    "timeout": 3
+                },
+                "URL": {
+                    "codes": [200],
+                    "url": "http://pfapp-vm36.bp.iiji.jp/"
+                }
+            }
+        }
+    }
+}
