@@ -1,1 +1,0 @@
-gcc -Wall -lyajl -I/opt/local/include  config_manager.c hash.c json_parser.c test.c 
