@@ -12,8 +12,6 @@
 #include "string_util.h"
 #include "address_util.h"
 
-#define REVADDRSTRLEN 80
-
 static void
 mask_addr(
     v4v6_addr_t *addr,
@@ -261,14 +259,70 @@ revaddrstr_to_addrmask(
 }
 
 int
-addrmask_to_revaddr(
+addrmask_to_revaddrstr(
     char *revaddr_str,
     size_t revaddr_str_size,
     v4v6_addr_mask_t *addr_mask,
-    revfmt_type_t *revfmt_type)
+    revfmt_type_t revfmt_type)
 {
+	int i;
+	const char *suffix;
+	char tmp[8];
+	unsigned char *ptr, vh, vl;
 
-	// XXXXX
+	if (revaddr_str == NULL ||
+	    revaddr_str_size < 1 ||
+	    addr_mask == NULL ||
+	    revfmt_type == 0) {
+		errno = EINVAL;
+		return 1;
+	}
+	revaddr_str[0] = '\0';
+	switch (addr_mask->addr.family) {
+	case AF_INET:
+		switch (revfmt_type) {
+		case REVFMT_TYPE_INADDR_ARPA:
+			suffix = "in-addr.arpa";
+			break;
+		default:
+			errno = EINVAL;
+			return 1;
+		}
+		for (i = 3; i >= 0; i--) {
+			ptr = (unsigned char *)&addr_mask->addr.in_addr.sin_addr;
+			snprintf(tmp, sizeof(tmp), "%d.", ptr[i]);
+			strlcat(revaddr_str, tmp, revaddr_str_size);
+		}
+		strlcat(revaddr_str, suffix, revaddr_str_size);
+		break;
+	case AF_INET6:
+		switch (revfmt_type) {
+		case REVFMT_TYPE_IP6_ARPA:
+			suffix = "ip6.arpa";
+			break;
+		case REVFMT_TYPE_IP6_INT:
+			suffix = "ip6.int";
+			break;
+		default:
+			errno = EINVAL;
+			return 1;
+		}
+		for (i = 15; i >= 0; i--) {
+			ptr = (unsigned char *)&addr_mask->addr.in_addr.sin6_addr;
+			vh = ptr[i] >> 4;
+			vl = ptr[i] & 0x0f;
+			snprintf(tmp, sizeof(tmp), "%x.", vl);
+			strlcat(revaddr_str, tmp, revaddr_str_size);
+			snprintf(tmp, sizeof(tmp), "%x.", vh);
+			strlcat(revaddr_str, tmp, revaddr_str_size);
+		}
+		strlcat(revaddr_str, suffix, revaddr_str_size);
+		break;
+	default:
+		errno = EINVAL;
+		return 1;
+	}
 
 	return 0;
 }
+

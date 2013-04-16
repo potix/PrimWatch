@@ -93,8 +93,10 @@ struct group_foreach_cb_arg {
 
 struct record_foreach_cb_arg {
 	group_foreach_cb_arg_t *group_foreach_cb_arg;
-	bhash_t *address;
-	bhash_t *hostname;
+	bhash_t *ipv4address;
+	bhash_t *ipv4hostname;
+	bhash_t *ipv6address;
+	bhash_t *ipv6hostname;
 	int preempt;
 };
 
@@ -176,17 +178,16 @@ watcher_record_foreach_cb(
 {
 	record_foreach_cb_arg_t *arg = record_foreach_cb_arg;
 	bson *config;
-	bhash_t *health_check;
+	bhash_t *health_check, *address, *hostname;
 	const char *default_record_status;
 	char p[MAX_BSON_PATH_LEN];
 	char entry_buffer[MAX_RECORD_BUFFER];
 	record_buffer_t *entry;
-	const char *idx;
-	const char *addr;
-	const char *host;
-	size_t addr_size;
-	size_t host_size;
+	const char *idx, *addr, *host;
+	size_t addr_size, host_size;
 	watcher_health_check_element_t *health_check_element;
+	v4v6_addr_mask_t *addr_mask;
+	size_t addr_mask_size;
 	
 	ASSERT(arg != NULL);
 	ASSERT(arg->group_foreach_cb_arg != NULL);
@@ -194,8 +195,10 @@ watcher_record_foreach_cb(
 	ASSERT(arg->group_foreach_cb_arg->status != NULL);
 	ASSERT(arg->group_foreach_cb_arg->health_check != NULL);
 	ASSERT(arg->group_foreach_cb_arg->default_record_status != NULL);
-	ASSERT(arg->address != NULL);
-	ASSERT(arg->hostname != NULL);
+	ASSERT(arg->ipv4address != NULL);
+	ASSERT(arg->ipv4hostname != NULL);
+	ASSERT(arg->ipv6address != NULL);
+	ASSERT(arg->ipv6hostname != NULL);
 	config = arg->group_foreach_cb_arg->config;
 	health_check = arg->group_foreach_cb_arg->health_check;
 	default_record_status = arg->group_foreach_cb_arg->default_record_status;
@@ -206,6 +209,21 @@ watcher_record_foreach_cb(
 	if (bson_helper_itr_get_string(itr, &addr, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get address (index = %s)", idx);
 		goto fail;
+	}
+	snprintf(p, sizeof(p),  "%s.addressAndMask", idx);
+	if (bson_helper_itr_get_binary(itr, (const char **)&addr_mask, &addr_mask_size, p, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get address and mask (index = %s)", idx);
+		goto fail;
+	}
+	if (addr_mask->addr.family == AF_INET) {
+		address = arg->ipv4hostname;
+		hostname = arg->ipv4hostname; 
+	} else if (addr_mask->addr.family == AF_INET6) {
+		address = arg->ipv6hostname;
+		hostname = arg->ipv6hostname;
+	} else {
+		/* NOTREACHED */
+		ABORT("unexpected address family");
 	}
 	addr_size = strlen(addr) + 1;
 	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
@@ -218,7 +236,9 @@ watcher_record_foreach_cb(
 		}
 	}
 	/* update valid of health check flag if record preempt is enable */
-	if (arg->preempt == 1 && health_check_element->current_status == 1 && health_check_element->valid == 0) {
+	if (arg->preempt == 1 &&
+	    health_check_element->current_status == 1 &&
+	    health_check_element->valid == 0) {
 		health_check_element->valid = 1;
 	}
 	if (health_check_element->current_status == 0 ||
@@ -241,9 +261,10 @@ watcher_record_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get record priority (index = %s)", idx);
 		goto fail;
 	}
+	memcpy(&entry->addr_mask, addr_mask, sizeof(v4v6_addr_mask_t));
 	entry->value_size = host_size;
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), host, host_size);
-	if (bhash_append(arg->address,
+	if (bhash_append(address,
 	    addr,
 	    addr_size,
 	    (char *)entry,
@@ -253,7 +274,7 @@ watcher_record_foreach_cb(
 	}
 	entry->value_size = addr_size;
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), addr, addr_size);
-	if (bhash_append(arg->hostname,
+	if (bhash_append(hostname,
 	    host,
 	    host_size,
 	    (char *)entry,
@@ -263,7 +284,6 @@ watcher_record_foreach_cb(
 	}
 
 	return BSON_HELPER_FOREACH_SUCCESS;
-
 fail:
 	/*
          * not return BSON_HELPER_FOREACH_ERROR
@@ -285,12 +305,12 @@ watcher_group_foreach_cb(
 	bson *status;
 	const char *name;
 	int64_t l;
-	int b;
-	int preempt;
+	int b, preempt;
 	const char *s;
 	char p[MAX_BSON_PATH_LEN];
 	int group_object_start = 0;
-	bhash_t *address = NULL, *hostname = NULL;
+	bhash_t *ipv4address = NULL, *ipv4hostname = NULL;
+	bhash_t *ipv6address = NULL, *ipv6hostname = NULL;
 	char *bhash_data;
 	size_t bhash_data_size;
 	int record_member_count;
@@ -341,17 +361,27 @@ watcher_group_foreach_cb(
 			ABORT("unexpected bson type");
 		}
 	}
-	if (bhash_create(&address, DEFAULT_HASH_SIZE, NULL, NULL)) {
+	if (bhash_create(&ipv4address, DEFAULT_HASH_SIZE, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in create address hash (group %s)", name);
 		goto fail;
 	}
-	if (bhash_create(&hostname, DEFAULT_HASH_SIZE, NULL, NULL)) {
+	if (bhash_create(&ipv4hostname, DEFAULT_HASH_SIZE, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in create hostname hash (group %s)", name);
+		goto fail;
+	}
+	if (bhash_create(&ipv6address, DEFAULT_HASH_SIZE, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in create address hash (group %s)", name);
+		goto fail;
+	}
+	if (bhash_create(&ipv6hostname, DEFAULT_HASH_SIZE, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in create hostname hash (group %s)", name);
 		goto fail;
 	}
 	record_foreach_cb_arg.group_foreach_cb_arg = group_foreach_cb_arg;
-	record_foreach_cb_arg.address = address;
-	record_foreach_cb_arg.hostname = hostname;
+	record_foreach_cb_arg.ipv4address = ipv4address;
+	record_foreach_cb_arg.ipv4hostname = ipv4hostname;
+	record_foreach_cb_arg.ipv6address = ipv6address;
+	record_foreach_cb_arg.ipv6hostname = ipv6hostname;
 	record_foreach_cb_arg.preempt = preempt;
 	snprintf(p, sizeof(p),  "%s.%s", name, "records");
 	if (bson_helper_itr_foreach(itr, p, watcher_record_foreach_cb, &record_foreach_cb_arg)) {
@@ -359,35 +389,67 @@ watcher_group_foreach_cb(
 		goto fail;
 	}
 	/* XXXX group preempt */
-	if (bhash_get_bhash_data(address, &bhash_data, &bhash_data_size)) {
+	if (bhash_get_bhash_data(ipv4address, &bhash_data, &bhash_data_size)) {
 		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_binary(status, "addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+	if (bson_append_binary(status, "ipv4addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of  address hash to new status (group %s)", name);
 		goto fail;
 	}
-	if (bhash_get_bhash_data(hostname, &bhash_data, &bhash_data_size)) {
+	if (bhash_get_bhash_data(ipv4hostname, &bhash_data, &bhash_data_size)) {
 		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_binary(status, "hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+	if (bson_append_binary(status, "ipv4hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
 		goto fail;
 	}
-	if (bhash_get_entry_count(address, &record_member_count)) {
+	if (bhash_get_entry_count(ipv4address, &record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_long(status, "recordMembersCount", (int64_t)record_member_count)) {
+	if (bson_append_long(status, "ipv4recordMembersCount", (int64_t)record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
 		goto fail;
 	}
-	if (bhash_destroy(address)) {
+	if (bhash_get_bhash_data(ipv6address, &bhash_data, &bhash_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
+		goto fail;
+	}
+	if (bson_append_binary(status, "ipv6addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+		LOG(LOG_LV_ERR, "failed in append data of  address hash to new status (group %s)", name);
+		goto fail;
+	}
+	if (bhash_get_bhash_data(ipv6hostname, &bhash_data, &bhash_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
+		goto fail;
+	}
+	if (bson_append_binary(status, "ipv6hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
+		goto fail;
+	}
+	if (bhash_get_entry_count(ipv6address, &record_member_count)) {
+		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
+		goto fail;
+	}
+	if (bson_append_long(status, "ipv6recordMembersCount", (int64_t)record_member_count)) {
+		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
+		goto fail;
+	}
+	if (bhash_destroy(ipv4address)) {
 		LOG(LOG_LV_ERR, "failed in destroy address hash (group %s)", name);
 		goto fail;
 	}
-	if (bhash_destroy(hostname)) {
+	if (bhash_destroy(ipv4hostname)) {
+		LOG(LOG_LV_ERR, "failed in destroy hostname hash (group %s)", name);
+		goto fail;
+	}
+	if (bhash_destroy(ipv6address)) {
+		LOG(LOG_LV_ERR, "failed in destroy address hash (group %s)", name);
+		goto fail;
+	}
+	if (bhash_destroy(ipv6hostname)) {
 		LOG(LOG_LV_ERR, "failed in destroy hostname hash (group %s)", name);
 		goto fail;
 	}
@@ -399,11 +461,17 @@ watcher_group_foreach_cb(
 	return BSON_HELPER_FOREACH_SUCCESS;
 
 fail:
-	if (address) {
-		bhash_destroy(address);
+	if (ipv4address) {
+		bhash_destroy(ipv4address);
 	}
-	if (hostname) {
-		bhash_destroy(hostname);
+	if (ipv4hostname) {
+		bhash_destroy(ipv4hostname);
+	}
+	if (ipv6address) {
+		bhash_destroy(ipv6address);
+	}
+	if (ipv6hostname) {
+		bhash_destroy(ipv6hostname);
 	}
 	if (group_object_start) {
 		bson_append_finish_object(status);

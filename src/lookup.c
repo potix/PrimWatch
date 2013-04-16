@@ -13,13 +13,12 @@
 #include "shared_buffer.h"
 #include "bhash.h"
 #include "bson_helper.h"
+#include "string_util.h"
 #include "address_util.h"
 #include "record.h"
 #include "accessa.h"
 #include "logger.h"
 #include "lookup.h"
-
-// XXXX AAAAレコードはv6の奴返さないといけないや
 
 typedef struct lookup_record_random_foreach_arg lookup_record_random_foreach_arg_t;
 
@@ -57,15 +56,15 @@ lookup_domain_map(
 		return 0;
 	}
 	if (bson_helper_bson_get_binary(&lookup->params->status, &bin_data, &bin_data_size, "domainMap", NULL)) {
-		printf("XXX1\n");
+		LOG(LOG_LV_ERR, "failed in get domain map");
 		return 1;
 	}
 	if (bhash_create_wrap_bhash_data(&domain_map, bin_data, bin_data_size)) {
-		printf("XXX2\n");
+		LOG(LOG_LV_ERR, "failed in create bhash");
 		return 1;
 	}
 	if (bhash_get(&domain_map, &candidate_group, NULL, lookup->input.name, strlen(lookup->input.name) + 1)) {
-		printf("XXX3\n");
+		LOG(LOG_LV_ERR, "failed in get group from bhash");
 		return 1;
 	}
 	if (candidate_group == NULL) {
@@ -73,8 +72,7 @@ lookup_domain_map(
 	}
 	snprintf(path, sizeof(path), "groups.%s", candidate_group);
 	if (bson_helper_bson_get_itr(group_itr, &lookup->params->status, path)) {
-		printf("XXXX not found group\n");
-		// XXX log XXX exist domain map but not exist status
+		LOG(LOG_LV_WARNING, "found group in domain map, but not exist group in config (%s)", candidate_group);
 		return 0;
 	}
 	*group = candidate_group;
@@ -104,21 +102,21 @@ lookup_remote_address_map(
 	if (*group != NULL && group_select_order != 1)  {
 		return 0;
 	}
-	if (bson_helper_bson_get_binary(&lookup->params->status, &bin_data, &bin_data_size, "domainMap", NULL)) {
-		printf("XXX4\n");
+	if (bson_helper_bson_get_binary(&lookup->params->status, &bin_data, &bin_data_size, "remoteAddressMap", NULL)) {
+		LOG(LOG_LV_ERR, "failed in get remote_address_map");
 		return 1;
 	}
 	if (bhash_create_wrap_bhash_data(&remote_address_map, bin_data, bin_data_size)) {
-		printf("XXX5\n");
+		LOG(LOG_LV_ERR, "failed in create bhash");
 		return 1;
 	}
 	if (addrstr_to_addrmask(&remoteaddr_mask, lookup->input.remote_address)) {
-		printf("XXX6\n");
+		LOG(LOG_LV_ERR, "failed in convert address and mask\n");
 		return 1;
 	}
 	while (1) {
 		if (bhash_get(&remote_address_map, &candidate_group, NULL, (const char *)(&remoteaddr_mask), sizeof(v4v6_addr_mask_t))) {
-			printf("XXX7\n");
+			LOG(LOG_LV_ERR, "failed in get remote address from remote address map\n");
 			return 1;
 		}
 		if (candidate_group == NULL) {
@@ -129,8 +127,7 @@ lookup_remote_address_map(
 		}
 		snprintf(path, sizeof(path), "groups.%s", candidate_group);
 		if (bson_helper_bson_get_itr(group_itr, &lookup->params->status, path)) {
-			// XXX log XXX exist domain map but not exist status
-			printf("XXX not found group\n");
+			LOG(LOG_LV_WARNING, "found group in remote address map, but not exist group in config (%s)", candidate_group);
 			return 0;
 		}
 		*group = candidate_group;
@@ -175,11 +172,18 @@ lookup_record_random_foreach(
 	record_buffer = (record_buffer_t *)value;
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
-		lookup->output.entry[i].name = key;
+	case LOOKUP_TYPE_NATIVE_AAAA:
+		strlcpy(
+		    lookup->output.entry[i].name,
+		    key,
+		    sizeof(lookup->output.entry[i].name));
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
-		// XXX to convert reverse  addr key
-		lookup->output.entry[i].name = key;
+		addrmask_to_revaddrstr(
+		    lookup->output.entry[i].name,
+		    sizeof(lookup->output.entry[i].name),
+		    &record_buffer->addr_mask,
+		    lookup->params->revfmt_type);
 		break;
 	default:
 		/* NOTREACHED */
@@ -239,25 +243,35 @@ lookup_record_random(
 	lookup->output.entry_count = max_records; 
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
-		snprintf(path, sizeof(path), "%s.%s", name, "hostnames");
+		snprintf(path, sizeof(path), "%s.%s", name, "ipv4hostnames");
+		break;
+	case LOOKUP_TYPE_NATIVE_AAAA:
+		snprintf(path, sizeof(path), "%s.%s", name, "ipv6hostnames");
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
-		snprintf(path, sizeof(path), "%s.%s", name, "addresses");
+		if (lookup->params->revaddr_mask.addr.family == AF_INET) {
+			snprintf(path, sizeof(path), "%s.%s", name, "ipv4addresses");
+		} else if (lookup->params->revaddr_mask.addr.family == AF_INET6) {
+			snprintf(path, sizeof(path), "%s.%s", name, "ipv6addresses");
+		} else {
+			LOG(LOG_LV_ERR, "unsupported address family");
+			return 1;
+		}
 		break;
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected type of lookup");
 	}
 	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
-		printf("XXX18\n");
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
 		return 1;
 	}
 	if (bhash_create_wrap_bhash_data(&bhash, bin_data, bin_data_size)) {
-		printf("XXX20\n");
+		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
 	if (bhash_foreach(&bhash, lookup_record_random_foreach, &lookup_record_random_foreach_arg))  {
-		printf("XXX21\n");
+		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
 
@@ -274,37 +288,62 @@ lookup_record(
 	int64_t record_select_algorithm;
 	int64_t record_members_count;
 	char path[MAX_BSON_PATH_LEN];
+	const char *elem;
 
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
 	name = bson_iterator_key(group_itr);
 	snprintf(path, sizeof(path), "%s.%s", name, "recordSelectAlgorithmValue");
 	if (bson_helper_itr_get_long(group_itr, &record_select_algorithm, path, NULL, NULL)) {
-		printf("XXX12\n");
+		LOG(LOG_LV_ERR, "failed in get value of record select algorithm");
 		return 1;
 	}
-	snprintf(path, sizeof(path), "%s.%s", name, "recordMembersCount");
+	switch (lookup->params->lookup_type) {
+	case LOOKUP_TYPE_NATIVE_A:
+		elem = "ipv4recordMembersCount";
+		break;
+	case LOOKUP_TYPE_NATIVE_AAAA:
+		elem = "ipv6recordMembersCount";
+		break;
+	case LOOKUP_TYPE_NATIVE_PTR:
+		if (lookup->params->revaddr_mask.addr.family == AF_INET) {
+			elem = "ipv4recordMembersCount";
+		} else if (lookup->params->revaddr_mask.addr.family == AF_INET6) {
+			elem = "ipv6recordMembersCount";
+		} else {
+			LOG(LOG_LV_ERR, "unsupported address family");
+			return 1;
+		}
+		break;
+	default:
+		/* NOTREACHED */
+		ABORT("unexpected type of lookup");
+	}
+	snprintf(path, sizeof(path), "%s.%s", name, elem);
 	if (bson_helper_itr_get_long(group_itr, &record_members_count, path, NULL, NULL)) {
-		printf("XXX13\n");
+		LOG(LOG_LV_ERR, "failed in get count of record Members");
 		return 1;
 	}
 	snprintf(path, sizeof(path), "%s.%s", name, "maxRecords");
 	if (bson_helper_itr_get_long(group_itr, &max_records, path, NULL, NULL)) {
-		printf("XXX14\n");
+		LOG(LOG_LV_ERR, "failed in get max record");
 		return 1;
 	}
 	switch (record_select_algorithm) {
 	case 0: /* random */
 		if (lookup_record_random(lookup, group_itr, name, record_members_count, max_records)) {
-			printf("XXX15\n");
+			LOG(LOG_LV_ERR, "failed in lookup record by random");
 			return 1;
 		}
 		break;
 	case 1: /* priority */
+		/* XXX */
 		break;
 	case 2: /* roundrobin */
+		/* XXX */
 		break;
 	case 3: /* weight */
+		/* XXX */
 		break;
 	default:
 		return 1;
@@ -326,7 +365,7 @@ lookup_group_random(
 	ASSERT(group_members_count > 0);
 	idx = (int)(random() % (int)group_members_count);
 	if (bson_helper_bson_get_itr_by_idx(group_itr, &lookup->params->status, "groups", idx)) {
-		printf("XXX11\n");
+		LOG(LOG_LV_ERR, "failed in get iterator of groups");
 		return 1;
 	}
 
@@ -344,32 +383,35 @@ lookup_group(
 
 	ASSERT(lookup != NULL);
 	if (bson_helper_bson_get_long(&lookup->params->status, &group_select_algorithm, "groupSelectAlgorithmValue", NULL)) {
-		printf("XXX8\n");
+		LOG(LOG_LV_ERR, "failed in get value of group select algorithm value");
 		return 1;
 	}
 	if (bson_helper_bson_get_long(&lookup->params->status, &group_members_count, "groupMembersCount", NULL)) {
-		printf("XXX9\n");
+		LOG(LOG_LV_ERR, "failed in get value of group members count");
 		return 1;
 	}
 	switch (group_select_algorithm) {
 	case 0: /* random */
 		if (lookup_group_random(lookup, &group_itr, group_members_count)) {
-			printf("XXX10\n");
+			LOG(LOG_LV_ERR, "failed in lookup group by random");
 			return 1;
 		}
 		break;
 	case 1: /* priority */
+		/* XXX */
 		break;
 	case 2: /* roundrobin */
+		/* XXX */
 		break;
 	case 3: /* weight */
+		/* XXX */
 		break;
 	default:
 		/* NOREACHED */
 		ABORT("unexpected algorithm of group select");
 	}
 	if (lookup_record(lookup, &group_itr)) {
-		printf("XXX10\n");
+		LOG(LOG_LV_ERR, "failed in lookup record");
 		return 1;
 	}
 
@@ -462,12 +504,27 @@ lookup_native(
 	}
 	if (strcasecmp(lookup->input.type, "A") == 0) {
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_A;
+	} else if (strcasecmp(lookup->input.type, "AAAA") == 0) {
+		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_AAAA;
+	} else if (strcmp(lookup->input.type, "PTR") == 0){
+		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_PTR;
+	} else if (strcmp(lookup->input.type, "NS") == 0){
+		/* XXX ns record */
+		LOG(LOG_LV_DEBUG, "ns record is unsupported");
+		return 1;
+	} else {
+		/* log */
+		LOG(LOG_LV_ERR, "unexpected type (%s)", lookup->input.type);
+		return 1;
+	}
+	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_A ||
+	    lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA) {
 		if (lookup_domain_map(lookup, &group, &group_itr, group_select_order)) {
 			LOG(LOG_LV_ERR, "failed in get value of group select order");
 			return 1;
 		}
-	} else if (strcmp(lookup->input.type, "PTR") == 0){
-		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_PTR;
+	}
+	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
 		if (revaddrstr_to_addrmask(&lookup->params->revaddr_mask, &lookup->params->revfmt_type, lookup->input.name)) {
 			LOG(LOG_LV_ERR, "failed in convert address and mask");
 			return 1;
@@ -480,13 +537,6 @@ lookup_native(
 			LOG(LOG_LV_ERR, "failed in convert address");
 			return 1;
 		}
-	} else if (strcmp(lookup->input.type, "NS") == 0){
-		LOG(LOG_LV_INFO, "NS RECORD");
-		return 1;
-	} else {
-		/* log */
-		LOG(LOG_LV_ERR, "unexpected type (%s)", lookup->input.type);
-		return 1;
 	}
 	if (lookup_remote_address_map(lookup, &group, &group_itr, group_select_order)) {
 		LOG(LOG_LV_ERR, "failed in lookup of remote address");
@@ -494,12 +544,12 @@ lookup_native(
 	}
 	if (group != NULL) {
 		if (lookup_record(lookup, &group_itr)) {
-			printf("XXXi\n");
+			LOG(LOG_LV_ERR, "failed in lookup record");
 			return 1;
 		}
 	} else {
 		if (lookup_group(lookup)) {
-			printf("XXXj\n");
+			LOG(LOG_LV_ERR, "failed in lookup group");
 			return 1;
 		}
 	}

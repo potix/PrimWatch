@@ -4,6 +4,7 @@
 #include "bson/bson.h"
 #include "common_define.h"
 #include "accessa.h"
+#include "address_util.h"
 
 typedef enum lookup_type lookup_type_t;
 typedef struct lookup lookup_t;
@@ -14,6 +15,7 @@ typedef struct lookup_output lookup_output_t;
 
 enum lookup_type {
         LOOKUP_TYPE_NATIVE_A = 1,
+        LOOKUP_TYPE_NATIVE_AAAA,
         LOOKUP_TYPE_NATIVE_PTR,
 };
 
@@ -28,7 +30,7 @@ struct lookup_input {
 };
 
 struct lookup_output_entry {
-	const char *name;
+	char name[REVADDRSTRLEN];
 	const char *class;
 	const char *type;
 	unsigned long long ttl;

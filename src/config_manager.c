@@ -12,6 +12,7 @@
 #include "json_parser.h"
 #include "config_manager.h"
 #include "bson_helper.h"
+#include "address_util.h"
 #include "logger.h"
 
 #define DEFAULT_MAX_SHARED_BUFFER_SIZE	      (64 * 1024 * 1024) 
@@ -81,9 +82,23 @@ static const char *record_status_candidate[] = {
 static int config_manager_init_validation(json_parser_t *json_parser);
 static int config_init(bson *config);
 static int config_finish(bson *config);
+static int config_manager_append_value(
+    void *validate_callback_arg,
+    const char *path,
+    const char *key,
+    const char *s,
+    size_t len,
+    bson *bson);
+static int config_manager_append_addrmask(
+    void *validate_callback_arg,
+    const char *path,
+    const char *key,
+    const char *s,
+    size_t len,
+    bson *bson);
 
 static int
-config_manager_custom_validation(
+config_manager_append_value(
     void *validate_callback_arg,
     const char *path,
     const char *key,
@@ -99,7 +114,8 @@ config_manager_custom_validation(
 				continue;
 			}
 			if (bson_append_long(bson, "groupSelectOrderValue", (long)i) != BSON_OK) {
-				 return JSON_PARSER_VALIDATION_ERROR;
+				LOG(LOG_LV_ERR, "failed in append value of group select order to bson");
+				goto fail;
 			}
 			break;
 		}
@@ -110,26 +126,72 @@ config_manager_custom_validation(
 				continue;
 			}
 			if (bson_append_long(bson, "groupSelectAlgorithmValue", (long)i) != BSON_OK) {
-				 return JSON_PARSER_VALIDATION_ERROR;
+				LOG(LOG_LV_ERR, "failed in append value of group select algorithm to bson");
+				goto fail;
 			}
 			break;
 		}
 		ASSERT(group_select_algorithm_candidate[i] != NULL);
+	} else if (strcmp(key, "defaultRecordSelectAlgorithm") == 0) {
+		for (i = 0; record_select_algorithm_candidate[i] != NULL; i++) {
+			if (strcmp(record_select_algorithm_candidate[i], s) != 0) {
+				continue;
+			}
+			if (bson_append_long(bson, "defaultRecordSelectAlgorithmValue", (long)i) != BSON_OK) {
+				LOG(LOG_LV_ERR, "failed in append value of default record select algorithm to bson");
+				goto fail;
+			}
+			break;
+		}
+		ASSERT(record_select_algorithm_candidate[i] != NULL);
 	} else if (strcmp(key, "recordSelectAlgorithm") == 0) {
 		for (i = 0; record_select_algorithm_candidate[i] != NULL; i++) {
 			if (strcmp(record_select_algorithm_candidate[i], s) != 0) {
 				continue;
 			}
 			if (bson_append_long(bson, "recordSelectAlgorithmValue", (long)i) != BSON_OK) {
-				 return JSON_PARSER_VALIDATION_ERROR;
+				LOG(LOG_LV_ERR, "failed in append value of record select algorithm to bson");
+				goto fail;
 			}
 			break;
 		}
 		ASSERT(record_select_algorithm_candidate[i] != NULL);
+	} else {
+		/* NOTREACHED */
+		ABORT("unexpected key");
 	}
 
 	return JSON_PARSER_VALIDATION_SUCCESS;
+fail:
 
+	return JSON_PARSER_VALIDATION_ERROR;
+}
+
+static int
+config_manager_append_addrmask(
+    void *validate_callback_arg,
+    const char *path,
+    const char *key,
+    const char *s,
+    size_t len,
+    bson *bson)
+{
+	v4v6_addr_mask_t addr_mask;
+
+	ASSERT(strcmp(key, "address") == 0);
+	if (addrstr_to_addrmask(&addr_mask, s)) {
+		LOG(LOG_LV_ERR, "failed in convert address and mask (%s)", s);
+		goto fail;
+	}
+	if (bson_append_binary(bson, "addressAndMask", BSON_BIN_BINARY, (const char *)&addr_mask, sizeof(v4v6_addr_mask_t)) != BSON_OK) {
+		LOG(LOG_LV_ERR, "failed in append address and mask to bson", s);
+		goto fail;
+	}
+
+	return JSON_PARSER_VALIDATION_SUCCESS;
+fail:
+
+	return JSON_PARSER_VALIDATION_ERROR;
 }
 
 static int
@@ -150,10 +212,10 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^verboseLevel$", 0, 9, NULL, NULL)) {
 		return 1;
 	}
-        if (json_parser_add_validation_string(json_parser, "^groupSelectOrder$", 19, 19, group_select_order_candidate, 2, config_manager_custom_validation, NULL)) {
+        if (json_parser_add_validation_string(json_parser, "^groupSelectOrder$", 19, 19, group_select_order_candidate, 2, config_manager_append_value, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_string(json_parser, "^groupSelectAlgorithm$", 6, 10, group_select_algorithm_candidate, 4, config_manager_custom_validation, NULL)) {
+	if (json_parser_add_validation_string(json_parser, "^groupSelectAlgorithm$", 6, 10, group_select_algorithm_candidate, 4, config_manager_append_value, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_boolean(json_parser, "^groupPreempt$", NULL, NULL)) {
@@ -171,7 +233,7 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^defaultMaxRecords$", 1, 64, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_string(json_parser, "^defaultRecordSelectAlgorithm$", 6, 10, record_select_algorithm_candidate, 4, config_manager_custom_validation, NULL)) {
+	if (json_parser_add_validation_string(json_parser, "^defaultRecordSelectAlgorithm$", 6, 10, record_select_algorithm_candidate, 4, config_manager_append_value, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_boolean(json_parser, "^defaultRecordPreempt$", NULL, NULL)) {
@@ -210,7 +272,7 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.maxRecords$", 1, MAX_RECORDS, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.recordSelectAlgorithm$", 6, 10, record_select_algorithm_candidate, 4, config_manager_custom_validation, NULL)) {
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.recordSelectAlgorithm$", 6, 10, record_select_algorithm_candidate, 4, config_manager_append_value, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]+\\.recordPreempt$", NULL, NULL)) {
@@ -225,7 +287,7 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.records\\.[0-9]+\\.hostname$", 1, NI_MAXHOST, NULL, 0, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.records\\.[0-9]+\\.address$", 3, INET6_ADDRSTRLEN, NULL, 0, NULL, NULL)) {
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.records\\.[0-9]+\\.address$", 7, INET_ADDRSTRLEN, NULL, 0, config_manager_append_addrmask, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.records\\.[0-9]+\\.recordPriority$", 1, 65535, NULL, NULL)) {

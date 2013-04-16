@@ -100,7 +100,7 @@ primwatch_terminate(
 	primwatch_t *primwatch = args;
 
 	if (watcher_polling_stop(primwatch->watcher)) {
-		// XXX log
+		LOG(LOG_LV_WARNING, "failed in stop polling");
 	}
      	signal_del(&primwatch->sig_chld_event);
      	signal_del(&primwatch->sig_int_event);
@@ -117,7 +117,7 @@ primwatch_reload(
 	primwatch_t *primwatch = args;
 
 	if (config_manager_load(primwatch->config_manager, primwatch->config_file)) {
-		// XXX log
+		LOG(LOG_LV_ERR, "failed in load config manager");
 	}
 }
 

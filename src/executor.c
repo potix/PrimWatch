@@ -10,6 +10,7 @@
 #include <event.h>
 
 #include "common_macro.h"
+#include "logger.h"
 #include "executor.h"
 
 typedef struct executor_process executor_process_t;
@@ -234,7 +235,7 @@ executor_waitpid(
 		}
 		if (waitpid(process->pid, &status, WNOHANG) == process->pid) {
 			if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-				// XXX log???  error status
+				LOG(LOG_LV_ERR, "executed process error");
 			}
 			LIST_REMOVE(process, next);
 			executor_process_destroy(process);

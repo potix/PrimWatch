@@ -3,6 +3,8 @@
 
 #include <netinet/in.h>
 
+#define REVADDRSTRLEN 80
+
 typedef enum revfmt_type revfmt_type_t;
 typedef union v4v6_in_addr v4v6_in_addr_t;
 typedef struct v4v6_addr v4v6_addr_t;
@@ -50,10 +52,10 @@ int revaddrstr_to_addrmask(
     revfmt_type_t *revfmt_type,
     const char *revaddr_str);
 
-int addrmask_to_revaddr(
+int addrmask_to_revaddrstr(
     char *revaddr_str,
     size_t revaddr_str_size,
     v4v6_addr_mask_t *addr_mask,
-    revfmt_type_t *revfmt_type);
+    revfmt_type_t revfmt_type);
 
 #endif
