@@ -1,4 +1,4 @@
 PrimWatch
 =========
 
-Check system helth and generate DNS record of PrimDNS
+Check system helth and dynamic generate record of DNS with PrimDNS or PowerDNS
