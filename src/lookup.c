@@ -243,17 +243,20 @@ lookup_record_random(
 	lookup->output.entry_count = max_records; 
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
-		snprintf(path, sizeof(path), "%s.%s", name, "ipv4hostnames");
+		snprintf(path, sizeof(path), "%s.%s", name, "ipv4Hostnames");
 		break;
 	case LOOKUP_TYPE_NATIVE_AAAA:
-		snprintf(path, sizeof(path), "%s.%s", name, "ipv6hostnames");
+		snprintf(path, sizeof(path), "%s.%s", name, "ipv6Hostnames");
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
-		if (lookup->params->revaddr_mask.addr.family == AF_INET) {
-			snprintf(path, sizeof(path), "%s.%s", name, "ipv4addresses");
-		} else if (lookup->params->revaddr_mask.addr.family == AF_INET6) {
-			snprintf(path, sizeof(path), "%s.%s", name, "ipv6addresses");
-		} else {
+		switch (lookup->params->revaddr_mask.addr.family) {
+		case AF_INET:
+			snprintf(path, sizeof(path), "%s.%s", name, "ipv4Addresses");
+			break;
+		case AF_INET6:
+			snprintf(path, sizeof(path), "%s.%s", name, "ipv6Addresses");
+			break;
+		default:
 			LOG(LOG_LV_ERR, "unsupported address family");
 			return 1;
 		}
@@ -300,17 +303,20 @@ lookup_record(
 	}
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
-		elem = "ipv4recordMembersCount";
+		elem = "ipv4RecordMembersCount";
 		break;
 	case LOOKUP_TYPE_NATIVE_AAAA:
-		elem = "ipv6recordMembersCount";
+		elem = "ipv6RecordMembersCount";
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
-		if (lookup->params->revaddr_mask.addr.family == AF_INET) {
-			elem = "ipv4recordMembersCount";
-		} else if (lookup->params->revaddr_mask.addr.family == AF_INET6) {
-			elem = "ipv6recordMembersCount";
-		} else {
+		switch (lookup->params->revaddr_mask.addr.family) {
+		case AF_INET:
+			elem = "ipv4RecordMembersCount";
+			break;
+		case AF_INET6:
+			elem = "ipv6RecordMembersCount";
+			break;
+		default:
 			LOG(LOG_LV_ERR, "unsupported address family");
 			return 1;
 		}

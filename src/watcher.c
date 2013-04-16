@@ -215,15 +215,19 @@ watcher_record_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get address and mask (index = %s)", idx);
 		goto fail;
 	}
-	if (addr_mask->addr.family == AF_INET) {
-		address = arg->ipv4hostname;
+	switch (addr_mask->addr.family) {
+	case AF_INET:
+		address = arg->ipv4address;
 		hostname = arg->ipv4hostname; 
-	} else if (addr_mask->addr.family == AF_INET6) {
-		address = arg->ipv6hostname;
+		break;
+	case AF_INET6:
+		address = arg->ipv6address;
 		hostname = arg->ipv6hostname;
-	} else {
+		break;
+	default:
 		/* NOTREACHED */
 		ABORT("unexpected address family");
+		break;
 	}
 	addr_size = strlen(addr) + 1;
 	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
@@ -393,7 +397,7 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_binary(status, "ipv4addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+	if (bson_append_binary(status, "ipv4Addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of  address hash to new status (group %s)", name);
 		goto fail;
 	}
@@ -401,7 +405,7 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_binary(status, "ipv4hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+	if (bson_append_binary(status, "ipv4Hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
 		goto fail;
 	}
@@ -409,7 +413,7 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_long(status, "ipv4recordMembersCount", (int64_t)record_member_count)) {
+	if (bson_append_long(status, "ipv4RecordMembersCount", (int64_t)record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
 		goto fail;
 	}
@@ -417,7 +421,7 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_binary(status, "ipv6addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+	if (bson_append_binary(status, "ipv6Addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of  address hash to new status (group %s)", name);
 		goto fail;
 	}
@@ -425,7 +429,7 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_binary(status, "ipv6hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+	if (bson_append_binary(status, "ipv6Hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
 		goto fail;
 	}
@@ -433,7 +437,7 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
 		goto fail;
 	}
-	if (bson_append_long(status, "ipv6recordMembersCount", (int64_t)record_member_count)) {
+	if (bson_append_long(status, "ipv6RecordMembersCount", (int64_t)record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
 		goto fail;
 	}

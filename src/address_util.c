@@ -24,17 +24,21 @@ mask_addr(
 
 	ASSERT(addr != NULL);
 	ASSERT(mask >= 0);
-	if (addr->family == AF_INET) {
+	switch (addr->family) {
+	case AF_INET:
 		ptr = (unsigned char *)&addr->in_addr.sin_addr;
 		last = 4;
 		nomask = 32 - mask;
-	} else if (addr->family == AF_INET6) {
+		break;
+	case AF_INET6:
 		ptr = (unsigned char *)&addr->in_addr.sin6_addr;
 		last = 16;
 		nomask = 128 - mask;
-	} else {
+		break;
+	default:
 		/* NOTREACHED */
 		ABORT("unkown address family");
+		break;
 	}
 	if (nomask == 0) {
 		return;
@@ -103,13 +107,16 @@ addrstr_to_addrmask_b(
              addr_info_res;
              addr_info_res = addr_info_res->ai_next) {
 		addr_mask->addr.family = addr_info_res->ai_family;
-		if (addr_mask->addr.family == AF_INET) {
+		switch (addr_mask->addr.family) {
+		case AF_INET:
 			addr_mask->addr.in_addr.sin_addr = ((struct sockaddr_in *)(addr_info_res->ai_addr))->sin_addr;
 			addr_mask->mask = 32;
-		} else if (addr_mask->addr.family == AF_INET6) {
+			break;
+		case AF_INET6:
 			addr_mask->addr.in_addr.sin6_addr = ((struct sockaddr_in6 *)(addr_info_res->ai_addr))->sin6_addr;
 			addr_mask->mask = 128;
-		} else {
+			break;
+		default:
 			LOG(LOG_LV_ERR, "unsupported address family (%d)\n", addr_mask->addr.family);
 			return 1;
 		}
@@ -185,7 +192,8 @@ revaddrstr_to_addrmask_b(
 	*ptr = '\0';
 	ptr = revaddr_str;
 	while (*ptr != '\0' && last >= 0) {
-		if (addr_mask->addr.family == AF_INET) {
+		switch (addr_mask->addr.family) {
+		case AF_INET:
 			end_ptr = strchr(ptr, '.');
 			if (end_ptr == NULL) {
 				LOG(LOG_LV_ERR, "invalid formart (offset = %d)\n", ptr - revaddr_str);
@@ -198,8 +206,9 @@ revaddrstr_to_addrmask_b(
 			}
 			ptr = end_ptr + 1;
 			a[last--] = v;
-		} else if (addr_mask->addr.family == AF_INET6) {
-			v = 0;
+			break;
+		case AF_INET6:
+			 v = 0;
 			for (i = 0; i < 2; i ++) {
                                 if (*ptr == '\0') {
 					LOG(LOG_LV_ERR, "invalid formart (offset = %d)\n", ptr - revaddr_str);
@@ -222,9 +231,11 @@ revaddrstr_to_addrmask_b(
 				v |= tmp;
 			}
 			a[last--] = v;
-		} else {
+			break;
+		default:
 			/* NOTREACHED */
 			ABORT("unkown address family");
+			return 1;
 		}
 	}
 	if (last != -1) {
