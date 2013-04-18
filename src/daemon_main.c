@@ -32,7 +32,6 @@ struct primwatch {
 	struct event sig_hup_event;
 	struct event sig_chld_event;
 	int foreground;
-	int clean_mode;
 	const char *config_file;
 	watcher_t *watcher;
 	config_manager_t *config_manager;
@@ -139,8 +138,7 @@ usage(
         char cmd_path[MAXPATHLEN], *cmd;
         strlcpy(cmd_path, argv0, sizeof(cmd_path));
         cmd = basename(cmd_path);
-	printf("usage: %s [-c <config_file>] [-F] [-h]\n"
-               "       %s -C\n", cmd, cmd);
+	printf("usage: %s [-c <config_file>] [-F] [-h]\n", cmd);
 	exit(EX_USAGE);
 }
 
@@ -154,16 +152,13 @@ parse_args(
 
         ASSERT(primwatch != NULL);
         ASSERT(argv != NULL);
-        while ((opt = getopt(argc, argv, "c:CFh")) != -1) {
+        while ((opt = getopt(argc, argv, "c:Fh")) != -1) {
                 switch (opt) {
                 case 'c':
                         primwatch->config_file = optarg;
                         break;
                 case 'F':
                         primwatch->foreground = 1;
-                        break;
-                case 'C':
-                        primwatch->clean_mode = 1;
                         break;
                 case 'h':
                         usage(argv[0]);
@@ -229,6 +224,7 @@ main(int argc, char *argv[]) {
 			goto last;
 		}
 	}
+	//XXX create pid file and and check alreay runnning 
 	if (watcher_polling_start(primwatch.watcher)) {
 		LOG(LOG_LV_ERR, "failed in initial polling");
 		ret = EX_OSERR;
