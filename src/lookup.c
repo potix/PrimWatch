@@ -539,7 +539,7 @@ lookup_native(
 		    lookup->params->revaddr_mask.addr.family,
 		    &lookup->params->revaddr_mask.addr.in_addr,
 		    lookup->params->revaddr_str,
-		    sizeof(lookup->params->revaddr_str))) {
+		    sizeof(lookup->params->revaddr_str)) == NULL) {
 			LOG(LOG_LV_ERR, "failed in convert address");
 			return 1;
 		}

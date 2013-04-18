@@ -242,7 +242,7 @@ revaddrstr_to_addrmask_b(
 		LOG(LOG_LV_ERR, "invalid formart (offset = %d)\n", ptr - revaddr_str);
 		return 1;
 	}
-	
+
 	return 0;
 }
 
