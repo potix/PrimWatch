@@ -24,7 +24,6 @@ free_cb(void *free_cb_arg, char *key, size_t key_size, char *value, size_t value
 {
 	struct free_cb_arg *arg = free_cb_arg;
 	ASSERT(arg->test == 1);
-	//printf("free %s:%s\n", key, value);
 	free_call_count++;
 }
 
@@ -34,7 +33,6 @@ replace_cb(void *replace_cb_arg, const char *key, size_t key_size, char *old_val
 	ASSERT(key_size > 3);
 	ASSERT(old_value_size > 1);
 	ASSERT(new_value_size > 1);
-	printf("replace %s:%s-%s\n", key, old_value, new_value);
 	struct replace_cb_arg *arg = replace_cb_arg;
 	ASSERT(arg->test == 2);
 	replace_call_count++;
@@ -45,7 +43,6 @@ foreach_cb(void *foreach_cb_arg, int idx, const char *key, size_t key_size, char
 {
 	ASSERT(key_size > 3);
 	ASSERT(value_size > 1);
-	printf("foreach %s:%s\n", key, value);
 	struct foreach_cb_arg *arg = foreach_cb_arg;
 	ASSERT(arg->test == 3);
 	foreach_call_count++;
@@ -129,10 +126,8 @@ main(int argc, char*argv[])
 	b = malloc(bhash_data_size);
 	ASSERT(b != NULL);
 	memcpy(b, bhash_data, bhash_data_size);
-	printf("%p : %zd\n", bhash_data, bhash_data_size);
 	ASSERT(bhash_destroy(bhash) == 0);
 	ASSERT(free_call_count == 6);
-	printf("pass1\n");
 	ASSERT(bhash_create_wrap_bhash_data(&bhash_wrap, b, bhash_data_size) == 0);
 	ASSERT(bhash_get_entry_count(&bhash_wrap, &entry_count) == 0);
 	ASSERT(entry_count == 3);
@@ -153,7 +148,6 @@ main(int argc, char*argv[])
 	ASSERT(foreach_call_count == 6);
 	ASSERT(bhash_destroy(&bhash_wrap) == 0);
 	ASSERT(free_call_count == 6);
-	printf("pass2\n");
 	ASSERT(bhash_create(&bhash, 127, free_cb, &free_cb_arg) == 0);
 	ASSERT(bhash_append(bhash, "hoge", 5, "1", 2) == 0);
 	ASSERT(bhash_append(bhash, "hoge", 5, "2", 2) == 0);
@@ -198,7 +192,6 @@ main(int argc, char*argv[])
         ASSERT(value == NULL);
 	ASSERT(bhash_destroy(bhash) == 0);
 	ASSERT(free_call_count == 12);
-	printf("pass3\n");
 	ASSERT(bhash_create(&bhash, 127, free_cb, &free_cb_arg) == 0);
 	for (i = 0; i < 200000; i++) {
 		snprintf(v, sizeof(v), "value%06d", i);  
@@ -208,7 +201,6 @@ main(int argc, char*argv[])
 	ASSERT(entry_count == 200000);
 	ASSERT(bhash_destroy(bhash) == 0);
 	ASSERT(free_call_count == 200012);
-	printf("success\n");
 
 	return 0;
 }

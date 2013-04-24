@@ -1,3 +1,5 @@
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/param.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +10,7 @@
 #include <errno.h>
 #include <sysexits.h>
 #include <event.h>
+#include <fcntl.h>
 
 #include "common_macro.h"
 #include "common_define.h"
@@ -44,6 +47,7 @@ static void primwatch_reload(int fd, short event, void *args);
 static void primwatch_sigchild(int fd, short event, void *args);
 static void usage(char *argv0);
 static void parse_args(primwatch_t *primwatch, int argc, char **argv);
+static int make_pidfile(const char *pid_file);
 
 static int
 primwatch_initialize(
@@ -168,6 +172,34 @@ parse_args(
         }
 }
 
+static int 
+make_pidfile(
+    const char *pid_file)
+{
+	int fd = -1;
+	char pid[32];
+	int len;
+
+	fd = open(pid_file, O_RDWR|O_CREAT|O_TRUNC|O_EXCL, 0644);
+	if (fd < 0) {
+		if (errno == EEXIST) {
+			LOG(LOG_LV_ERR, "already exist process\n");
+			return 1;
+		}
+		LOG(LOG_LV_ERR, "fail in create pidfile (%m)\n");
+		return 1;
+	}
+	len = snprintf(pid, sizeof(pid), "%d", getpid());
+	if (ftruncate(fd, len)) {
+		LOG(LOG_LV_ERR, "fail in truncate (%m)\n");
+		return 1;
+       	}
+	write(fd, pid, len);
+	close(fd); 
+
+	return 0;
+}
+
 int
 main(int argc, char *argv[]) {
 	int ret = EX_OK;
@@ -175,15 +207,20 @@ main(int argc, char *argv[]) {
 	const char *log_type;
 	const char *log_facility;
 	const char *log_path;
+	const char *pid_file_path;
 	int64_t verbose_level;
 
+	if (logger_create()) {
+		fprintf(stderr, "failed in create logger");
+		ret = EX_OSERR;
+	}
 	if (primwatch_initialize(&primwatch)) {
 		fprintf(stderr, "failed in initaizliae");
 		ret = EX_OSERR;
 		goto last;
 	}
 	parse_args(&primwatch, argc, argv);
-	if (logger_create(primwatch.foreground)) {
+	if (logger_set_foreground(primwatch.foreground)) {
 		fprintf(stderr, "failed in create logger");
 		ret = EX_OSERR;
 	}
@@ -207,6 +244,11 @@ main(int argc, char *argv[]) {
 		ret = EX_DATAERR;
 		goto last;
 	}
+	if (config_manager_get_string(primwatch.config_manager, &pid_file_path , "pidFilePath", NULL)) {
+		LOG(LOG_LV_ERR, "failed in get pid file path from config");
+		ret = EX_DATAERR;
+		goto last;
+	}
 	if (config_manager_get_long(primwatch.config_manager, &verbose_level , "verboseLevel", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get verbose level from config");
 		ret = EX_DATAERR;
@@ -224,7 +266,11 @@ main(int argc, char *argv[]) {
 			goto last;
 		}
 	}
-	//XXX create pid file and and check alreay runnning 
+	if (make_pidfile(pid_file_path)) {
+		LOG(LOG_LV_ERR, "failed in create file of process id");
+		ret = EX_OSERR;
+		goto last;
+	}
 	if (watcher_polling_start(primwatch.watcher)) {
 		LOG(LOG_LV_ERR, "failed in initial polling");
 		ret = EX_OSERR;
@@ -251,6 +297,7 @@ main(int argc, char *argv[]) {
 		ret = EX_OSERR;
 		goto last;
 	}
+	unlink(pid_file_path);
 last:
 	logger_close();
 	logger_destroy();

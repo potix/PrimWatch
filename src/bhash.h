@@ -43,6 +43,11 @@ int bhash_create_wrap_bhash_data(
     const char *hash_data,
     size_t hash_data_size);
 
+int bhash_clone(
+    bhash_t **bhash,
+    const char *bhash_data,
+    size_t bhash_data_size);
+
 int bhash_destroy(
     bhash_t *bhash);
 
@@ -130,5 +135,32 @@ int bhash_get_bhash_data(
     bhash_t *bhash,
     char **bhash_data,
     size_t *bhash_data_size);
+
+/*
+ * blist is alias of bhash which size of hash is 1 
+ */
+typedef bhash_t blist_t;
+typedef bhash_iterator_t blist_iterator_t;
+typedef bhash_kv_entry_t blist_kv_entry_t;
+typedef bhash_data_t blist_data_t;
+#define blist_create(blist, free_cb, free_arg) \
+	bhash_create((blist), 1, (free_cb), (free_arg))
+#define blist_create_wrap_bhash_data bhash_create_wrap_bhash_data
+#define blist_clone bhash_clone
+#define blist_destroy bhash_destroy
+#define blist_get bhash_get
+#define blist_get bhash_get
+#define blist_get_iterator bhash_get_iterator
+#define blist_iterator_next bhash_iterator_next
+#define blist_iterator_reset bhash_iterator_reset
+#define blist_iterator_value bhash_iterator_value
+#define blist_put bhash_put
+#define blist_replace bhash_replace
+#define blist_append bhash_append
+#define blist_delete bhash_delete
+#define blist_delete_all bhash_delete_all
+#define blist_foreach_all bhash_foreach_all
+#define blist_get_entry_count bhash_get_entry_count
+#define blist_get_blist_data bhash_get_bhash_data
 
 #endif

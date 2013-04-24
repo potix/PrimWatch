@@ -133,6 +133,8 @@ typedef struct {
     bson_bool_t first;
 } bson_iterator;
 
+#define INIT_ITERATOR {NULL, 0}
+
 typedef struct {
     char *data;    /**< Pointer to a block of data in this BSON object. */
     char *cur;     /**< Pointer to the current position. */
@@ -145,6 +147,8 @@ typedef struct {
     size_t * stackPtr;    /**< Pointer to the current stack */
     int stackSize;        /**< Number of elements in the current stack */
 } bson;
+
+#define INIT_BSON {NULL, NULL}
 
 #pragma pack(1)
 typedef union {
@@ -168,19 +172,19 @@ typedef struct {
  * Allocate memory for a new BSON object.
  *
  * @note After using this function, you must initialize the object
- * using bson_init_finished_data( ), bson_init( ), or one of the other
- * init functions.
+ * using bson_init_finished_data( ), bson_init_empty( ), bson_init( ),
+ * or one of the other init functions.
  *
  * @return a new BSON object.
  */
-MONGO_EXPORT bson* bson_create( void );
+MONGO_EXPORT bson* bson_alloc( void );
 
 /**
  * Deallocate a BSON object.
  *
  * @note You must call bson_destroy( ) before calling this function.
  */
-MONGO_EXPORT void bson_dispose( bson* b );
+MONGO_EXPORT void bson_dealloc( bson* b );
 
 /**
  * Initialize a BSON object for reading and set its data
@@ -198,7 +202,7 @@ MONGO_EXPORT void bson_dispose( bson* b );
 int bson_init_finished_data( bson *b, char *data, bson_bool_t ownsData );
 
 /**
- * Initialize a BSON object for reading and copies finalized
+ * Initialize a BSON object for reading and copy finalized
  * BSON data from the provided char*.
  *
  * @note When done using the bson object, you must pass
@@ -263,8 +267,8 @@ MONGO_EXPORT void bson_print_raw( const char *bson , int depth );
 MONGO_EXPORT bson_type bson_find( bson_iterator *it, const bson *obj, const char *name );
 
 
-MONGO_EXPORT bson_iterator* bson_iterator_create( void );
-MONGO_EXPORT void bson_iterator_dispose(bson_iterator*);
+MONGO_EXPORT bson_iterator* bson_iterator_alloc( void );
+MONGO_EXPORT void bson_iterator_dealloc(bson_iterator*);
 /**
  * Initialize a bson_iterator.
  *
@@ -469,7 +473,7 @@ MONGO_EXPORT const char *bson_iterator_code( const bson_iterator *i );
 
 /**
  * Get the code scope value of the BSON object currently pointed to
- * by the iterator. Calls bson_empty on scope if current object is
+ * by the iterator. Calls bson_init_empty on scope if current object is
  * not BSON_CODEWSCOPE.
  *
  * @note When copyData is false, the scope becomes invalid when the
@@ -707,14 +711,26 @@ MONGO_EXPORT void bson_destroy( bson *b );
 
 /**
  * Initialize a BSON object to an emoty object with a shared, static data
- * buffer, and returns it. It is safe to call bson_destroy( ) on this
- * object.
+ * buffer.
+ *
+ * @note You must NOT modify this object's data. It is safe though not
+ * required to call bson_destroy( ) on this object.
  *
  * @param obj the BSON object to initialize.
  *
- * @return the empty initialized BSON object.
+ * @return BSON_OK
  */
-MONGO_EXPORT const bson *bson_empty( bson *obj );
+MONGO_EXPORT bson_bool_t bson_init_empty( bson *obj );
+
+/**
+ * Return a pointer to an empty, shared, static BSON object.
+ *
+ * @note This object is owned by the driver. You must NOT modify it
+ * and must NOT call bson_destroy( ) on it.
+ *
+ * @return the shared initialized BSON object.
+ */
+MONGO_EXPORT const bson *bson_shared_empty( void );
 
 /**
  * Make a complete copy of the a BSON object.

@@ -20,6 +20,7 @@
 #define DEFAULT_LOG_TYPE		      "syslog"
 #define DEFAULT_LOG_FACILITY		      "daemon"
 #define DEFAULT_LOG_PATH		      "/var/log/primwatch.log"
+#define DEFAULT_PID_FILE_PATH		      "/var/run/primwatchd.pid"
 #define DEFAULT_VERBOSE_LEVEL	  	      7
 #define DEFAULT_GROUP_SELECT_ORDER  	      "domainRemoteAddress"
 #define DEFAULT_GROUP_SELECT_ORDER_VALUE      0
@@ -159,6 +160,7 @@ config_manager_append_value(
 	} else {
 		/* NOTREACHED */
 		ABORT("unexpected key");
+		goto fail;
 	}
 
 	return JSON_PARSER_VALIDATION_SUCCESS;
@@ -207,6 +209,9 @@ config_manager_init_validation(json_parser_t *json_parser)
 		return 1;
 	}
 	if (json_parser_add_validation_string(json_parser, "^logPath$", 1, MAXPATHLEN, NULL, 0, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_string(json_parser, "^pidFilePath$", 1, MAXPATHLEN, NULL, 0, NULL, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_integer(json_parser, "^verboseLevel$", 0, 9, NULL, NULL)) {
@@ -338,6 +343,9 @@ config_finish(bson *config)
 	if (bson_append_string(config, "logPath", DEFAULT_LOG_PATH) != BSON_OK) {
 		return 1;
 	}
+	if (bson_append_string(config, "pidFilePath", DEFAULT_PID_FILE_PATH) != BSON_OK) {
+		return 1;
+	}
 	if (bson_append_long(config, "verboseLevel",  DEFAULT_VERBOSE_LEVEL) != BSON_OK) {
 		return 1;
 	}
@@ -411,7 +419,7 @@ config_manager_create(
 	if (new == NULL) {
 		return ENOBUFS;
 	}
-	memset(new, 0, sizeof(sizeof(config_manager_t)));
+	memset(new, 0, sizeof(config_manager_t));
 	if (json_parser_create(&json_parser)) {
 		goto fail;
 	}
@@ -444,7 +452,7 @@ config_manager_destroy(
 	json_parser_destroy(config_manager->json_parser);
 	if (config_manager->config) {
 		bson_destroy(config_manager->config);
-		bson_dispose(config_manager->config);
+		bson_dealloc(config_manager->config);
 	}
 	free(config_manager);
 
@@ -463,7 +471,7 @@ config_manager_load(
 		errno = EINVAL;
 		return 1;
 	}
-	new_config = bson_create();
+	new_config = bson_alloc();
 	if (new_config == NULL) {
 		return ENOBUFS;
 	}
@@ -484,7 +492,7 @@ config_manager_load(
 	config_manager->config = new_config;
 	if (old_config) {
 		bson_destroy(old_config);
-		bson_dispose(old_config);
+		bson_dealloc(old_config);
 	}
 
 	return 0;
@@ -492,7 +500,7 @@ config_manager_load(
 fail:
 	if (new_config) {
 		bson_destroy(new_config);
-		bson_dispose(new_config);
+		bson_dealloc(new_config);
 	}
 
 	return 1;

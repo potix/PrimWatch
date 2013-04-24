@@ -541,7 +541,7 @@ logger_close(void)
 }
 
 int
-logger_create(int foreground)
+logger_create()
 {
 	logger_t *new;
 
@@ -554,7 +554,6 @@ logger_create(int foreground)
 		goto fail;
 	}
 	memset(new, 0, sizeof(logger_t));
-	new->foreground = foreground;
 	new->log_type = LOG_TYPE_VALUE_STDERR;
 	new->log_state = LOG_ST_INIT;
 	new->verbose_level = LOG_LV_MAX - 1;
@@ -565,6 +564,18 @@ logger_create(int foreground)
 fail:
 	free(new);
 	return 1;
+}
+
+int
+logger_set_foreground(int foreground)
+{
+	if (g_logger == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	g_logger->foreground = foreground;
+
+	return 0;
 }
 
 int

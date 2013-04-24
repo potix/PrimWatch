@@ -20,7 +20,14 @@
 #include "logger.h"
 #include "lookup.h"
 
+#define INITIAL_MAX_PRIORITY (0xFFFFFFFF)
+
 typedef struct lookup_record_random_foreach_arg lookup_record_random_foreach_arg_t;
+typedef struct lookup_record_priority_foreach_arg lookup_record_priority_foreach_arg_t;
+typedef struct lookup_record_roundrobin_foreach_arg lookup_record_roundrobin_foreach_arg_t;
+typedef struct lookup_record_roundrobin_cb_arg lookup_record_roundrobin_cb_arg_t;
+typedef struct lookup_group_priority_foreach_arg lookup_group_priority_foreach_arg_t;
+typedef struct lookup_group_roundrobin_cb_arg lookup_group_roundrobin_cb_arg_t;
 
 struct lookup_params {
         char *shared_buffer_data;
@@ -36,6 +43,539 @@ struct lookup_record_random_foreach_arg {
 	int idxs[MAX_RECORDS];
 	int64_t max_records; 
 };
+
+struct lookup_record_priority_foreach_arg {
+	lookup_t *lookup;
+	int idxs[MAX_RECORDS];
+	int64_t priorities[MAX_RECORDS];
+	int64_t max_records; 
+};
+
+struct lookup_record_roundrobin_foreach_arg {
+	lookup_t *lookup;
+	int idxs[MAX_RECORDS];
+	int64_t max_records; 
+};
+
+struct lookup_record_roundrobin_cb_arg {
+	lookup_t *lookup;
+	int64_t max_records;
+	int64_t record_members_count;
+	bhash_t *target;
+	const char *name;
+};
+
+struct lookup_group_priority_foreach_arg {
+	bson_iterator *group_itr;
+	int64_t max_priority; 
+};
+
+struct lookup_group_roundrobin_cb_arg {
+	bson_iterator *group_itr;
+	int64_t group_members_count;
+};
+
+static void
+lookup_accessa_status_record_free(
+    void *free_cb_arg,
+    char *key,
+    size_t key_size,
+    char *value,
+    size_t value_size)
+{
+	/* nothing to do */
+}
+
+static void
+lookup_accessa_status_group_free(
+    void *free_cb_arg,
+    char *key,
+    size_t key_size,
+    char *value,
+    size_t value_size)
+{
+	/* nothing to do */
+}
+
+static int
+lookup_accessa_status_find(
+    accessa_status_group_t **accessa_status_group,
+    accessa_status_record_t **accessa_status_record,
+    accessa_status_t *accessa_status,
+    const char *group,
+    const char *record)
+{
+	blist_t group_blist;
+	blist_t record_blist;
+	char *ptr;
+
+	ASSERT(accessa_status_group != NULL);
+	ASSERT(accessa_status_record != NULL);
+	ASSERT(accessa_status != NULL);
+	ASSERT(group != NULL);
+	*accessa_status_group = NULL;
+	if (accessa_status_record) {
+		*accessa_status_record = NULL;
+	}
+	if (blist_create_wrap_bhash_data(
+	    &group_blist,
+	    ((char *)accessa_status) + offsetof(accessa_status_t, groups_data),
+	    accessa_status->groups_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create blist of status of group of accessa");
+		return 1;
+	}
+	if (blist_get(
+	    &group_blist,
+	    &ptr,
+	    NULL,
+	    group,
+	    strlen(group) + 1)) {
+		LOG(LOG_LV_ERR, "failed in get group from blist of status of group of accessa (%s)", group);
+		return 1;
+	}
+	*accessa_status_group = (accessa_status_group_t *)ptr;
+	if (*accessa_status_group == NULL) {
+		LOG(LOG_LV_ERR, "not found group in blist of status of group of accessa (%s)", group);
+		return 1;
+	}
+	if (!record || !accessa_status_record) {
+		return 0;
+	}
+	if (blist_create_wrap_bhash_data(
+	    &record_blist,
+	    ((char *)(*accessa_status_group)) + offsetof(accessa_status_group_t, records_data),
+	    (*accessa_status_group)->records_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create blist of status of group of accessa");
+		return 1;
+	}
+	if (blist_get(
+	    &record_blist,
+	    &ptr,
+	    NULL,
+	    record,
+	    strlen(record) + 1)) {
+		LOG(LOG_LV_ERR, "failed in get record from blist of status of record of accessa (%s)", record);
+		return 1;
+	}
+	*accessa_status_record = (accessa_status_record_t *)ptr;
+	if (*accessa_status_record == NULL) {
+		LOG(LOG_LV_ERR, "not found record in blist of status of record of accessa (%s)", record);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int
+lookup_accessa_status_group_create(
+	accessa_status_group_t **accessa_status_group,
+	const char *record)
+{
+	accessa_status_record_t accessa_status_record;
+	accessa_status_group_t *new = NULL;
+	blist_t *blist = NULL;
+	char *list_data;
+	size_t list_data_size;
+
+	ASSERT(accessa_status_group != NULL);
+	if (blist_create(&blist, lookup_accessa_status_record_free, NULL)) {
+		LOG(LOG_LV_ERR, "failed in create blist of status of record of accessa");
+		goto fail;
+	}
+	if (record) {
+		accessa_status_record.record_weight = 0; /* XXXX weight */
+		if (blist_put(
+		    blist,
+		    record,
+		    strlen(record) + 1,
+		    (const char *)&accessa_status_record,
+		    sizeof(accessa_status_record))) {
+			LOG(LOG_LV_ERR, "failed in put status of record of accessa (%s)", record);
+			goto fail;
+		}
+	}
+	if (blist_get_blist_data(blist, &list_data, &list_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of blist of status of record of accessa");
+		goto fail;
+	}
+	new = malloc(sizeof(accessa_status_group_t) + list_data_size);
+	if (new == NULL) {
+		LOG(LOG_LV_ERR, "failed in allocate memory for status of record of accessa");
+		goto fail;
+	}
+	new->record_rr_idx = 0;
+	new->group_weight = 0; /* XXXX weight */
+	new->records_data_size = list_data_size;
+	memcpy(((char *)new) + offsetof(accessa_status_group_t, records_data), list_data, list_data_size);
+	if (blist_destroy(blist)) {
+		LOG(LOG_LV_ERR, "failed in destroy blist of status of record of accessa");
+		goto fail;
+	}
+	blist = NULL;
+	*accessa_status_group = new;
+
+	return 0;
+fail:
+
+	if (blist) {
+		blist_destroy(blist);
+	}
+	free(new);
+
+	return 1;
+}
+
+static void
+lookup_accessa_status_group_destroy(
+	accessa_status_group_t *accessa_status_group)
+{
+	ASSERT(accessa_status_group != NULL);
+	free(accessa_status_group);
+}
+
+static int
+lookup_accessa_status_create(
+    accessa_status_t **accessa_status,
+    const char *group,
+    const char *record)
+{
+	accessa_status_t *new = NULL;
+	accessa_status_group_t *accessa_status_group = NULL;
+	blist_t *blist = NULL;
+	char *list_data;
+	size_t list_data_size;
+
+	ASSERT(accessa_status != NULL);
+	if (blist_create(&blist, lookup_accessa_status_group_free, NULL)) {
+		LOG(LOG_LV_ERR, "failed in create blist of status of group of accessa");
+		goto fail;
+	}
+	if (group) {
+		if (lookup_accessa_status_group_create(&accessa_status_group, record)) {
+			LOG(LOG_LV_ERR, "failed in create status of group of accessa");
+			goto fail;
+		}
+		if (blist_put(
+		    blist,
+		    group,
+		    strlen(group) + 1,
+		    (char *)accessa_status_group,
+		    sizeof(accessa_status_group_t) + accessa_status_group->records_data_size)) {
+			LOG(LOG_LV_ERR, "failed in put status of group of accessa (%s)", group);
+			goto fail;
+		}
+		lookup_accessa_status_group_destroy(accessa_status_group);
+		accessa_status_group = NULL;
+	}
+	if (blist_get_blist_data(blist, &list_data, &list_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data from blist of status of accessa");
+		goto fail;
+	}
+	new = malloc(sizeof(accessa_status_t) + list_data_size);
+	if (new == NULL) {
+		LOG(LOG_LV_ERR, "failed in allocate memory for status of accessa");
+		goto fail;
+	}
+	new->group_rr_idx = 0;
+	new->groups_data_size = list_data_size;
+	memcpy(((char *)new) + offsetof(accessa_status_t, groups_data), list_data, list_data_size);
+	if (blist_destroy(blist)) {
+		LOG(LOG_LV_ERR, "failed in destroy blist of status of group of acessa");
+		goto fail;
+	}
+	blist = NULL;
+	*accessa_status = new;
+
+	return 0;
+
+fail:
+	if (accessa_status_group) {
+		lookup_accessa_status_group_destroy(accessa_status_group);
+	}
+	if (blist) {
+		blist_destroy(blist);
+	}
+	free(new);
+
+	return 1;
+}
+
+static void
+lookup_accessa_status_destroy(
+    accessa_status_t *accessa_status)
+{
+	ASSERT(accessa_status != NULL);
+	free(accessa_status);
+}
+
+static int
+lookup_accessa_status_add_record(
+    accessa_status_group_t **new_accessa_status_group,
+    accessa_status_group_t *accessa_status_group,
+    const char *record)
+{
+	blist_t *blist = NULL;
+	accessa_status_group_t *new = NULL;
+	accessa_status_record_t accessa_status_record;
+	char *ptr;
+	char *list_data;
+	size_t list_data_size;
+
+	ASSERT(new_accessa_status_group != NULL);
+	ASSERT(accessa_status_group != NULL);
+	if (blist_clone(
+	    &blist,
+	    ((char *)accessa_status_group) + offsetof(accessa_status_group_t, records_data),
+	    accessa_status_group->records_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create blist of status of record of accessa");
+		return 1;
+	}
+	if (record) {
+		if (blist_get(
+		    blist,
+		    &ptr,
+		    NULL,
+		    record,
+		    strlen(record) + 1)) {
+			LOG(LOG_LV_ERR, "failed in get from blist of status of record of accessa (%s)", record);
+			return 1;
+		}
+		if (ptr == NULL) {
+			accessa_status_record.record_weight = 0;
+			if (blist_put(
+			    blist,
+			    record,
+			    strlen(record) + 1,
+			    (char *)&accessa_status_record,
+			    sizeof(accessa_status_record))) {
+				LOG(LOG_LV_ERR, "failed in put status of record of accessa (%s)", record);
+				goto fail;
+			}
+		}
+	}
+	if (blist_get_blist_data(blist, &list_data, &list_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of blist of status of record of accessa");
+		goto fail;
+	}
+	new = malloc(sizeof(accessa_status_group_t) + list_data_size);
+	if (new == NULL) {
+		LOG(LOG_LV_ERR, "failed in allocate memory for status of record of accessa");
+		goto fail;
+	}
+	new->record_rr_idx = accessa_status_group->record_rr_idx;
+	new->group_weight = accessa_status_group->group_weight; /* XXXX weight */
+	new->records_data_size = list_data_size;
+	memcpy(((char *)new) + offsetof(accessa_status_group_t, records_data), list_data, list_data_size);
+	if (blist_destroy(blist)) {
+		LOG(LOG_LV_ERR, "failed in destroy blist of status of record of accessa");
+		goto fail;
+	}
+	blist = NULL;
+	*new_accessa_status_group = new;
+	
+	return 0;
+
+fail:
+	if (blist) {
+		blist_destroy(blist);
+	}
+	free(new);
+
+	return 1;
+}
+
+static int
+lookup_accessa_status_add_group(
+    accessa_status_t **new_accessa_status,
+    accessa_status_t *accessa_status,
+    const char *group,
+    const char *record)
+{
+	blist_t *blist = NULL;
+	accessa_status_t *new = NULL;
+	accessa_status_group_t *new_accessa_status_group = NULL;
+	accessa_status_group_t *accessa_status_group;
+	char *list_data;
+	size_t list_data_size;
+	char *ptr;
+	int group_str_size;
+
+	ASSERT(new_accessa_status != NULL);
+	ASSERT(accessa_status != NULL);
+	ASSERT(group != NULL);
+	if (blist_clone(
+	    &blist,
+	    ((char *)accessa_status) + offsetof(accessa_status_t, groups_data),
+	    accessa_status->groups_data_size)) {
+		LOG(LOG_LV_ERR, "failed in clone blist of status of accessa");
+		goto fail;
+	}
+	group_str_size = strlen(group) + 1;
+	if (blist_get(
+	    blist,
+	    &ptr,
+	    NULL,
+	    group,
+	    group_str_size)) {
+		LOG(LOG_LV_ERR, "failed in get from blist of status of accessa (%s)", group);
+		goto fail;
+	}
+	if (ptr == NULL) {
+		if (lookup_accessa_status_group_create(&new_accessa_status_group, record)) {
+			LOG(LOG_LV_ERR, "failed in create status of group of acessa");
+			goto fail;
+		}
+	} else {
+		accessa_status_group = (accessa_status_group_t *)ptr;
+		if (lookup_accessa_status_add_record(&new_accessa_status_group, accessa_status_group, record)) {
+			LOG(LOG_LV_ERR, "failed in create status of group of acessa");
+			goto fail;
+		}
+		if (blist_delete(blist, group, group_str_size)) {
+			LOG(LOG_LV_ERR, "failed in delete group from blist of status of group of acessa (%s)", group);
+			goto fail;
+		}
+		/* XXXX blist shrink */
+	}
+	if (blist_put(
+	    blist,
+	    group,
+	    strlen(group) + 1,
+	    (char *)new_accessa_status_group,
+	    sizeof(accessa_status_group_t) + new_accessa_status_group->records_data_size)) {
+		LOG(LOG_LV_ERR, "failed in put status of group of acessa (%s)", group);
+		goto fail;
+	}
+	lookup_accessa_status_group_destroy(new_accessa_status_group);
+	new_accessa_status_group = NULL;	
+	if (blist_get_blist_data(blist, &list_data, &list_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data from blist of status of accessa");
+		goto fail;
+	}
+	new = malloc(sizeof(accessa_status_t) + list_data_size);
+	if (new == NULL) {
+		LOG(LOG_LV_ERR, "failed in allocate memory for status of accessa");
+		goto fail;
+	}
+	new->group_rr_idx = accessa_status->group_rr_idx;
+	new->groups_data_size = list_data_size;
+	memcpy(((char *)new) + offsetof(accessa_status_t, groups_data), list_data, list_data_size);
+	if (blist_destroy(blist)) {
+		LOG(LOG_LV_ERR, "failed in destroy blist of status of group of acessa");
+		goto fail;
+	}
+	blist = NULL;
+	*new_accessa_status = new;
+
+	return 0;
+
+fail:
+	if (new_accessa_status_group) {
+		lookup_accessa_status_group_destroy(new_accessa_status_group);
+	}
+	if (blist) {
+		blist_destroy(blist);
+	}
+	free(new);
+	
+	return 1;
+}
+
+static int
+lookup_accessa_status_handle(
+    lookup_t *lookup,
+    int handler_cb(
+	lookup_t *lookup,
+        void *handler_cb_arg,
+        accessa_status_t **accessa_status,
+        int *need_free_accessa_status,
+	int *need_rewrite_accessa_status),
+    void *handler_cb_arg)
+{
+	int lock = 0;
+	int rmap = 0;
+	int wmap = 0;
+	accessa_status_t *accessa_status = NULL;
+	int need_free_accessa_status = 0;
+	int need_rewrite_accessa_status = 0;
+	size_t write_size;
+
+	ASSERT(lookup != NULL);
+	ASSERT(handler_cb != NULL);
+	ASSERT(handler_cb_arg != NULL);
+	if (shared_buffer_lock(lookup->accessa->accessa_buffer, SHBUF_OFL_WRITE)) {
+		LOG(LOG_LV_ERR, "failed in lock shared buffer");
+		goto fail;
+	}
+	lock = 1;
+	if (shared_buffer_rmap(lookup->accessa->accessa_buffer)) {
+		LOG(LOG_LV_ERR, "failed in map in read buffer");
+		goto fail;
+	}
+	rmap = 1;
+	if (handler_cb(
+	    lookup,
+	    handler_cb_arg,
+	    &accessa_status,
+	    &need_free_accessa_status,
+	    &need_rewrite_accessa_status)) {
+		LOG(LOG_LV_ERR, "failed in process callback");
+		goto fail;
+	}
+	if (accessa_status == NULL) {
+		LOG(LOG_LV_ERR, "accessa status is NULL");
+		goto fail;
+	}
+	write_size = sizeof(accessa_status_t) + accessa_status->groups_data_size;
+	if (shared_buffer_runmap(lookup->accessa->accessa_buffer)) {
+		LOG(LOG_LV_ERR, "failed in unmap accessa buffer with reading");
+		goto fail;
+	}
+	rmap = 0;
+	if (need_rewrite_accessa_status) {
+		if (shared_buffer_wmap(lookup->accessa->accessa_buffer, write_size)) {
+			LOG(LOG_LV_ERR, "failed in map accessa buffer with writing");
+			goto fail;
+		}
+		wmap = 1;
+		if (shared_buffer_write(lookup->accessa->accessa_buffer, (char *)accessa_status, write_size)) {
+			LOG(LOG_LV_ERR, "failed in write to accessa buffer");
+			goto fail;
+		}
+		if (shared_buffer_wunmap(lookup->accessa->accessa_buffer)) {
+			LOG(LOG_LV_ERR, "failed in unmap accessa buffer with reading");
+			goto fail;
+		}
+	}
+	wmap = 0;
+	if (shared_buffer_unlock(lookup->accessa->accessa_buffer)) {
+		LOG(LOG_LV_ERR, "failed in unlock accessa buffer");
+		goto fail;
+	}
+	lock = 0;
+	if (need_free_accessa_status) {
+		lookup_accessa_status_destroy(accessa_status);
+	}
+	accessa_status = NULL;
+
+	return 0;
+fail:
+
+	if (rmap) {
+		shared_buffer_runmap(lookup->accessa->accessa_buffer);
+	}	
+	if (wmap) {
+		shared_buffer_wunmap(lookup->accessa->accessa_buffer);
+	}	
+	if (lock) {
+		shared_buffer_unlock(lookup->accessa->accessa_buffer);
+	}	
+	if (need_free_accessa_status && accessa_status) {
+		lookup_accessa_status_destroy(accessa_status);
+	}
+
+	return 1;
+}
 
 static int
 lookup_domain_map(
@@ -194,38 +734,27 @@ lookup_record_random_foreach(
 	lookup->output.entry[i].ttl = (unsigned long long)record_buffer->ttl;
 	lookup->output.entry[i].id = lookup->input.id;
 	lookup->output.entry[i].content = ((char *)record_buffer) + offsetof(record_buffer_t, value);
+	lookup->output.entry_count++;
 }
 
 static int
 lookup_record_random(
     lookup_t *lookup,
-    bson_iterator *group_itr,
-    const char *name,
+    int64_t max_records,
     int64_t record_members_count,
-    int64_t max_records)
+    bhash_t *target)
 {
 	int i, j;
 	int idx;
-	char path[MAX_BSON_PATH_LEN];
-	const char *bin_data;
-	size_t bin_data_size;
-	bhash_t bhash;
 	lookup_record_random_foreach_arg_t lookup_record_random_foreach_arg = {
 		.lookup = lookup,
+		.max_records = max_records,
 	};
 
 	ASSERT(lookup != NULL);
-	ASSERT(group_itr != NULL);
-	ASSERT(name != NULL);
-	if (max_records > record_members_count) {
-		max_records = record_members_count;
-	}
-	if (max_records <= 0) {
-		/* no record */
-		return 0;
-	}
-	lookup_record_random_foreach_arg.max_records = max_records;
-	for(i = 0; i < max_records; i++) {
+	ASSERT(max_records > 0);
+	ASSERT(target != NULL);
+	for (i = 0; i < max_records; i++) {
 		while (1) {
 			idx = (int)(random() % (int)record_members_count);
 			for (j = 0; j < i; j ++) {
@@ -240,43 +769,264 @@ lookup_record_random(
 			break;
 		}
 	}
-	lookup->output.entry_count = max_records; 
+	if (bhash_foreach(target, lookup_record_random_foreach, &lookup_record_random_foreach_arg))  {
+		LOG(LOG_LV_ERR, "failed in foreach of bhash");
+		return 1;
+	}
+
+	return 0;
+}
+
+static void
+lookup_record_priority_foreach(
+    void *foreach_cb_arg,
+    int idx,
+    const char *key,
+    size_t key_size,
+    char *value,
+    size_t value_size)
+{
+	int i, j;
+	lookup_record_priority_foreach_arg_t *lookup_record_priority_foreach_arg = foreach_cb_arg;
+	record_buffer_t *record_buffer;
+	lookup_t *lookup;
+	
+	ASSERT(lookup_record_priority_foreach_arg != NULL);
+	ASSERT(lookup_record_priority_foreach_arg->lookup != NULL);
+	lookup = lookup_record_priority_foreach_arg->lookup;
+	record_buffer = (record_buffer_t *)value;
+	for (i = 0; i < lookup_record_priority_foreach_arg->max_records; i++) {
+		if (lookup_record_priority_foreach_arg->priorities[i] > record_buffer->record_priority) {
+			for (j = lookup_record_priority_foreach_arg->max_records - 1; j >= i; j--) {
+				lookup_record_priority_foreach_arg->priorities[j + 1] = lookup_record_priority_foreach_arg->priorities[j];
+				lookup_record_priority_foreach_arg->idxs[j + 1] = lookup_record_priority_foreach_arg->idxs[j];
+				memcpy(&lookup->output.entry[j + 1], &lookup->output.entry[j], sizeof(lookup->output.entry[0]));
+			}
+			lookup_record_priority_foreach_arg->priorities[i] = record_buffer->record_priority; 
+			lookup_record_priority_foreach_arg->idxs[i] = idx; 
+			break;
+		}
+	}
+	if (i == lookup_record_priority_foreach_arg->max_records) {
+		/* skip */
+		return;
+	}
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
-		snprintf(path, sizeof(path), "%s.%s", name, "ipv4Hostnames");
-		break;
 	case LOOKUP_TYPE_NATIVE_AAAA:
-		snprintf(path, sizeof(path), "%s.%s", name, "ipv6Hostnames");
+		strlcpy(
+		    lookup->output.entry[i].name,
+		    key,
+		    sizeof(lookup->output.entry[i].name));
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
-		switch (lookup->params->revaddr_mask.addr.family) {
-		case AF_INET:
-			snprintf(path, sizeof(path), "%s.%s", name, "ipv4Addresses");
-			break;
-		case AF_INET6:
-			snprintf(path, sizeof(path), "%s.%s", name, "ipv6Addresses");
-			break;
-		default:
-			LOG(LOG_LV_ERR, "unsupported address family");
-			return 1;
-		}
+		addrmask_to_revaddrstr(
+		    lookup->output.entry[i].name,
+		    sizeof(lookup->output.entry[i].name),
+		    &record_buffer->addr_mask,
+		    lookup->params->revfmt_type);
 		break;
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected type of lookup");
 	}
-	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
-		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
-		return 1;
+	lookup->output.entry[i].class = lookup->input.class;
+	lookup->output.entry[i].type = lookup->input.type;
+	lookup->output.entry[i].ttl = (unsigned long long)record_buffer->ttl;
+	lookup->output.entry[i].id = lookup->input.id;
+	lookup->output.entry[i].content = ((char *)record_buffer) + offsetof(record_buffer_t, value);
+	lookup->output.entry_count++;
+}
+
+static int
+lookup_record_priority(
+    lookup_t *lookup,
+    int64_t max_records,
+    bhash_t *target)
+{
+	int i;
+	lookup_record_priority_foreach_arg_t lookup_record_priority_foreach_arg = {
+		.lookup = lookup,
+		.max_records = max_records,
+	};
+
+	ASSERT(lookup != NULL);
+	ASSERT(max_records > 0);
+	ASSERT(target != NULL);
+	for (i = 0; i < max_records; i++) {
+		lookup_record_priority_foreach_arg.priorities[i] = INITIAL_MAX_PRIORITY; 
 	}
-	if (bhash_create_wrap_bhash_data(&bhash, bin_data, bin_data_size)) {
-		LOG(LOG_LV_ERR, "failed in create of bhash");
-		return 1;
-	}
-	if (bhash_foreach(&bhash, lookup_record_random_foreach, &lookup_record_random_foreach_arg))  {
+	if (bhash_foreach(target, lookup_record_priority_foreach, &lookup_record_priority_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
+
+	return 0;
+}
+
+static void
+lookup_record_roundrobin_foreach(
+    void *foreach_cb_arg,
+    int idx,
+    const char *key,
+    size_t key_size,
+    char *value,
+    size_t value_size)
+{
+	int i;
+	lookup_record_roundrobin_foreach_arg_t *lookup_record_roundrobin_foreach_arg = foreach_cb_arg;
+	record_buffer_t *record_buffer;
+	lookup_t *lookup;
+	
+	ASSERT(lookup_record_roundrobin_foreach_arg != NULL);
+	ASSERT(lookup_record_roundrobin_foreach_arg->lookup != NULL);
+	ASSERT(idx >= 0);
+	ASSERT(key != NULL);
+	ASSERT(key_size > 0);
+	ASSERT(value != NULL);
+	ASSERT(value_size > 0);
+	for (i = 0; i < lookup_record_roundrobin_foreach_arg->max_records; i++) {
+		if (idx == lookup_record_roundrobin_foreach_arg->idxs[i]) {
+			break;
+		}
+	}
+	if (i == lookup_record_roundrobin_foreach_arg->max_records) {
+		/* skip */
+		return;
+	}
+	lookup = lookup_record_roundrobin_foreach_arg->lookup;
+	record_buffer = (record_buffer_t *)value;
+	switch (lookup->params->lookup_type) {
+	case LOOKUP_TYPE_NATIVE_A:
+	case LOOKUP_TYPE_NATIVE_AAAA:
+		strlcpy(
+		    lookup->output.entry[i].name,
+		    key,
+		    sizeof(lookup->output.entry[i].name));
+		break;
+	case LOOKUP_TYPE_NATIVE_PTR:
+		addrmask_to_revaddrstr(
+		    lookup->output.entry[i].name,
+		    sizeof(lookup->output.entry[i].name),
+		    &record_buffer->addr_mask,
+		    lookup->params->revfmt_type);
+		break;
+	default:
+		/* NOTREACHED */
+		ABORT("unexpected type of lookup");
+	}
+	lookup->output.entry[i].class = lookup->input.class;
+	lookup->output.entry[i].type = lookup->input.type;
+	lookup->output.entry[i].ttl = (unsigned long long)record_buffer->ttl;
+	lookup->output.entry[i].id = lookup->input.id;
+	lookup->output.entry[i].content = ((char *)record_buffer) + offsetof(record_buffer_t, value);
+	lookup->output.entry_count++;
+}
+
+static int
+lookup_record_roundrobin_cb(
+    lookup_t *lookup,
+    void *handler_cb_arg,
+    accessa_status_t **accessa_status,
+    int *need_free_accessa_status,
+    int *need_rewrite_accessa_status)
+{
+	int i;
+	accessa_status_t *new_accessa_status;
+	accessa_status_t *old_accessa_status;
+	char *buffer_data;
+	lookup_record_roundrobin_cb_arg_t *lookup_record_roundrobin_cb_arg = handler_cb_arg;
+	accessa_status_group_t *accessa_status_group;
+	accessa_status_record_t *accessa_status_record;
+	lookup_record_roundrobin_foreach_arg_t lookup_record_roundrobin_foreach_arg = {
+		.lookup = lookup,
+		.max_records = lookup_record_roundrobin_cb_arg->max_records,
+	};
+
+        if (shared_buffer_read(lookup->accessa->accessa_buffer, &buffer_data, NULL)) {
+                LOG(LOG_LV_ERR, "failed in read from accessa buffer");
+                return 1;
+        }
+	if (buffer_data == NULL) {
+		if (lookup_accessa_status_create(
+		    &new_accessa_status,
+		    lookup_record_roundrobin_cb_arg->name,
+		    NULL)) {
+			LOG(LOG_LV_ERR, "failed in create status of accessa");
+			return 1;
+		}
+		*need_free_accessa_status = 1;
+		*need_rewrite_accessa_status = 1;
+	} else {
+		old_accessa_status = (accessa_status_t *)buffer_data;
+		if (lookup_accessa_status_find(
+		    &accessa_status_group,
+		    &accessa_status_record,
+		    old_accessa_status,
+		    lookup_record_roundrobin_cb_arg->name,
+		    NULL)) {
+			LOG(LOG_LV_ERR, "failed in find from status of accessa");
+			return 1;
+		}
+		if (accessa_status_group == NULL) {
+			if (lookup_accessa_status_add_group(
+			    &new_accessa_status,
+			    old_accessa_status,
+			    lookup_record_roundrobin_cb_arg->name,
+			    NULL)) {
+				LOG(LOG_LV_ERR, "failed in add group to status of accessa");
+				return 1;
+			}
+			*need_free_accessa_status = 1;
+			*need_rewrite_accessa_status = 1;
+		} else {
+			accessa_status_group->record_rr_idx++;
+			if (shared_buffer_set_dirty(lookup->accessa->accessa_buffer)) {
+				LOG(LOG_LV_ERR, "failed in set dirty");
+				return 1;
+			}
+		}
+	}
+	*accessa_status = new_accessa_status;
+	for (i = 0; i < lookup_record_roundrobin_cb_arg->max_records; i++) {
+		lookup_record_roundrobin_foreach_arg.idxs[i]
+		    = (accessa_status_group->record_rr_idx + i) % lookup_record_roundrobin_cb_arg->record_members_count;
+	}
+	if (bhash_foreach(
+	    lookup_record_roundrobin_cb_arg->target,
+	    lookup_record_roundrobin_foreach,
+	    &lookup_record_roundrobin_foreach_arg))  {
+		LOG(LOG_LV_ERR, "failed in foreach of bhash");
+		return 1;
+	}
+
+	return 0;
+}
+	
+static int
+lookup_record_roundrobin(
+    lookup_t *lookup,
+    int64_t max_records,
+    int64_t record_members_count,
+    bhash_t *target,
+    const char *name)
+{
+	lookup_record_roundrobin_cb_arg_t lookup_record_roundrobin_cb_arg = {
+		.lookup = lookup,
+		.max_records = max_records,
+		.record_members_count = record_members_count,
+		.target = target,
+		.name = name,
+	};
+
+	ASSERT(lookup != NULL);
+	ASSERT(max_records > 0);
+	ASSERT(target != NULL);
+	ASSERT(name != NULL);
+        if (lookup_accessa_status_handle(lookup, lookup_record_roundrobin_cb, &lookup_record_roundrobin_cb_arg)) {
+                LOG(LOG_LV_ERR, "failed in handling of accessa status");
+                return 1;
+        }
 
 	return 0;
 }
@@ -291,7 +1041,10 @@ lookup_record(
 	int64_t record_select_algorithm;
 	int64_t record_members_count;
 	char path[MAX_BSON_PATH_LEN];
-	const char *elem;
+	const char *cnt, *param;
+	const char *bin_data;
+	size_t bin_data_size;
+	bhash_t target;
 
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
@@ -303,18 +1056,22 @@ lookup_record(
 	}
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
-		elem = "ipv4RecordMembersCount";
+		param = "ipv4Hostnames";
+		cnt = "ipv4RecordMembersCount";
 		break;
 	case LOOKUP_TYPE_NATIVE_AAAA:
-		elem = "ipv6RecordMembersCount";
+		param = "ipv6Hostnames";
+		cnt = "ipv6RecordMembersCount";
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
 		switch (lookup->params->revaddr_mask.addr.family) {
 		case AF_INET:
-			elem = "ipv4RecordMembersCount";
+			param = "ipv4Addresses";
+			cnt = "ipv4RecordMembersCount";
 			break;
 		case AF_INET6:
-			elem = "ipv6RecordMembersCount";
+			param = "ipv6Addresses";
+			cnt = "ipv6RecordMembersCount";
 			break;
 		default:
 			LOG(LOG_LV_ERR, "unsupported address family");
@@ -324,8 +1081,9 @@ lookup_record(
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected type of lookup");
+		return 1;
 	}
-	snprintf(path, sizeof(path), "%s.%s", name, elem);
+	snprintf(path, sizeof(path), "%s.%s", name, cnt);
 	if (bson_helper_itr_get_long(group_itr, &record_members_count, path, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get count of record Members");
 		return 1;
@@ -335,23 +1093,48 @@ lookup_record(
 		LOG(LOG_LV_ERR, "failed in get max record");
 		return 1;
 	}
+	if (max_records > record_members_count) {
+		max_records = record_members_count;
+	}
+	if (max_records <= 0) {
+		/* no record */
+		LOG(LOG_LV_INFO, "lookup dns record is empty (%s)", name);
+		return 0;
+	}
+	snprintf(path, sizeof(path), "%s.%s", name, param);
+	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+		return 1;
+	}
+	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create of bhash");
+		return 1;
+	}
 	switch (record_select_algorithm) {
 	case 0: /* random */
-		if (lookup_record_random(lookup, group_itr, name, record_members_count, max_records)) {
+		if (lookup_record_random(lookup, max_records, record_members_count, &target)) {
 			LOG(LOG_LV_ERR, "failed in lookup record by random");
 			return 1;
 		}
 		break;
 	case 1: /* priority */
-		/* XXX */
+		if (lookup_record_priority(lookup, max_records, &target)) {
+			LOG(LOG_LV_ERR, "failed in lookup record by random");
+			return 1;
+		}
 		break;
 	case 2: /* roundrobin */
-		/* XXX */
+		if (lookup_record_roundrobin(lookup, max_records, record_members_count, &target, name)) {
+			LOG(LOG_LV_ERR, "failed in lookup record by random");
+			return 1;
+		}
 		break;
 	case 3: /* weight */
 		/* XXX */
 		break;
 	default:
+		/* NOTREACHED */
+		ABORT("unsupported algorithm");
 		return 1;
 	}
 
@@ -373,6 +1156,133 @@ lookup_group_random(
 	if (bson_helper_bson_get_itr_by_idx(group_itr, &lookup->params->status, "groups", idx)) {
 		LOG(LOG_LV_ERR, "failed in get iterator of groups");
 		return 1;
+	}
+
+	return 0;
+}
+
+static int
+lookup_group_priority_foreach(
+	void *foreach_arg,
+	const char *path,
+	bson_iterator *itr)
+{
+	lookup_group_priority_foreach_arg_t *lookup_group_priority_foreach_arg = foreach_arg;
+	char p[MAX_BSON_PATH_LEN];
+	int64_t priority;
+	const char *name;
+
+	ASSERT(foreach_arg != NULL);
+	ASSERT(path != NULL);
+	ASSERT(itr != NULL);
+	name = bson_iterator_key(itr);
+	snprintf(p, sizeof(p), "%s.%s", name, "priority");
+	if (bson_helper_itr_get_long(itr, &priority, p, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get value of priority (%s)", p);
+		goto last;
+	}
+	if (priority < lookup_group_priority_foreach_arg->max_priority) {
+		lookup_group_priority_foreach_arg->max_priority = priority;
+		*lookup_group_priority_foreach_arg->group_itr = *itr;
+	}
+last:
+	return BSON_HELPER_FOREACH_SUCCESS;
+}
+
+static int
+lookup_group_priority(
+	lookup_t *lookup,
+	bson_iterator *group_itr)
+{
+	lookup_group_priority_foreach_arg_t lookup_group_priority_foreach_arg = {
+		.max_priority = INITIAL_MAX_PRIORITY,
+		.group_itr = group_itr,
+	};
+	ASSERT(lookup != NULL);
+	ASSERT(group_itr != NULL);
+	if (bson_helper_bson_foreach(
+	    &lookup->params->status,
+	    "groups",
+	    lookup_group_priority_foreach,
+	    &lookup_group_priority_foreach_arg)) {
+		LOG(LOG_LV_ERR, "failed in get iterator of groups");
+		return 1;
+	}
+	if (lookup_group_priority_foreach_arg.max_priority == INITIAL_MAX_PRIORITY) {
+		LOG(LOG_LV_ERR, "no group");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int
+lookup_group_roundrobin_cb(
+	lookup_t *lookup,
+	void *handler_cb_arg,
+	accessa_status_t **accessa_status,
+	int *need_free_accessa_status,
+        int *need_rewrite_accessa_status)
+{
+	lookup_group_roundrobin_cb_arg_t *lookup_group_roundrobin_cb_arg = handler_cb_arg;
+	char *buffer_data;
+	accessa_status_t *new_accessa_status = NULL;
+
+	ASSERT(lookup != NULL);
+	ASSERT(handler_cb_arg != NULL);
+	ASSERT(accessa_status != NULL);
+	ASSERT(need_free_accessa_status != NULL);
+	if (shared_buffer_read(lookup->accessa->accessa_buffer, &buffer_data, NULL)) {
+		LOG(LOG_LV_ERR, "failed in read from accessa buffer");
+		return 1;
+	}
+	if (buffer_data == NULL) {
+		if (lookup_accessa_status_create(&new_accessa_status, NULL, NULL)) {
+			LOG(LOG_LV_ERR, "dailes in create status of addessa");
+			return 1;
+		}
+		*need_free_accessa_status = 1;
+		*need_rewrite_accessa_status = 1;
+		*accessa_status = new_accessa_status;
+	} else {
+		new_accessa_status = (accessa_status_t *)buffer_data; 
+		new_accessa_status->group_rr_idx
+		     = (int)((new_accessa_status->group_rr_idx + 1) % lookup_group_roundrobin_cb_arg->group_members_count);
+		*accessa_status = new_accessa_status;
+		if (shared_buffer_set_dirty(lookup->accessa->accessa_buffer)) {
+			LOG(LOG_LV_ERR, "failed in set dirty");
+			return 1;
+		}
+	}
+	if (bson_helper_bson_get_itr_by_idx(
+	    lookup_group_roundrobin_cb_arg->group_itr,
+	    &lookup->params->status,
+	    "groups",
+	    new_accessa_status->group_rr_idx)) {
+		LOG(LOG_LV_ERR, "failed in get iterator of groups");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int
+lookup_group_roundrobin(
+	lookup_t *lookup,
+	bson_iterator *group_itr,
+	int64_t group_members_count)
+{
+	lookup_group_roundrobin_cb_arg_t lookup_group_roundrobin_cb_arg = {
+		.group_itr = group_itr,
+		.group_members_count = group_members_count,
+	};
+
+	ASSERT(lookup != NULL);
+	ASSERT(group_itr != NULL);
+	ASSERT(group_members_count > 0);
+	if (lookup_accessa_status_handle(lookup, lookup_group_roundrobin_cb, &lookup_group_roundrobin_cb_arg)) {
+		LOG(LOG_LV_ERR, "failed in handling of accessa status");
+		return 1;	
 	}
 
 	return 0;
@@ -404,10 +1314,16 @@ lookup_group(
 		}
 		break;
 	case 1: /* priority */
-		/* XXX */
+		if (lookup_group_priority(lookup, &group_itr)) {
+			LOG(LOG_LV_ERR, "failed in lookup group by random");
+			return 1;
+		}
 		break;
 	case 2: /* roundrobin */
-		/* XXX */
+		if (lookup_group_roundrobin(lookup, &group_itr, group_members_count)) {
+			LOG(LOG_LV_ERR, "failed in lookup group by raundrobin");
+			return 1;
+		}
 		break;
 	case 3: /* weight */
 		/* XXX */
@@ -415,6 +1331,7 @@ lookup_group(
 	default:
 		/* NOREACHED */
 		ABORT("unexpected algorithm of group select");
+		return 1;
 	}
 	if (lookup_record(lookup, &group_itr)) {
 		LOG(LOG_LV_ERR, "failed in lookup record");

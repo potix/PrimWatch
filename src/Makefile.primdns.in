@@ -1,8 +1,8 @@
 LIBS = -L/usr/lib/x86_64-linux-gnu -L/opt/local/lib -L/usr/local/lib 
 INCS =  -I. -I./dns -I./bson -I/usr/include/x86_64-linux-gnu -I/opt/local/include -I/usr/local/include
-CFLAGS = -O3 -pipe -Wall -std=gnu99
+CFLAGS = -O0 -pipe -Wall -std=gnu99
 #PROF = -pg
-#DEBUG = -g3 -ggdb3
+DEBUG = -g3 -ggdb3
 CC = gcc
 
 ACCESSA_PRIMDNS_PROG = primwatch_primdns

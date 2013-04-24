@@ -171,11 +171,15 @@ bhash_compute_value(
     int hash_size)
 {
 	size_t i;
-	uint64_t value = key_size;
+	uint64_t value;
 
 	ASSERT(key != NULL);
 	ASSERT(key_size > 0);
 	ASSERT(hash_size > 0);
+	if (hash_size == 1) {
+		return 0;
+	}
+	value = key_size;
 	for (i = 0; i < key_size; i++) {
 		value = ((value << 5)  - 1) + key[i];
 	}
@@ -266,6 +270,45 @@ bhash_create_wrap_bhash_data(
 	bhash->wrap = 1;
 
 	return 0;
+}
+
+int
+bhash_clone(
+    bhash_t **bhash,
+    const char *bhash_data,
+    size_t bhash_data_size)
+{
+	bhash_t *new = NULL;
+	bhash_data_t *clone_data = NULL;
+
+	if (bhash == NULL ||
+	    bhash_data == NULL ||
+	    bhash_data_size < 1) {
+		errno = EINVAL;
+		return 1;
+	}
+	ASSERT(((bhash_data_t *)bhash_data)->padding == MAGIC);
+	new = malloc(sizeof(bhash_t));
+	if (new == NULL) {
+		goto fail;
+	}
+	clone_data = malloc(bhash_data_size);
+	if (clone_data == NULL) {
+		goto fail;
+	}
+	memcpy(clone_data, bhash_data, bhash_data_size);
+	new->free_cb = NULL;
+	new->free_cb_arg = NULL;
+	new->bhash_data_size = bhash_data_size;
+	new->bhash_data = clone_data;
+
+	return 0;
+
+fail:
+	free(clone_data);
+	free(new);
+
+	return 1;
 }
 
 int
@@ -363,6 +406,7 @@ bhash_get_base(
 		default:
 			/* NOTREACHED */
 			ABORT("unexpected METHOD_FLAG");
+			return 1;
 		}
 		return 0;
 	}
@@ -394,6 +438,7 @@ bhash_get_base(
 			default:
 				/* NOTREACHED */
 				ABORT("unexpected METHOD_FLAG");
+				return 1;
 			}
 			return 0;
 		}
@@ -416,6 +461,7 @@ bhash_get_base(
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected METHOD_FLAG");
+		return 1;
 	}
 
 	return 0;

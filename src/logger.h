@@ -21,6 +21,8 @@
 
 #define LOG(level, ...) logging(level, __func__, __VA_ARGS__)
 
+typedef enum log_level log_level_t;
+
 enum log_level {
 	LOG_LV_MIN	= 0,  	/* max */
 	LOG_LV_EMERG	= 1,	/* system is unusable */
@@ -34,7 +36,6 @@ enum log_level {
 	LOG_LV_TRACE   	= 9,   	/* trace messages */
 	LOG_LV_MAX	= 10,  	/* max */
 };
-typedef enum log_level log_level_t;
 
 int logging(
     log_level_t level,
@@ -52,7 +53,9 @@ int logger_open(
 
 void logger_close(void);
 
-int logger_create(int foreground);
+int logger_create(void);
+
+int logger_set_foreground(int foreground);
 
 int logger_destroy(void);
 

@@ -211,7 +211,7 @@ watcher_record_foreach_cb(
 		goto fail;
 	}
 	snprintf(p, sizeof(p),  "%s.addressAndMask", idx);
-	if (bson_helper_itr_get_binary(itr, (const char **)&addr_mask, &addr_mask_size, p, NULL, NULL)) {
+	if (bson_helper_itr_get_binary(itr, (char const **)&addr_mask, &addr_mask_size, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get address and mask (index = %s)", idx);
 		goto fail;
 	}
@@ -227,7 +227,7 @@ watcher_record_foreach_cb(
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected address family");
-		break;
+		goto fail;
 	}
 	addr_size = strlen(addr) + 1;
 	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
@@ -363,6 +363,7 @@ watcher_group_foreach_cb(
 		default:
 			/* NOTREACHED */
 			ABORT("unexpected bson type");
+			goto fail;
 		}
 	}
 	if (bhash_create(&ipv4address, DEFAULT_HASH_SIZE, NULL, NULL)) {
@@ -556,6 +557,7 @@ watcher_status_make(
 		default:
 			/* NOTREACHED */
 			ABORT("unexpected bson type");
+			goto fail;
 		}
 	}
 	if (bhash_get_bhash_data(
@@ -680,24 +682,25 @@ watcher_update(
 		LOG(LOG_LV_ERR, "actual data size is too large than max shared buffer size (max = %d, size = %d)", (int)max_shared_buffer_size, data_size);
 		goto fail;
 	}
-        if (shared_buffer_wopen(watcher->shared_buffer, DAEMON_BUFFER_FILE_PATH,  data_size)) {
-		LOG(LOG_LV_ERR, "failed in open shared buffer file (%s)", DAEMON_BUFFER_FILE_PATH);
+	if (shared_buffer_lock_map(watcher->shared_buffer, data_size)) {
+		LOG(LOG_LV_ERR, "failed in lock and map of shared buffer");
                 goto fail;
-        }
+	} 
 	oshbuf = 1;
 	if (shared_buffer_write(watcher->shared_buffer, data, data_size)) {
 		LOG(LOG_LV_ERR, "failed in write shared buffer (%s)", DAEMON_BUFFER_FILE_PATH);
 	}
-        if (shared_buffer_close(watcher->shared_buffer)) {
-		LOG(LOG_LV_ERR, "failed in close shared buffer file (%s)", DAEMON_BUFFER_FILE_PATH);
-        }
+	if (shared_buffer_unlock_unmap(watcher->shared_buffer)) {
+		LOG(LOG_LV_ERR, "failed in unlock and unmap of shared buffer");
+                goto fail;
+	} 
 	watcher_status_clean(&status);
 
 	return 0;
 
 fail:
 	if (oshbuf) {
-		shared_buffer_close(watcher->shared_buffer);
+		shared_buffer_unlock_unmap(watcher->shared_buffer);
 	}
 	if (mkstatus) {
 		watcher_status_clean(&status);
@@ -730,8 +733,9 @@ watcher_set_polling_common(
 		path = "healthCheck.pollingInterval";
 		break;
 	default:
-		ABORT("unknown target type");
 		/* NOTREACHED */
+		ABORT("unknown target type");
+		return 1;
 	}
 	if (config_manager_get_long(watcher->config_manager, &interval, path, default_path)) {
 		LOG(LOG_LV_ERR, "failed in get polling interval (type = %d)", target_type);
@@ -841,8 +845,9 @@ watcher_polling_common_add_element(
 		}
 		break;
 	default:
-		ABORT("unknown target type");
 		/* NOTREACHED */
+		ABORT("unknown target type");
+		return 1;
 	}
 
 	return 0;
@@ -878,8 +883,9 @@ watcher_polling_common_response(
                 update_value = 0x04;
 		break;
 	default:
-		ABORT("unknown target type");
 		/* NOTREACHED */
+		ABORT("unknown target type");
+		return;
 	}
 	read_len = read(
 	    fd,
@@ -961,8 +967,9 @@ watcher_polling_common(
 		path = "healthCheck.executeScript";
 		break;
 	default:
-		ABORT("unknown target type");
 		/* NOTREACHED */
+		ABORT("unknown target type");
+		goto last;
 	}
 	if (config_manager_get_string(watcher->config_manager, &execute_script, path, NULL)) {
 		LOG(LOG_LV_INFO, "failed in get script (type = %d)", target->type);
@@ -1020,10 +1027,12 @@ watcher_create(
 {
 	watcher_t *new = NULL;
 	shared_buffer_t *new_shared_buffer = NULL;
+	int shbufopen = 0;
 	executor_t *new_executor = NULL;
 	bhash_t *new_domain_map = NULL;
 	bhash_t *new_remote_address_map = NULL;
 	bhash_t *new_health_check = NULL;
+
 	if (watcher == NULL ||
 	    event_base == NULL ||
 	    config_manager == NULL) {
@@ -1037,7 +1046,10 @@ watcher_create(
         if (shared_buffer_create(&new_shared_buffer)) {
                 goto fail;
         }
-	new->shared_buffer = new_shared_buffer;
+        if (shared_buffer_open(new_shared_buffer, DAEMON_BUFFER_FILE_PATH, SHBUF_OFL_WRITE|SHBUF_OFL_READ)) {
+                goto fail;
+        }
+	shbufopen = 1;
         if (executor_create(&new_executor, event_base)) {
                 goto fail;
         }
@@ -1050,6 +1062,7 @@ watcher_create(
         if (bhash_create(&new_health_check, DEFAULT_HASH_SIZE, NULL, NULL)) {
                 goto fail;
         }
+	new->shared_buffer = new_shared_buffer;
 	new->domain_map.type = TARGET_TYPE_DOMAIN_MAP;
 	new->domain_map.elements = new_domain_map;
 	new->domain_map.backptr = new;
@@ -1078,6 +1091,9 @@ fail:
         }
 	if (new_executor) {
 		executor_destroy(new_executor);
+	}
+	if (shbufopen) {
+		shared_buffer_close(new_shared_buffer);
 	}
 	if (new_shared_buffer) {
 		shared_buffer_destroy(new_shared_buffer);
@@ -1109,6 +1125,7 @@ watcher_destroy(
 		executor_destroy(watcher->executor);
 	}
 	if (watcher->shared_buffer) {
+		shared_buffer_close(watcher->shared_buffer);
 		shared_buffer_destroy(watcher->shared_buffer);
 	}
 	free(watcher);

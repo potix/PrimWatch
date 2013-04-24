@@ -3,9 +3,11 @@
 echo 10.0.0.1 up
 echo 10.0.0.2 down
 echo 10.0.1.1 up
+echo 10.0.1.2 up
 echo 10.0.2.1 down
 echo 10.1.0.1 up
 echo 10.1.0.2 down
 echo 10.1.1.1 up
+echo 10.1.1.2 up
 echo 10.1.2.1 down
 echo 2002::1:0:6 up

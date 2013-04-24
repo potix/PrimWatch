@@ -10,6 +10,9 @@
 #include <regex.h>
 #include <yajl/yajl_parse.h>
 #include <yajl/yajl_gen.h>
+#ifndef YAJL_VERSION
+#include <yajl/yajl_version.h>
+#endif
 
 #include "common_macro.h"
 #include "json_parser.h"

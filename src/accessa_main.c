@@ -34,30 +34,58 @@ static int
 accessa_initialize(
     accessa_t *accessa)
 {
-	int dfopen = 0;
+	int dbufopen = 0;
+	int abufopen = 0;
+	int dbuflockmap = 0;
 	shared_buffer_t *new_daemon_buffer = NULL;
+	shared_buffer_t *new_accessa_buffer = NULL;
 
 	ASSERT(accessa != NULL);
 	srandom((int)time(NULL) + (int)getpid());
 	memset(accessa, 0, sizeof(accessa));
 	if (shared_buffer_create(&new_daemon_buffer)) {
+		LOG(LOG_LV_ERR, "failed in create shared buffer of daemon");
 		goto fail;
 	}
-	if (shared_buffer_ropen(new_daemon_buffer, DAEMON_BUFFER_FILE_PATH)) {
-		LOG(LOG_LV_ERR, "failed in open daemon buffer");
+	if (shared_buffer_create(&new_accessa_buffer)) {
+		LOG(LOG_LV_ERR, "failed in create shared buffer of accessa");
 		goto fail;
 	}
-	dfopen = 1;
+	if (shared_buffer_open(new_daemon_buffer, DAEMON_BUFFER_FILE_PATH, SHBUF_OFL_READ)) {
+		LOG(LOG_LV_ERR, "failed in open shared buffer of daemon");
+		goto fail;
+	}
+	dbufopen = 1;
+	if (shared_buffer_open(new_accessa_buffer, ACCESSA_BUFFER_FILE_PATH, SHBUF_OFL_READ|SHBUF_OFL_WRITE)) {
+		LOG(LOG_LV_ERR, "failed in open shared buffer of accessa");
+		goto fail;
+	}
+	abufopen = 1;
+	if (shared_buffer_lock_map(new_daemon_buffer, 0)) {
+		LOG(LOG_LV_ERR, "failed in lock and map of shared buffer of daemon");
+		goto fail;
+        } 
+	dbuflockmap = 1;
 	accessa->daemon_buffer = new_daemon_buffer;
+	accessa->accessa_buffer = new_accessa_buffer;
 
 	return 0;
 
 fail:
-	if (dfopen) {
-		shared_buffer_close(accessa->daemon_buffer);
+	if (dbuflockmap) {
+		shared_buffer_unlock_unmap(new_daemon_buffer);
+	}
+	if (dbufopen) {
+		shared_buffer_close(new_daemon_buffer);
+	}
+	if (abufopen) {
+		shared_buffer_close(new_accessa_buffer);
 	}
 	if (new_daemon_buffer) {
 		shared_buffer_destroy(new_daemon_buffer);
+	}
+	if (new_accessa_buffer) {
+		shared_buffer_destroy(new_accessa_buffer);
 	}
 
 	return 1;
@@ -68,8 +96,15 @@ accessa_finalize(
     accessa_t *accessa)
 {
 	ASSERT(accessa != NULL);
-	shared_buffer_close(accessa->daemon_buffer);
-	shared_buffer_destroy(accessa->daemon_buffer);
+	if (accessa->daemon_buffer) {
+		shared_buffer_unlock_unmap(accessa->daemon_buffer);
+		shared_buffer_close(accessa->daemon_buffer);
+		shared_buffer_destroy(accessa->daemon_buffer);
+	}
+	if (accessa->accessa_buffer) {
+		shared_buffer_close(accessa->accessa_buffer);
+		shared_buffer_destroy(accessa->accessa_buffer);
+	}
 }
 
 int
@@ -83,17 +118,27 @@ main(int argc, char *argv[]) {
 	int64_t verbose_level;
 	char *sb_data;
 	
-	if (logger_create(ACCESSA_DEBUG)) {
+	if (logger_create()) {
 		fprintf(stderr, "failed in create logger");
+		ret = EX_OSERR;
+	}
+	if (logger_set_foreground(ACCESSA_DEBUG)) {
+		fprintf(stderr, "failed in set foreground");
 		ret = EX_OSERR;
 	}
 	if (accessa_initialize(&accessa)) {
 		return EX_OSERR;
 	}
 	if (shared_buffer_read(accessa.daemon_buffer, &sb_data, NULL)) {
+		LOG(LOG_LV_WARNING, "failed in read daemon buffer");
+		goto last;
+	}
+	if (sb_data == NULL) {
+		LOG(LOG_LV_WARNING, "daemon buffer is empty");
 		goto last;
 	}
 	if (bson_init_finished_data(&status, sb_data, 0) != BSON_OK) {
+		LOG(LOG_LV_WARNING, "failed in ");
 		goto last;
 	}
 	if (bson_helper_bson_get_string(&status, &log_type , "logType", NULL)) {

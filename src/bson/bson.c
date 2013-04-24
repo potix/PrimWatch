@@ -15,8 +15,8 @@
  *    limitations under the License.
  */
 
-#ifdef _MSC_VER
-#define _CRT_SECURE_NO_WARNINGS
+#if _MSC_VER && ! _CRT_SECURE_NO_WARNINGS
+  #define _CRT_SECURE_NO_WARNINGS
 #endif
 
 #include <stdlib.h>
@@ -33,8 +33,8 @@ const int initialBufferSize = 128;
 /* only need one of these */
 static const int zero = 0;
 
-/* Static data to use with bson_empty( ) */
-static char *bson_shared_empty_data = "\005\0\0\0\0";
+/* Static data to use with bson_init_empty( ) and bson_shared_empty( ) */
+static char bson_shared_empty_data[] = {5,0,0,0,0};
 
 /* Custom standard function pointers. */
 void *( *bson_malloc_func )( size_t ) = malloc;
@@ -62,12 +62,12 @@ static int ( *oid_inc_func )( void )  = NULL;
    READING
    ------------------------------ */
 
-MONGO_EXPORT bson* bson_create( void ) {
-    return (bson*)bson_malloc(sizeof(bson));
+MONGO_EXPORT bson* bson_alloc( void ) {
+    return ( bson* )bson_malloc( sizeof( bson ) );
 }
 
-MONGO_EXPORT void bson_dispose(bson* b) {
-    bson_free(b);
+MONGO_EXPORT void bson_dealloc( bson* b ) {
+    bson_free( b );
 }
 
 /* When passed a char * of a BSON data block, returns its reported size */
@@ -94,9 +94,14 @@ int bson_init_finished_data_with_copy( bson *b, const char *data ) {
     return BSON_OK;
 }
 
-MONGO_EXPORT const bson *bson_empty( bson *obj ) {
+MONGO_EXPORT bson_bool_t bson_init_empty( bson *obj ) {
     bson_init_finished_data( obj, bson_shared_empty_data, 0 );
-    return obj;
+    return BSON_OK;
+}
+
+MONGO_EXPORT const bson *bson_shared_empty( void ) {
+    static const bson shared_empty = { bson_shared_empty_data, bson_shared_empty_data, 128, 1, 0, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, 0, 0, 0, 0 };
+    return &shared_empty;
 }
 
 MONGO_EXPORT int bson_copy( bson *out, const bson *in ) {
@@ -284,12 +289,12 @@ MONGO_EXPORT void bson_print_raw( const char *data , int depth ) {
    ITERATOR
    ------------------------------ */
 
-MONGO_EXPORT bson_iterator* bson_iterator_create( void ) {
-    return ( bson_iterator* )malloc( sizeof( bson_iterator ) );
+MONGO_EXPORT bson_iterator* bson_iterator_alloc( void ) {
+    return ( bson_iterator* )bson_malloc( sizeof( bson_iterator ) );
 }
 
-MONGO_EXPORT void bson_iterator_dispose(bson_iterator* i) {
-    free(i);
+MONGO_EXPORT void bson_iterator_dealloc( bson_iterator* i ) {
+    bson_free( i );
 }
 
 MONGO_EXPORT void bson_iterator_init( bson_iterator *i, const bson *b ) {
@@ -432,7 +437,7 @@ MONGO_EXPORT int bson_iterator_int( const bson_iterator *i ) {
     case BSON_LONG:
         return ( int )bson_iterator_long_raw( i );
     case BSON_DOUBLE:
-        return bson_iterator_double_raw( i );
+        return ( int )bson_iterator_double_raw( i );
     default:
         return 0;
     }
@@ -443,7 +448,7 @@ MONGO_EXPORT double bson_iterator_double( const bson_iterator *i ) {
     case BSON_INT:
         return bson_iterator_int_raw( i );
     case BSON_LONG:
-        return bson_iterator_long_raw( i );
+        return ( double )bson_iterator_long_raw( i );
     case BSON_DOUBLE:
         return bson_iterator_double_raw( i );
     default:
@@ -458,7 +463,7 @@ MONGO_EXPORT int64_t bson_iterator_long( const bson_iterator *i ) {
     case BSON_LONG:
         return bson_iterator_long_raw( i );
     case BSON_DOUBLE:
-        return bson_iterator_double_raw( i );
+        return ( int64_t)bson_iterator_double_raw( i );
     default:
         return 0;
     }
@@ -540,7 +545,7 @@ MONGO_EXPORT void bson_iterator_code_scope_init( const bson_iterator *i, bson *s
             bson_init_finished_data( scope, (char *)scopeData, 0 );
     }
     else {
-        bson_empty( scope );
+        bson_init_empty( scope );
     }
 }
 
@@ -686,10 +691,10 @@ int bson_ensure_space( bson *b, const size_t bytesNeeded ) {
     char *orig = b->data;
     int new_size;
 
-    if ( pos + bytesNeeded <= b->dataSize )
+    if ( pos + bytesNeeded <= (size_t) b->dataSize )
         return BSON_OK;
 
-    new_size = 1.5 * ( b->dataSize + bytesNeeded );
+    new_size = (int) ( 1.5 * ( b->dataSize + bytesNeeded ) );
 
     if( new_size < b->dataSize ) {
         if( ( b->dataSize + bytesNeeded ) < INT_MAX )
