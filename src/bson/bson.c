@@ -62,6 +62,10 @@ static int ( *oid_inc_func )( void )  = NULL;
    READING
    ------------------------------ */
 
+MONGO_EXPORT void bson_init_zero(bson* b) {
+    memset(b, 0, sizeof(bson) - sizeof(b->stack));
+}
+
 MONGO_EXPORT bson* bson_alloc( void ) {
     return ( bson* )bson_malloc( sizeof( bson ) );
 }
@@ -100,7 +104,7 @@ MONGO_EXPORT bson_bool_t bson_init_empty( bson *obj ) {
 }
 
 MONGO_EXPORT const bson *bson_shared_empty( void ) {
-    static const bson shared_empty = { bson_shared_empty_data, bson_shared_empty_data, 128, 1, 0, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, 0, 0, 0, 0 };
+    static const bson shared_empty = { bson_shared_empty_data, bson_shared_empty_data, 128, 1, 0 };
     return &shared_empty;
 }
 
@@ -129,6 +133,10 @@ MONGO_EXPORT size_t bson_buffer_size( const bson *b ) {
 
 MONGO_EXPORT const char *bson_data( const bson *b ) {
     return (const char *)b->data;
+}
+
+MONGO_EXPORT int bson_has_data( const bson *b ) {
+    return b->data != NULL;
 }
 
 static char hexbyte( char hex ) {
@@ -193,7 +201,7 @@ MONGO_EXPORT void bson_oid_gen( bson_oid_t *oid ) {
 }
 
 MONGO_EXPORT time_t bson_oid_generated_time( bson_oid_t *oid ) {
-    time_t out;
+    time_t out = 0;
     bson_big_endian32( &out, &oid->ints[0] );
 
     return out;
@@ -333,6 +341,8 @@ MONGO_EXPORT bson_type bson_iterator_next( bson_iterator *i ) {
         return BSON_EOO; /* don't advance */
     case BSON_UNDEFINED:
     case BSON_NULL:
+    case BSON_MINKEY:
+    case BSON_MAXKEY:
         ds = 0;
         break;
     case BSON_BOOL:
@@ -389,7 +399,8 @@ MONGO_EXPORT bson_type bson_iterator_next( bson_iterator *i ) {
 }
 
 MONGO_EXPORT bson_type bson_iterator_type( const bson_iterator *i ) {
-    return ( bson_type )i->cur[0];
+    // problem to convert 0xFF to 255
+    return ( bson_type )( unsigned char )i->cur[0];
 }
 
 MONGO_EXPORT const char *bson_iterator_key( const bson_iterator *i ) {
@@ -554,7 +565,7 @@ MONGO_EXPORT bson_date_t bson_iterator_date( const bson_iterator *i ) {
 }
 
 MONGO_EXPORT time_t bson_iterator_time_t( const bson_iterator *i ) {
-    return bson_iterator_date( i ) / 1000;
+    return (time_t) bson_iterator_date( i ) / 1000;
 }
 
 MONGO_EXPORT int bson_iterator_bin_len( const bson_iterator *i ) {
@@ -824,6 +835,18 @@ MONGO_EXPORT int bson_append_null( bson *b, const char *name ) {
 
 MONGO_EXPORT int bson_append_undefined( bson *b, const char *name ) {
     if ( bson_append_estart( b, BSON_UNDEFINED, name, 0 ) == BSON_ERROR )
+        return BSON_ERROR;
+    return BSON_OK;
+}
+
+MONGO_EXPORT int bson_append_maxkey( bson *b, const char *name ) {
+    if ( bson_append_estart( b, BSON_MAXKEY, name, 0 ) == BSON_ERROR )
+        return BSON_ERROR;
+    return BSON_OK;
+}
+
+MONGO_EXPORT int bson_append_minkey( bson *b, const char *name ) {
+    if ( bson_append_estart( b, BSON_MINKEY, name, 0 ) == BSON_ERROR )
         return BSON_ERROR;
     return BSON_OK;
 }
