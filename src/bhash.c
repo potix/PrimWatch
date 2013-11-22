@@ -25,85 +25,58 @@ enum bhash_method_flag {
 
 struct bhash_kv_entry {
 	off_t next_kv_entry;
+	off_t next_free_kv_entry;
 	size_t key_actual_size;
 	size_t key_align_size;
 	size_t value_actual_size;
 	size_t value_align_size;
-	off_t next_free_kv_entry;
 	uint64_t padding;
-	const char key_value[0];
+	const char key_value_start[0];
 };
 
 struct bhash_hash_table_entry {
-	int kv_entry_count;
 	off_t kv_entry_start;
 	uint64_t padding;
 };
 
 struct bhash_data {
+        size_t data_size;
 	int hash_size;
 	int total_kv_entry_count;
-        off_t kv_entry_end;
         int free_kv_entry_count;
         off_t free_kv_entry_start;
+        off_t last_kv_entry_end;
 	uint64_t padding;
-	char hash_table_kv_entry[0];
+	char hash_table_start[0];
 };
 
 #define ALIGN_SIZE(size) ((size) + 8 - ((size) & 7))
+#define KV_ENTRY_SIZE(key_align_size, value_align_size) (sizeof(bhash_kv_entry_t) + (key_align_size) + (value_align_size))
 
-#define HASH_TABLE_START_OFFSET \
-    (offsetof(bhash_data_t, hash_table_kv_entry))
-#define KV_ENTRY_START_OFFSET(bhash_data) \
-    (HASH_TABLE_START_OFFSET + ((bhash_data)->hash_size * sizeof(bhash_hash_table_entry_t)))
-#define KV_ENTRY_END_OFFSET(bhash_data) \
-    (KV_ENTRY_START_OFFSET((bhash_data)) + bhash_data->kv_entry_end)
-#define FREE_KV_ENTRY_START_OFFSET(bhash_data) \
-    (KV_ENTRY_START_OFFSET((bhash_data)) + bhash_data->free_kv_entry_start)
+#define HASH_TABLE_START_OFFSET (offsetof(bhash_data_t, hash_table_start))
+#define KV_ENTRY_AREA_OFFSET(bhash_data) (HASH_TABLE_START_OFFSET + ((bhash_data)->hash_size * sizeof(bhash_hash_table_entry_t)))
+#define FREE_KV_ENTRY_AREA_OFFSET(bhash_data) KV_ENTRY_AREA_OFFSET(bhash_data)
+#define HASH_KV_ENTRY_START_OFFSET(hash_table_entry) ((hash_table_entry)->kv_entry_start)
+#define KEY_START_OFFSET (offsetof(bhash_kv_entry_t, key_value_start))
+#define VALUE_START_OFFSET(kv_entry) (KEY_START_OFFSET + (kv_entry)->key_align_size)
+#define NEXT_KV_ENTRY_OFFSET(kv_entry) ((kv_entry)->next_kv_entry)
+#define NEXT_FREE_KV_ENTRY_OFFSET(kv_entry) ((kv_entry)->next_free_kv_entry)
+#define FREE_KV_ENTRY_START_OFFSET(bhash_data) ((bhash_data)->free_kv_entry_start)
+#define LAST_KV_ENTRY_END_OFFSET(bhash_data) ((bhash_data)->last_kv_entry_end)
 
-#define HASH_TABLE_START_PTR(bhash_data) \
-    (bhash_hash_table_entry_t *)(((char *)(bhash_data)) + HASH_TABLE_START_OFFSET);
-#define KV_ENTRY_START_PTR(bhash_data) \
-    (bhash_kv_entry_t *)(((char *)(bhash_data)) + KV_ENTRY_START_OFFSET((bhash_data)))
-#define KV_ENTRY_END_PTR(bhash_data) \
-    (bhash_kv_entry_t *)(((char *)(bhash_data)) + KV_ENTRY_END_OFFSET((bhash_data)))
-#define FREE_KV_ENTRY_START_PTR(bhash_data) \
-    (bhash_kv_entry_t *)(((char *)(bhash_data)) + FREE_KV_ENTRY_START_OFFSET((bhash_data)))
+#define END_PTR(bhash_data) (((char *)(bhash_data)) + (bhash_data)->data_size)
+#define HASH_TABLE_START_PTR(bhash_data) (bhash_hash_table_entry_t *)(((char *)(bhash_data)) + HASH_TABLE_START_OFFSET);
+#define KV_ENTRY_AREA_PTR(bhash_data) (bhash_kv_entry_t *)(((char *)(bhash_data)) + KV_ENTRY_AREA_OFFSET((bhash_data)))
+#define FREE_KV_ENTRY_AREA_PTR(bhash_data) KV_ENTRY_AREA_PTR(bhash_data)
+#define HASH_KV_ENTRY_START_PTR(hash_table_entry) (bhash_kv_entry_t *)(((char *)(bhash_data)) + HASH_KV_ENTRY_START_OFFSET(hash_table_entry))
+#define	KEY_START_PTR(kv_entry) (char *)(((char *)(kv_entry)) + KEY_START_OFFSET)
+#define	VALUE_START_PTR(kv_entry) (char *)(((char *)(kv_entry)) + VALUE_START_OFFSET((kv_entry)))
+#define NEXT_KV_ENTRY_PTR(kv_entry) (bhash_kv_entry_t *)(((char *)(bhash_data)) + NEXT_KV_ENTRY_OFFSET(kv_entry))
+#define NEXT_FREE_KV_ENTRY_PTR(kv_entry) (bhash_kv_entry_t *)(((char *)(bhash_data)) + NEXT_FREE_KV_ENTRY_OFFSET(kv_entry))
+#define FREE_KV_ENTRY_START_PTR(kv_entry) (bhash_kv_entry_t *)(((char *)(bhash_data)) + FREE_KV_ENTRY_START_OFFSET((bhash_data)))
+#define LAST_KV_ENTRY_END_PTR(bhash_data)  (bhash_kv_entry_t *)(((char *)(bhash_data)) + LAST_KV_ENTRY_END_OFFSET((bhash_data)))
 
-#define HASH_KV_ENTRY_START_OFFSET(bash_data, hash_table_entry) \
-     (KV_ENTRY_START_OFFSET((bhash_data)) + hash_table_entry->kv_entry_start)
-
-#define HASH_KV_ENTRY_START_PTR(bash_data, hash_table_entry) \
-     (bhash_kv_entry_t *)(((char *)(bhash_data)) + HASH_KV_ENTRY_START_OFFSET((bhash_data), (hash_table_entry)))
-
-#define KEY_START_OFFSET \
-    (offsetof(bhash_kv_entry_t, key_value))
-#define VALUE_START_OFFSET(kv_entry) \
-    (KEY_START_OFFSET + (kv_entry)->key_align_size)
-#define VALUE_END_OFFSET(kv_entry) \
-    (VALUE_START_OFFSET(kv_entry) + (kv_entry)->value_align_size) 
-    
-#define	KEY_START_PTR(kv_entry) \
-    (char *)(((char *)(kv_entry)) + KEY_START_OFFSET)
-#define	VALUE_START_PTR(kv_entry) \
-    (char *)(((char *)(kv_entry)) + VALUE_START_OFFSET((kv_entry)))
-#define	VALUE_END_PTR(kv_entry) \
-    (char *)(((char *)(kv_entry)) + VALUE_END_OFFSET((kv_entry)))
-
-#define NEXT_KV_ENTRY_OFFSET(bhash_data, kv_entry) \
-    (KV_ENTRY_START_OFFSET((bhash_data)) + (kv_entry)->next_kv_entry)
-#define NEXT_FREE_KV_ENTRY_OFFSET(bhash_data, kv_entry) \
-    (KV_ENTRY_START_OFFSET((bhash_data)) + (kv_entry)->next_free_kv_entry)
-
-#define NEXT_KV_ENTRY_PTR(bhash_data, kv_entry) \
-    (bhash_kv_entry_t *)(((char *)(bhash_data)) + NEXT_KV_ENTRY_OFFSET((bhash_data), (kv_entry)))
-#define NEXT_FREE_KV_ENTRY_PTR(bhash_data, kv_entry) \
-    (bhash_kv_entry_t *)(((char *)(bhash_data)) + NEXT_FREE_KV_ENTRY_OFFSET((bhash_data), (kv_entry)))
-
-#define KV_ENTRY_SIZE(key_align_size, value_align_size) \
-    (sizeof(bhash_kv_entry_t) + (key_align_size) + (value_align_size))
-#define KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, kv_entry) \
-    (((char *)(kv_entry)) - ((char *)(bhash_data)) - KV_ENTRY_START_OFFSET((bhash_data)))
+#define KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, kv_entry) (((char *)(kv_entry)) - ((char *)(bhash_data)))
 
 static int bhash_glow_buffer(
     bhash_t *bhash,
@@ -146,20 +119,19 @@ bhash_glow_buffer(
 {
 	bhash_data_t *bhash_data = bhash->bhash_data;
 	bhash_data_t *new_bhash_data;
-	size_t need_size = KV_ENTRY_END_OFFSET(bhash_data) + KV_ENTRY_SIZE(key_align_size, value_align_size);
+	size_t need_size = LAST_KV_ENTRY_END_OFFSET(bhash_data) + KV_ENTRY_SIZE(key_align_size, value_align_size);
 	size_t new_size;
  
-	if (bhash->bhash_data_size >= need_size) {
+	if (bhash_data->data_size >= need_size) {
 		return 0;
 	}
-	new_size = (need_size > bhash->bhash_data_size * 2)
-	               ?  need_size : bhash->bhash_data_size * 2;
+	new_size = (need_size > bhash_data->data_size * 2) ? need_size * 2 : bhash_data->data_size * 2;
 	new_bhash_data = realloc(bhash->bhash_data, new_size);
 	if (new_bhash_data == NULL) {
 		return 1;
 	}
 	bhash->bhash_data = new_bhash_data;
-	bhash->bhash_data_size = new_size;
+	bhash->bhash_data->data_size = new_size;
 
 	return 0;
 }
@@ -203,7 +175,7 @@ bhash_create(
 	bhash_t *new = NULL;
 	bhash_data_t *new_bhash_data = NULL;
 	bhash_hash_table_entry_t *hash_table_entry;
-	size_t new_bhash_data_size, min_bhash_data_size;
+	size_t new_bhash_data_size;
 
 	if (bhash == NULL ||
 	    hash_size < 1) {
@@ -214,29 +186,26 @@ bhash_create(
 	if (new == NULL) {
 		goto fail;
 	}
-	min_bhash_data_size = sizeof(bhash_data_t) + (hash_size * sizeof(bhash_hash_table_entry_t));
-	new_bhash_data_size = (DEFAULT_BUFFER_SIZE > min_bhash_data_size)
-                                  ? DEFAULT_BUFFER_SIZE : min_bhash_data_size;
+	new_bhash_data_size = sizeof(bhash_data_t) + (hash_size * sizeof(bhash_hash_table_entry_t)) + DEFAULT_BUFFER_SIZE;
 	new_bhash_data = malloc(new_bhash_data_size);
 	if (new_bhash_data == NULL) {
 		goto fail;
 	}
+	new_bhash_data->data_size = new_bhash_data_size;
 	new_bhash_data->hash_size = hash_size;
 	new_bhash_data->total_kv_entry_count = 0;
-	new_bhash_data->kv_entry_end = 0;
 	new_bhash_data->free_kv_entry_count = 0;
 	new_bhash_data->free_kv_entry_start = 0;
+	new_bhash_data->last_kv_entry_end = KV_ENTRY_AREA_OFFSET(new_bhash_data);
 	new_bhash_data->padding = MAGIC;
 	hash_table_entry = HASH_TABLE_START_PTR(new_bhash_data);
 	for (i = 0; i < hash_size; i++) {
-		hash_table_entry->kv_entry_count = 0;	
 		hash_table_entry->kv_entry_start = 0;
 		hash_table_entry->padding = MAGIC;
 		hash_table_entry++;	
 	}
 	new->free_cb = free_cb;
 	new->free_cb_arg = free_cb_arg;
-	new->bhash_data_size = new_bhash_data_size;
 	new->bhash_data = new_bhash_data;
 	new->wrap = 0;
 	*bhash = new;
@@ -258,14 +227,14 @@ bhash_create_wrap_bhash_data(
 {
 	if (bhash == NULL ||
 	    bhash_data == NULL ||
-	    bhash_data_size < 1) {
+	    bhash_data_size < 1 ||
+            ((bhash_data_t *)bhash_data)->data_size != bhash_data_size) {
 		errno = EINVAL;
 		return 1;
 	}
 	ASSERT(((bhash_data_t *)bhash_data)->padding == MAGIC);
 	bhash->free_cb = NULL;
 	bhash->free_cb_arg = NULL;
-	bhash->bhash_data_size = bhash_data_size;
 	bhash->bhash_data = (bhash_data_t *)bhash_data;
 	bhash->wrap = 1;
 
@@ -275,15 +244,14 @@ bhash_create_wrap_bhash_data(
 int
 bhash_clone(
     bhash_t **bhash,
-    const char *bhash_data,
-    size_t bhash_data_size)
+    const char *bhash_data)
 {
 	bhash_t *new = NULL;
 	bhash_data_t *clone_data = NULL;
 
 	if (bhash == NULL ||
 	    bhash_data == NULL ||
-	    bhash_data_size < 1) {
+            ((bhash_data_t *)bhash_data)->data_size <= sizeof(bhash_data_t)) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -292,14 +260,13 @@ bhash_clone(
 	if (new == NULL) {
 		goto fail;
 	}
-	clone_data = malloc(bhash_data_size);
+	clone_data = malloc(((bhash_data_t *)bhash_data)->data_size);
 	if (clone_data == NULL) {
 		goto fail;
 	}
-	memcpy(clone_data, bhash_data, bhash_data_size);
+	memcpy(clone_data, bhash_data, ((bhash_data_t *)bhash_data)->data_size);
 	new->free_cb = NULL;
 	new->free_cb_arg = NULL;
-	new->bhash_data_size = bhash_data_size;
 	new->bhash_data = clone_data;
 
 	return 0;
@@ -315,9 +282,9 @@ int
 bhash_destroy(
     bhash_t *bhash)
 {
-	int i, j;
+	int i;
 	bhash_data_t *bhash_data;
-	bhash_hash_table_entry_t *hash_table_entry;
+	bhash_hash_table_entry_t *hash_table_entry_start, *hash_table_entry;
 	bhash_kv_entry_t *kv_entry;
 	char *key;
 	char *value;
@@ -331,11 +298,15 @@ bhash_destroy(
 	if (bhash->wrap) {
 		return 0;
 	}
-	hash_table_entry = HASH_TABLE_START_PTR(bhash_data);
+	hash_table_entry_start = HASH_TABLE_START_PTR(bhash_data);
 	for (i = 0; i < bhash_data->hash_size; i++) {
+		hash_table_entry = hash_table_entry_start + i;
 		ASSERT(hash_table_entry->padding == MAGIC);
-		kv_entry = HASH_KV_ENTRY_START_PTR(bhash_data, hash_table_entry);
-		for (j = 0; j < hash_table_entry->kv_entry_count; j++) {
+                if (HASH_KV_ENTRY_START_OFFSET(hash_table_entry) == 0)  {
+			continue;
+		}
+		kv_entry = HASH_KV_ENTRY_START_PTR(hash_table_entry);
+		while (1) {
 			ASSERT(kv_entry->padding == MAGIC);
 			key = KEY_START_PTR(kv_entry);
 			value = VALUE_START_PTR(kv_entry);
@@ -347,9 +318,11 @@ bhash_destroy(
 				    value,
 				    kv_entry->value_actual_size);
 			}
-			kv_entry = NEXT_KV_ENTRY_PTR(bhash_data, kv_entry);	
+			if (NEXT_KV_ENTRY_OFFSET(kv_entry) == 0) {
+				break;
+			}
+			kv_entry = NEXT_KV_ENTRY_PTR(kv_entry);	
 		}
-		hash_table_entry++;
 	}
 	free(bhash_data);
 	free(bhash);
@@ -367,7 +340,6 @@ bhash_get_base(
     size_t key_size,
     bhash_method_flag_t method_flag)
 {
-	int i;
 	bhash_data_t *bhash_data;
 	bhash_hash_table_entry_t *hash_table_entry;
 	bhash_kv_entry_t *kv_entry;
@@ -388,7 +360,7 @@ bhash_get_base(
 	hash_table_entry = HASH_TABLE_START_PTR(bhash_data)
 	hash_table_entry = &hash_table_entry[hash_value];
 	ASSERT(hash_table_entry->padding == MAGIC);
-	if (hash_table_entry->kv_entry_count == 0) {
+	if (HASH_KV_ENTRY_START_OFFSET(hash_table_entry) == 0) {
 		switch (method_flag) {
 		case METHOD_FLAG_GET:
 			*value = NULL;
@@ -398,9 +370,7 @@ bhash_get_base(
 			break;
 		case METHOD_FLAG_GET_ITERATOR:
 			iterator->bhash_data = bhash_data;
-			iterator->kv_entry_count = 0;
 			iterator->kv_entry_start = NULL;
-			iterator->kv_entry_count_init = 0;
 			iterator->kv_entry_start_init = NULL;
 			break;
 		default:
@@ -410,16 +380,15 @@ bhash_get_base(
 		}
 		return 0;
 	}
-	kv_entry = HASH_KV_ENTRY_START_PTR(bhash_data, hash_table_entry);
-	for (i = 0; i < hash_table_entry->kv_entry_count; i++) {
+	kv_entry = HASH_KV_ENTRY_START_PTR(hash_table_entry);
+	while (1) {
 		ASSERT(kv_entry->padding == MAGIC);
 		if (kv_entry->key_actual_size != key_size) {
-			kv_entry = NEXT_KV_ENTRY_PTR(bhash_data, kv_entry);	
+			kv_entry = NEXT_KV_ENTRY_PTR(kv_entry);	
 			continue;
 		}
 		entry_key = KEY_START_PTR(kv_entry);
 		if (memcmp(key, entry_key, key_size) == 0) {
-
 			switch (method_flag) {
 			case METHOD_FLAG_GET:
 				entry_value = VALUE_START_PTR(kv_entry);
@@ -430,9 +399,7 @@ bhash_get_base(
 				return 0;
 			case METHOD_FLAG_GET_ITERATOR:
 				iterator->bhash_data = bhash_data;
-				iterator->kv_entry_count = hash_table_entry->kv_entry_count - i;
 				iterator->kv_entry_start = kv_entry;
-				iterator->kv_entry_count_init = iterator->kv_entry_count;
 				iterator->kv_entry_start_init = iterator->kv_entry_start;
 				return 0;
 			default:
@@ -442,7 +409,10 @@ bhash_get_base(
 			}
 			return 0;
 		}
-		kv_entry = NEXT_KV_ENTRY_PTR(bhash_data, kv_entry);	
+                if (NEXT_KV_ENTRY_OFFSET(kv_entry) == 0) {
+			break;
+		}
+		kv_entry = NEXT_KV_ENTRY_PTR(kv_entry);	
 	}
 	switch (method_flag) {
 	case METHOD_FLAG_GET:
@@ -453,9 +423,7 @@ bhash_get_base(
 		break;
 	case METHOD_FLAG_GET_ITERATOR:
 		iterator->bhash_data = bhash_data;
-		iterator->kv_entry_count = 0;
 		iterator->kv_entry_start = NULL;
-		iterator->kv_entry_count_init = 0;
 		iterator->kv_entry_start_init = NULL;
 		break;
 	default:
@@ -520,7 +488,6 @@ int
 bhash_iterator_next(
     bhash_iterator_t *iterator)
 {
-	int i;
 	bhash_data_t *bhash_data;
 	bhash_kv_entry_t *kv_entry_start, *kv_entry;
 	char *start_key, *entry_key;
@@ -530,21 +497,29 @@ bhash_iterator_next(
 		return 1;
 	}
 	bhash_data = iterator->bhash_data;
+	if (iterator->kv_entry_start == NULL) {
+		return 1;
+	}
 	kv_entry_start = iterator->kv_entry_start;
-	kv_entry = NEXT_KV_ENTRY_PTR(bhash_data, kv_entry_start);	
-	for (i = 0; i < iterator->kv_entry_count - 1; i++) {
+	if (NEXT_KV_ENTRY_OFFSET(kv_entry_start) == 0) {
+		iterator->kv_entry_start = NULL;
+		return 1;
+	}
+	kv_entry = NEXT_KV_ENTRY_PTR(kv_entry_start);
+	while (1) {
 		ASSERT(kv_entry->padding == MAGIC);
 		start_key = KEY_START_PTR(kv_entry_start);
 		entry_key = KEY_START_PTR(kv_entry);
 		if (kv_entry->key_actual_size == kv_entry_start->key_actual_size && 
                     memcmp(start_key, entry_key, kv_entry->key_actual_size) == 0) {
-			iterator->kv_entry_count = iterator->kv_entry_count - 1 - i;
 			iterator->kv_entry_start = kv_entry;
 			return 0;
 		}
-		kv_entry = NEXT_KV_ENTRY_PTR(bhash_data, kv_entry);	
+                if (NEXT_KV_ENTRY_OFFSET(kv_entry) == 0) {
+			break;
+		}
+		kv_entry = NEXT_KV_ENTRY_PTR(kv_entry);	
 	}
-	iterator->kv_entry_count = 0;
 	iterator->kv_entry_start = NULL;
 	
 	return 1;
@@ -558,7 +533,6 @@ bhash_iterator_reset(
 		errno = EINVAL;
 		return 1;
 	}
-	iterator->kv_entry_count = iterator->kv_entry_count_init;
 	iterator->kv_entry_start = iterator->kv_entry_start_init;
 
 	return 0;
@@ -613,13 +587,12 @@ bhash_put_base(
        size_t new_value_size),
     void *replace_cb_arg)
 {
-	int i;
 	int hash_value;
 	bhash_data_t *bhash_data;
 	size_t key_align_size, value_align_size, need_size;
 	bhash_hash_table_entry_t *hash_table_entry;
 	bhash_kv_entry_t *match_kv_entry = NULL;
-	bhash_kv_entry_t *new_kv_entry = NULL;
+	bhash_kv_entry_t *new_kv_entry = NULL, *kv_entry;
 	bhash_kv_entry_t *search_kv_entry, *prev_search_kv_entry = NULL;
 	bhash_kv_entry_t *free_kv_entry, *prev_free_kv_entry = NULL;
 	char *match_entry_key, *match_entry_value;
@@ -652,9 +625,9 @@ bhash_put_base(
 	ASSERT(hash_table_entry->padding == MAGIC);
 	if (method_flag != METHOD_FLAG_APPEND) {
 		/* search already key */
-		if (hash_table_entry->kv_entry_count > 0) {
-			search_kv_entry = HASH_KV_ENTRY_START_PTR(bhash_data, hash_table_entry);
-			for (i = 0; i < hash_table_entry->kv_entry_count; i++) {
+		if (HASH_KV_ENTRY_START_OFFSET(hash_table_entry) > 0) {
+			search_kv_entry = HASH_KV_ENTRY_START_PTR(hash_table_entry);
+			while(1) {
 				ASSERT(search_kv_entry->padding == MAGIC);
 				entry_key = KEY_START_PTR(search_kv_entry);
 				if (search_kv_entry->key_actual_size == key_size &&
@@ -663,7 +636,10 @@ bhash_put_base(
 					break;
 				}
 				prev_search_kv_entry = search_kv_entry;
-				search_kv_entry = NEXT_KV_ENTRY_PTR(bhash_data, search_kv_entry);
+                                if (NEXT_KV_ENTRY_OFFSET(search_kv_entry) == 0) {
+					break;
+				}
+				search_kv_entry = NEXT_KV_ENTRY_PTR(search_kv_entry);
 			}
 		}
 	}
@@ -680,18 +656,16 @@ bhash_put_base(
 				hash_table_entry->kv_entry_start = match_kv_entry->next_kv_entry;
 			}
 			match_kv_entry->next_kv_entry = 0;
-			hash_table_entry->kv_entry_count--;
 			bhash_data->total_kv_entry_count--;
-			if  (bhash_data->free_kv_entry_count > 0) {
+			bhash_data->free_kv_entry_start = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, match_kv_entry);
+			if  (FREE_KV_ENTRY_START_OFFSET(bhash_data) == 0) {
+				match_kv_entry->next_free_kv_entry = 0;
+			} else {
 				free_kv_entry = FREE_KV_ENTRY_START_PTR(bhash_data);
 				ASSERT(free_kv_entry->padding == MAGIC);
-				match_kv_entry->next_free_kv_entry
-			    	    = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, free_kv_entry);
-			} else {
-				match_kv_entry->next_free_kv_entry = 0;
+				match_kv_entry->next_free_kv_entry = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, free_kv_entry);
 			}
-			bhash_data->free_kv_entry_start
-			    = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, match_kv_entry);
+			bhash_data->free_kv_entry_start = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, match_kv_entry);
 			bhash_data->free_kv_entry_count++;
 			match_entry_key = KEY_START_PTR(match_kv_entry);
 			match_entry_value = VALUE_START_PTR(match_kv_entry);
@@ -719,9 +693,9 @@ bhash_put_base(
 		}
 	}
 	/* find free space */
-	if (bhash_data->free_kv_entry_count > 0) {
+	if (FREE_KV_ENTRY_START_OFFSET(bhash_data) > 0) {
 		free_kv_entry = FREE_KV_ENTRY_START_PTR(bhash_data);
-		for (i = 0; i < bhash_data->free_kv_entry_count; i++) {
+	 	while (1) {
 			ASSERT(free_kv_entry->padding == MAGIC);
 			if (free_kv_entry->key_align_size + free_kv_entry->value_align_size >= need_size) {
 				/* recycle */
@@ -729,7 +703,10 @@ bhash_put_base(
 				break;
 			}
 			prev_free_kv_entry = free_kv_entry;
-			free_kv_entry = NEXT_FREE_KV_ENTRY_PTR(bhash_data, free_kv_entry);
+			if (NEXT_FREE_KV_ENTRY_OFFSET(free_kv_entry) == 0) {
+				break;
+			}
+			free_kv_entry = NEXT_FREE_KV_ENTRY_PTR(free_kv_entry);
 		}
 	}
 	/* add new entry */
@@ -741,26 +718,23 @@ bhash_put_base(
 		}
 		bhash_data->free_kv_entry_count--;
 	} else { 
-		new_kv_entry = KV_ENTRY_END_PTR(bhash_data);
+		new_kv_entry = LAST_KV_ENTRY_END_PTR(bhash_data);
 		new_kv_entry->padding = MAGIC;
-		bhash_data->kv_entry_end += KV_ENTRY_SIZE(key_align_size, value_align_size);
+		bhash_data->last_kv_entry_end += KV_ENTRY_SIZE(key_align_size, value_align_size);
 	}
 	new_kv_entry->next_free_kv_entry = 0;
 	new_kv_entry->key_actual_size = key_size;
 	new_kv_entry->key_align_size = key_align_size;
 	new_kv_entry->value_actual_size = value_size;
 	new_kv_entry->value_align_size = value_align_size;
-	if (hash_table_entry->kv_entry_count > 0) {
-		search_kv_entry = HASH_KV_ENTRY_START_PTR(bhash_data, hash_table_entry);
-		ASSERT(search_kv_entry->padding == MAGIC);
-		new_kv_entry->next_kv_entry
-		    = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, search_kv_entry);
-	} else {
+	if (HASH_KV_ENTRY_START_OFFSET(hash_table_entry) == 0) {
 		new_kv_entry->next_kv_entry = 0;
+	} else {
+		kv_entry = HASH_KV_ENTRY_START_PTR(hash_table_entry);
+		ASSERT(kv_entry->padding == MAGIC);
+		new_kv_entry->next_kv_entry = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, kv_entry);
 	}
-	hash_table_entry->kv_entry_start
-	    =  KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, new_kv_entry);
-	hash_table_entry->kv_entry_count++;
+	hash_table_entry->kv_entry_start = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, new_kv_entry);
 	bhash_data->total_kv_entry_count++;
 	entry_key = KEY_START_PTR(new_kv_entry);
 	entry_value = VALUE_START_PTR(new_kv_entry);
@@ -870,7 +844,6 @@ bhash_delete_base(
     size_t key_size,
     int all)
 {
-	int i;
 	int hash_value;
 	bhash_data_t *bhash_data;
 	bhash_hash_table_entry_t *hash_table_entry;
@@ -878,7 +851,7 @@ bhash_delete_base(
 	bhash_kv_entry_t *free_kv_entry;
 	char *entry_key, *entry_value;
 	int free_count = 0;
-	int init_kv_entry_count;
+	int loop_end = 0;
 
 	ASSERT(bhash != NULL);
 	ASSERT(key != NULL);
@@ -894,52 +867,56 @@ bhash_delete_base(
 	hash_table_entry = HASH_TABLE_START_PTR(bhash_data)
 	hash_table_entry = &hash_table_entry[hash_value];
 	ASSERT(hash_table_entry->padding == MAGIC);
-	init_kv_entry_count = hash_table_entry->kv_entry_count;
-	if (init_kv_entry_count > 0) {
-		search_kv_entry = HASH_KV_ENTRY_START_PTR(bhash_data, hash_table_entry);
-		for (i = 0; i < init_kv_entry_count; i++) {
-			ASSERT(search_kv_entry->padding == MAGIC);
-			next_search_kv_entry = NEXT_KV_ENTRY_PTR(bhash_data, search_kv_entry);
-			entry_key = KEY_START_PTR(search_kv_entry);
-			if (search_kv_entry->key_actual_size == key_size &&
-			    memcmp(key, entry_key, key_size) == 0) {
-				if (prev_search_kv_entry) {
-					prev_search_kv_entry->next_kv_entry = search_kv_entry->next_kv_entry;
-				} else {
-					hash_table_entry->kv_entry_start = search_kv_entry->next_kv_entry;
-				}
-				search_kv_entry->next_kv_entry = 0;
-				hash_table_entry->kv_entry_count--;
-				bhash_data->total_kv_entry_count--;
-				if  (bhash_data->free_kv_entry_count > 0) {
-					free_kv_entry = FREE_KV_ENTRY_START_PTR(bhash_data);
-					ASSERT(free_kv_entry->padding == MAGIC);
-					search_kv_entry->next_free_kv_entry
-					    = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, free_kv_entry);
-				} else {
-					search_kv_entry->next_free_kv_entry = 0;
-				}
-				bhash_data->free_kv_entry_start
-				    = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, search_kv_entry);
-				bhash_data->free_kv_entry_count++;
-				entry_value = VALUE_START_PTR(search_kv_entry);
-				if (bhash->free_cb) {
-					bhash->free_cb(
-					    bhash->free_cb_arg,
-					    entry_key,
-					    search_kv_entry->key_actual_size,
-					    entry_value,
-					    search_kv_entry->value_actual_size);
-				}
-				free_count++;
-				if (!all) {
-					break;
-				}
-			} else {
-				prev_search_kv_entry = search_kv_entry;
-			}
-			search_kv_entry = next_search_kv_entry;
+	if (HASH_KV_ENTRY_START_OFFSET(hash_table_entry) == 0) {
+		errno = ENOENT;
+		return 1;
+	}
+	search_kv_entry = HASH_KV_ENTRY_START_PTR(hash_table_entry);
+	while (1) {
+		ASSERT(search_kv_entry->padding == MAGIC);
+		if (NEXT_KV_ENTRY_OFFSET(search_kv_entry) == 0) {
+			loop_end = 1;
 		}
+		next_search_kv_entry = NEXT_KV_ENTRY_PTR(search_kv_entry);
+		entry_key = KEY_START_PTR(search_kv_entry);
+		if (search_kv_entry->key_actual_size == key_size &&
+		    memcmp(key, entry_key, key_size) == 0) {
+			if (prev_search_kv_entry) {
+				prev_search_kv_entry->next_kv_entry = search_kv_entry->next_kv_entry;
+			} else {
+				hash_table_entry->kv_entry_start = search_kv_entry->next_kv_entry;
+			}
+			search_kv_entry->next_kv_entry = 0;
+			bhash_data->total_kv_entry_count--;
+			if  (FREE_KV_ENTRY_START_OFFSET(bhash_data) == 0) {
+				search_kv_entry->next_free_kv_entry = 0;
+			} else {
+				free_kv_entry = FREE_KV_ENTRY_START_PTR(bhash_data);
+				ASSERT(free_kv_entry->padding == MAGIC);
+				search_kv_entry->next_free_kv_entry = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, free_kv_entry);
+			} 
+			bhash_data->free_kv_entry_start = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, search_kv_entry);
+			bhash_data->free_kv_entry_count++;
+			entry_value = VALUE_START_PTR(search_kv_entry);
+			if (bhash->free_cb) {
+				bhash->free_cb(
+				    bhash->free_cb_arg,
+				    entry_key,
+				    search_kv_entry->key_actual_size,
+				    entry_value,
+				    search_kv_entry->value_actual_size);
+			}
+			free_count++;
+			if (!all) {
+				break;
+			}
+		} else {
+			prev_search_kv_entry = search_kv_entry;
+		}
+		if (loop_end) {
+			break;
+		}
+		search_kv_entry = next_search_kv_entry;
 	}
 	if (free_count == 0) {
 		errno = ENOENT;
@@ -1000,9 +977,9 @@ bhash_foreach(
         size_t value_size),
     void *foreach_cb_arg)
 {
-	int i, j;
+	int i;
 	bhash_data_t *bhash_data;
-	bhash_hash_table_entry_t *hash_table_entry;
+	bhash_hash_table_entry_t *hash_table_entry_start, *hash_table_entry;
 	bhash_kv_entry_t *kv_entry;
 	char *key;
 	char *value;
@@ -1015,11 +992,15 @@ bhash_foreach(
 	}
 	bhash_data = bhash->bhash_data;
 	ASSERT(bhash_data->padding == MAGIC);
-	hash_table_entry = HASH_TABLE_START_PTR(bhash_data)
+	hash_table_entry_start = HASH_TABLE_START_PTR(bhash_data);
 	for (i = 0; i < bhash_data->hash_size; i++) {
+		hash_table_entry = hash_table_entry_start + i;
 		ASSERT(hash_table_entry->padding == MAGIC);
-		kv_entry = HASH_KV_ENTRY_START_PTR(bhash_data, hash_table_entry);
-		for (j = 0; j < hash_table_entry->kv_entry_count; j++) {
+		if (HASH_KV_ENTRY_START_OFFSET(hash_table_entry) == 0) {
+			continue;
+		}
+		kv_entry = HASH_KV_ENTRY_START_PTR(hash_table_entry);
+		while (1) {
 			ASSERT(kv_entry->padding == MAGIC);
 			key = KEY_START_PTR(kv_entry);
 			value = VALUE_START_PTR(kv_entry);
@@ -1031,9 +1012,11 @@ bhash_foreach(
 			    value,
 			    kv_entry->value_actual_size);
 			count++;
-			kv_entry = NEXT_KV_ENTRY_PTR(bhash_data, kv_entry);	
+			if (NEXT_KV_ENTRY_OFFSET(kv_entry) == 0) {
+				break;
+			}
+			kv_entry = NEXT_KV_ENTRY_PTR(kv_entry);	
 		}
-		hash_table_entry++;
 	}
 
 	return 0;
@@ -1069,7 +1052,7 @@ bhash_get_bhash_data(
 		return 1;
 	}
 	*bhash_data = (char *)bhash->bhash_data;
-	*bhash_data_size = KV_ENTRY_END_OFFSET(bhash->bhash_data);
+	*bhash_data_size = bhash->bhash_data->data_size;
 
 	return 0;
 }

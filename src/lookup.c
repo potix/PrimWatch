@@ -325,8 +325,7 @@ lookup_accessa_status_add_record(
 	ASSERT(accessa_status_group != NULL);
 	if (blist_clone(
 	    &blist,
-	    ((char *)accessa_status_group) + offsetof(accessa_status_group_t, records_data),
-	    accessa_status_group->records_data_size)) {
+	    ((char *)accessa_status_group) + offsetof(accessa_status_group_t, records_data))) {
 		LOG(LOG_LV_ERR, "failed in create blist of status of record of accessa");
 		return 1;
 	}
@@ -405,8 +404,7 @@ lookup_accessa_status_add_group(
 	ASSERT(group != NULL);
 	if (blist_clone(
 	    &blist,
-	    ((char *)accessa_status) + offsetof(accessa_status_t, groups_data),
-	    accessa_status->groups_data_size)) {
+	    ((char *)accessa_status) + offsetof(accessa_status_t, groups_data))) {
 		LOG(LOG_LV_ERR, "failed in clone blist of status of accessa");
 		goto fail;
 	}

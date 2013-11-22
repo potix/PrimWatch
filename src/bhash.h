@@ -8,7 +8,6 @@ typedef struct bhash_data bhash_data_t;
 
 struct bhash {
 	int wrap;
-	size_t bhash_data_size;
 	bhash_data_t *bhash_data;
 	void (*free_cb)(
 	    void *free_cb_arg,
@@ -21,9 +20,7 @@ struct bhash {
 
 struct bhash_iterator{
 	bhash_data_t *bhash_data;
-	int kv_entry_count_init;
 	bhash_kv_entry_t *kv_entry_start_init;
-	int kv_entry_count;
 	bhash_kv_entry_t *kv_entry_start;
 };
 
@@ -45,8 +42,7 @@ int bhash_create_wrap_bhash_data(
 
 int bhash_clone(
     bhash_t **bhash,
-    const char *bhash_data,
-    size_t bhash_data_size);
+    const char *bhash_data);
 
 int bhash_destroy(
     bhash_t *bhash);
