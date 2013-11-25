@@ -77,6 +77,22 @@ decrement_mask_b(
 }
 
 int
+decrement_domain_b(
+    char **domain)
+{
+	const char *origin_domain = *domain;
+	char *ptr;
+	
+	ptr = strchr(origin_domain, '.');
+	if (ptr == NULL || *(ptr + 1) == '\0') {
+		return 1;	
+	}
+	*domain = (ptr + 1);
+
+	return 0;
+}
+
+int
 addrstr_to_addrmask_b(
     v4v6_addr_mask_t *addr_mask,
     char *addr_str)

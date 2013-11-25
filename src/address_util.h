@@ -34,6 +34,9 @@ struct v4v6_addr_mask {
 int decrement_mask_b(
     v4v6_addr_mask_t *addr_mask);
 
+int decrement_domain_b(
+    char **domain);
+
 int addrstr_to_addrmask_b(
     v4v6_addr_mask_t *addr_mask,
     char *addr_mask_str);

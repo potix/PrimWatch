@@ -1,5 +1,7 @@
 #include <sys/queue.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -579,20 +581,22 @@ static int
 lookup_domain_map(
     lookup_t *lookup,
     char const **group,
-    bson_iterator *group_itr,
-    int64_t group_select_order)
+    bson_iterator *group_itr)
 {
 	const char *bin_data;
 	size_t bin_data_size;
 	bhash_t domain_map;
+	char *tmp_name_ptr, tmp_name[NI_MAXHOST];
+        v4v6_addr_mask_t tmp_addr_mask;
 	char *candidate_group;
 	char path[MAX_BSON_PATH_LEN];
 
 	ASSERT(lookup != NULL);
 	ASSERT(group != NULL);
-	if (*group != NULL && group_select_order != 0)  {
+	if (*group != NULL)  {
 		return 0;
 	}
+       	// domainMapのデータを取り出す
 	if (bson_helper_bson_get_binary(&lookup->params->status, &bin_data, &bin_data_size, "domainMap", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get domain map");
 		return 1;
@@ -601,19 +605,53 @@ lookup_domain_map(
 		LOG(LOG_LV_ERR, "failed in create bhash");
 		return 1;
 	}
-	if (bhash_get(&domain_map, &candidate_group, NULL, lookup->input.name, strlen(lookup->input.name) + 1)) {
-		LOG(LOG_LV_ERR, "failed in get group from bhash");
-		return 1;
+       	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_A ||
+            lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA) {
+		strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
+		tmp_name_ptr = tmp_name;
+		// domainMapからグループを取り出す
+		while (1) {
+			if (bhash_get(&domain_map, &candidate_group, NULL, lookup->input.name, strlen(lookup->input.name) + 1)) {
+				LOG(LOG_LV_ERR, "failed in get group from bhash");
+				return 1;
+			}
+			if (candidate_group == NULL) {
+				if (decrement_domain_b(&tmp_name_ptr)) {
+					break;
+				}
+				continue;
+			}
+			snprintf(path, sizeof(path), "groups.%s", candidate_group);
+			if (bson_helper_bson_get_itr(group_itr, &lookup->params->status, path)) {
+				LOG(LOG_LV_WARNING, "found group in domain map, but not exist group in config (%s)", candidate_group);
+				return 0;
+			}
+			*group = candidate_group;
+			break;
+		}
+	} else if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
+		memcpy(&tmp_addr_mask, &lookup->params->revaddr_mask, sizeof(tmp_addr_mask));
+		// domainMapからグループを取り出す
+		while (1) {
+			if (bhash_get(&domain_map, &candidate_group, NULL, lookup->input.name, strlen(lookup->input.name) + 1)) {
+				LOG(LOG_LV_ERR, "failed in get group from bhash");
+				return 1;
+			}
+			if (candidate_group == NULL) {
+				if (decrement_mask_b(&tmp_addr_mask)) {
+					break;
+				}
+				continue;
+			}
+			snprintf(path, sizeof(path), "groups.%s", candidate_group);
+			if (bson_helper_bson_get_itr(group_itr, &lookup->params->status, path)) {
+				LOG(LOG_LV_WARNING, "found group in domain map, but not exist group in config (%s)", candidate_group);
+				return 0;
+			}
+			*group = candidate_group;
+			break;
+		}
 	}
-	if (candidate_group == NULL) {
-		return 0;
-	}
-	snprintf(path, sizeof(path), "groups.%s", candidate_group);
-	if (bson_helper_bson_get_itr(group_itr, &lookup->params->status, path)) {
-		LOG(LOG_LV_WARNING, "found group in domain map, but not exist group in config (%s)", candidate_group);
-		return 0;
-	}
-	*group = candidate_group;
 
 	return 0;
 }
@@ -622,8 +660,8 @@ static int
 lookup_remote_address_map(
     lookup_t *lookup,
     char const **group,
-    bson_iterator *group_itr,
-    int64_t group_select_order)
+    bson_iterator *group_itr)
+    
 {
 	const char *bin_data;
 	size_t bin_data_size;
@@ -637,9 +675,10 @@ lookup_remote_address_map(
 	if (!lookup->input.remote_address) {
 		return 0;
 	}
-	if (*group != NULL && group_select_order != 1)  {
+	if (*group != NULL)  {
 		return 0;
 	}
+	// remoteAddressMapの情報を取得
 	if (bson_helper_bson_get_binary(&lookup->params->status, &bin_data, &bin_data_size, "remoteAddressMap", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get remote_address_map");
 		return 1;
@@ -1419,10 +1458,12 @@ lookup_native(
 		LOG(LOG_LV_ERR, "failed in initialize of bson");
 		return 1;
 	}
+	// group選択のオーダー設定を取得
 	if (bson_helper_bson_get_long(&lookup->params->status, &group_select_order, "groupSelectOrderValue", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get value of group select order");
 		return 1;
 	}
+	// レコードのタイプを判定しておく
 	if (strcasecmp(lookup->input.type, "A") == 0) {
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_A;
 	} else if (strcasecmp(lookup->input.type, "AAAA") == 0) {
@@ -1438,18 +1479,14 @@ lookup_native(
 		LOG(LOG_LV_ERR, "unexpected type (%s)", lookup->input.type);
 		return 1;
 	}
-	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_A ||
-	    lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA) {
-		if (lookup_domain_map(lookup, &group, &group_itr, group_select_order)) {
-			LOG(LOG_LV_ERR, "failed in get value of group select order");
-			return 1;
-		}
-	}
+       	// PTRレコードの場合アドレスを検索しやすい形に変換しておく
 	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
+		// 自前sockaddr構造体に変換
 		if (revaddrstr_to_addrmask(&lookup->params->revaddr_mask, &lookup->params->revfmt_type, lookup->input.name)) {
 			LOG(LOG_LV_ERR, "failed in convert address and mask");
 			return 1;
 		}
+		// 文字列に変換
 		if (inet_ntop(
 		    lookup->params->revaddr_mask.addr.family,
 		    &lookup->params->revaddr_mask.addr.in_addr,
@@ -1459,11 +1496,35 @@ lookup_native(
 			return 1;
 		}
 	}
-	if (lookup_remote_address_map(lookup, &group, &group_itr, group_select_order)) {
-		LOG(LOG_LV_ERR, "failed in lookup of remote address");
-		return 1;
+	// 最初にgroupを決定する
+	if (group_select_order == 0) { 
+		// domainMapをチェック
+	  	if (lookup_domain_map(lookup, &group, &group_itr)) {
+			LOG(LOG_LV_ERR, "failed in get value of group select order");
+			return 1;
+		}
+		if (!group) {
+			// remoteAddressMapをチェック
+			if (lookup_remote_address_map(lookup, &group, &group_itr)) {
+				LOG(LOG_LV_ERR, "failed in lookup of remote address");
+				return 1;
+			}
+		}
+	} else {
+		// remoteAddrssMapをチェック
+		if (lookup_remote_address_map(lookup, &group, &group_itr)) {
+			LOG(LOG_LV_ERR, "failed in lookup of remote address");
+			return 1;
+		}
+		if (!group) {
+			// domainMapをチェック
+			if (lookup_domain_map(lookup, &group, &group_itr)) {
+				LOG(LOG_LV_ERR, "failed in get value of group select order");
+				return 1;
+			}
+		}
 	}
-	if (group != NULL) {
+	if (group) {
 		if (lookup_record(lookup, &group_itr)) {
 			LOG(LOG_LV_ERR, "failed in lookup record");
 			return 1;
