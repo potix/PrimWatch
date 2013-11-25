@@ -10,9 +10,6 @@
 #include <regex.h>
 #include <yajl/yajl_parse.h>
 #include <yajl/yajl_gen.h>
-#ifndef YAJL_VERSION
-#include <yajl/yajl_version.h>
-#endif
 
 #include "common_macro.h"
 #include "json_parser.h"
@@ -1207,7 +1204,7 @@ json_parser_parse(
 	if (stat(file_path, &file_stat)) {
 		goto fail;	
 	}
-#if YAJL_VERSION < 20000
+#ifndef yajl_parse_complete
 	yajl_parser_config cfg = { 1, 1 };
 	handle = yajl_alloc(&parse_callbacks, &cfg, NULL, (void *)json_parser);
 #else
@@ -1229,7 +1226,7 @@ json_parser_parse(
                 if (read_len < 0) {
 			goto fail;
 		} else if (read_len == 0) {
-#if YAJL_VERSION < 20000
+#ifndef yajl_parse_complete
             		status = yajl_parse_complete(handle);
 #else
             		status = yajl_complete_parse(handle);
@@ -1239,7 +1236,7 @@ json_parser_parse(
 			fdata[read_len] = 0;
             		status = yajl_parse(handle, fdata, read_len);
 		}
-#if YAJL_VERSION < 20000
+#ifndef yajl_parse_complete
 		if (status != yajl_status_ok && status != yajl_status_insufficient_data) {
        			err = yajl_get_error(handle, 1, fdata, read_len);
 			yajl_free_error(handle, err);
