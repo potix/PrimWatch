@@ -160,13 +160,13 @@ static void json_parser_clean_state_stack(json_parser_t *json_parser);
 static void json_parser_get_path( json_parser_t *json_parser, char *path, size_t path_size);
 static int json_parser_null(void *ctx); 
 static int json_parser_boolean(void *ctx, int boolean);
-#if YAJL_VERSION < 20000
+#ifndef yajl_parse_complete
 static int json_parser_integer(void *ctx, long l);
 #else
 static int json_parser_integer(void *ctx, long long ll);
 #endif
 static int json_parser_double(void *ctx, double d);
-#if YAJL_VERSION < 20000
+#ifndef yajl_parse_complete
 static int json_parser_string( void *ctx, const unsigned char *val, unsigned int len);
 static int json_parser_map_key( void *ctx, const unsigned char *val, unsigned int len);
 #else
@@ -618,7 +618,7 @@ json_parser_boolean(
 static int
 json_parser_integer(
     void *ctx,
-#if YAJL_VERSION < 20000
+#ifndef yajl_parse_complete
     long l)
 #else
     long long l)
@@ -713,7 +713,7 @@ static int
 json_parser_string(
     void *ctx,
     const unsigned char *val,
-#if YAJL_VERSION < 20000
+#ifndef yajl_parse_complete
     unsigned int len)
 #else
     size_t len)
@@ -776,7 +776,7 @@ static int
 json_parser_map_key(
     void *ctx,
     const unsigned char *val,
-#if YAJL_VERSION < 20000
+#ifndef yajl_parse_complete
     unsigned int len)
 #else
     size_t len)
