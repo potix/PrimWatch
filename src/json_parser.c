@@ -160,13 +160,13 @@ static void json_parser_clean_state_stack(json_parser_t *json_parser);
 static void json_parser_get_path( json_parser_t *json_parser, char *path, size_t path_size);
 static int json_parser_null(void *ctx); 
 static int json_parser_boolean(void *ctx, int boolean);
-#ifndef yajl_complete_parse
+#if YAJL_MAJOR <= 1
 static int json_parser_integer(void *ctx, long l);
 #else
 static int json_parser_integer(void *ctx, long long ll);
 #endif
 static int json_parser_double(void *ctx, double d);
-#ifndef yajl_complete_parse
+#if YAJL_MAJOR <= 1
 static int json_parser_string( void *ctx, const unsigned char *val, unsigned int len);
 static int json_parser_map_key( void *ctx, const unsigned char *val, unsigned int len);
 #else
@@ -618,7 +618,7 @@ json_parser_boolean(
 static int
 json_parser_integer(
     void *ctx,
-#ifndef yajl_complete_parse
+#if YAJL_MAJOR <= 1
     long l)
 #else
     long long l)
@@ -713,7 +713,7 @@ static int
 json_parser_string(
     void *ctx,
     const unsigned char *val,
-#ifndef yajl_complete_parse
+#if YAJL_MAJOR <= 1
     unsigned int len)
 #else
     size_t len)
@@ -776,7 +776,7 @@ static int
 json_parser_map_key(
     void *ctx,
     const unsigned char *val,
-#ifndef yajl_complete_parse
+#if YAJL_MAJOR <= 1
     unsigned int len)
 #else
     size_t len)
@@ -1204,7 +1204,7 @@ json_parser_parse(
 	if (stat(file_path, &file_stat)) {
 		goto fail;	
 	}
-#ifndef yajl_complete_parse
+#if YAJL_MAJOR <= 1
 	yajl_parser_config cfg = { 1, 1 };
 	handle = yajl_alloc(&parse_callbacks, &cfg, NULL, (void *)json_parser);
 #else
@@ -1226,7 +1226,7 @@ json_parser_parse(
                 if (read_len < 0) {
 			goto fail;
 		} else if (read_len == 0) {
-#ifndef yajl_complete_parse
+#if YAJL_MAJOR <= 1
             		status = yajl_parse_complete(handle);
 #else
             		status = yajl_complete_parse(handle);
@@ -1236,7 +1236,7 @@ json_parser_parse(
 			fdata[read_len] = 0;
             		status = yajl_parse(handle, fdata, read_len);
 		}
-#ifndef yajl_complete_parse
+#if YAJL_MAJOR <= 1
 		if (status != yajl_status_ok && status != yajl_status_insufficient_data) {
        			err = yajl_get_error(handle, 1, fdata, read_len);
 			yajl_free_error(handle, err);
