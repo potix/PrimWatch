@@ -199,7 +199,6 @@ executor_exec(
         	goto fail;
 	} else if (process->pid == 0) {
 		/* child */
-
 		close(process->fd[0]);
 		if (dup2(process->fd[1], 1) < 0) {
 			exit(1);

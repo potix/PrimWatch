@@ -888,6 +888,7 @@ watcher_polling_common_response(
 		ABORT("unknown target type");
 		return;
 	}
+	tmp_buffer[0] = '\0';
 	read_len = read(
 	    fd,
 	    &tmp_buffer[target->remain_buffer_len],
