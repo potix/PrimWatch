@@ -928,6 +928,9 @@ watcher_polling_common_response(
 				break;
 			}
 			*line_end = '\0';
+                        if (*line_start == '\0') {
+                                continue;
+                        }
 			string_kv_split_b(&kv, line_start, " \t" );
 			if (watcher_polling_common_add_element(
 			    target->type,
@@ -1068,12 +1071,18 @@ watcher_create(
 	new->domain_map.type = TARGET_TYPE_DOMAIN_MAP;
 	new->domain_map.elements = new_domain_map;
 	new->domain_map.backptr = new;
+	new->domain_map.remain_buffer[0] = '\0';
+	new->domain_map.remain_buffer_len = 0;
 	new->remote_address_map.type = TARGET_TYPE_REMOTE_ADDRESS_MAP;
 	new->remote_address_map.elements = new_remote_address_map;
 	new->remote_address_map.backptr = new;
+	new->remote_address_map.remain_buffer[0] = '\0';
+	new->remote_address_map.remain_buffer_len = 0;
 	new->health_check.type = TARGET_TYPE_HEALTH_CHECK;
 	new->health_check.elements = new_health_check;
 	new->health_check.backptr = new;
+	new->health_check.remain_buffer[0] = '\0';
+	new->health_check.remain_buffer_len = 0;
 	new->executor = new_executor;
 	new->event_base = event_base;
 	new->config_manager = config_manager;
