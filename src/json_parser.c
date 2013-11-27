@@ -1239,12 +1239,14 @@ json_parser_parse(
 #if YAJL_MAJOR <= 1
 		if (status != yajl_status_ok && status != yajl_status_insufficient_data) {
        			err = yajl_get_error(handle, 1, fdata, read_len);
+			LOG(LOG_LV_ERR, "%s\n", err);
 			yajl_free_error(handle, err);
 			goto fail;
 		}
 #else
 		if (status != yajl_status_ok) {
             		err = yajl_get_error(handle, 1, fdata, read_len);
+			LOG(LOG_LV_ERR, "%s\n", err);
 			yajl_free_error(handle, err);
 			goto fail;
 		}
