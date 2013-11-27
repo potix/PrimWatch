@@ -1,4 +1,5 @@
 #include <sys/types.h>
+#include <sys/param.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -279,3 +280,59 @@ strtouc(
 
         return 0;
 }
+
+	 
+int
+parse_cmd_b(
+    parse_cmd_t *parse_cmd,
+    char *cmd)
+{
+	int squote = 0;
+	int dquote = 0;
+	int cmd_size;
+	char *ptr;
+
+        if (parse_cmd == NULL ||
+            cmd == NULL) {
+                errno = EINVAL;
+                return 1;
+        }
+	ptr = parse_cmd->args[0] = cmd;
+	parse_cmd->args[1] = NULL;
+	parse_cmd->arg_size = 1;
+	cmd_size = strlen(cmd) + 1;
+	while (*ptr != '\0') {
+		if (!(squote || dquote) && *ptr == ' ' && *(ptr + 1) != '\0') {
+			*ptr = '\0';
+			parse_cmd->args[parse_cmd->arg_size] = ptr + 1;
+			parse_cmd->args[parse_cmd->arg_size + 1] = NULL;
+			parse_cmd->arg_size++;
+			if (parse_cmd->arg_size >= NCARGS) {
+				errno = ENOBUFS;
+				return 1;
+			}
+		} else if (!squote && *ptr == '"') {
+			if (dquote == 1) {
+				*ptr = '\0';
+				dquote = 0;
+			} else {
+				parse_cmd->args[parse_cmd->arg_size - 1]++;
+				dquote = 1;
+			}
+		} else if (!dquote && *ptr == '\'') {
+			if (squote == 1) {
+				*ptr = '\0';
+				squote = 0;
+			} else {
+				parse_cmd->args[parse_cmd->arg_size - 1]++;
+				squote = 1;
+			}
+		} else if (*ptr == '\\' && (*(ptr + 1) == ' ' || *(ptr + 1) == '"' || *(ptr + 1) == '\'')) {
+			memmove(ptr, ptr + 1, (cmd + cmd_size) - (ptr + 1));
+		}
+		ptr++; 
+	}
+
+	return 0;
+}
+

@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/queue.h>
+#include <sys/param.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,10 +9,12 @@
 #include <sysexits.h>
 #include <errno.h>
 #include <event.h>
+#include <limits.h>
 
 #include "common_macro.h"
 #include "logger.h"
 #include "executor.h"
+#include "string_util.h"
 
 typedef struct executor_process executor_process_t;
 
@@ -173,27 +176,36 @@ executor_exec(
     void *read_cb_arg)
 {
 	executor_process_t *process = NULL;
+	parse_cmd_t parse_cmd;
 
 	if (executor_process_create(
 	    &process,
 	    cmd,
 	    read_cb,
 	    read_cb_arg)) {
+		LOG(LOG_LV_ERR, "can not create process");
+		goto fail;
+	}
+	if (parse_cmd_b(&parse_cmd, process->cmd)) {
+		LOG(LOG_LV_ERR, "can not parse command");
 		goto fail;
 	}
 	if (pipe(process->fd) < 0) {
+		LOG(LOG_LV_ERR, "can not create pipe of process");
 		goto fail;
 	}
 	if ((process->pid = fork()) < 0) {
+		LOG(LOG_LV_ERR, "can not fork process");
         	goto fail;
 	} else if (process->pid == 0) {
 		/* child */
+
 		close(process->fd[0]);
 		if (dup2(process->fd[1], 1) < 0) {
 			exit(1);
 		}
 		close(process->fd[1]);
-		execlp(cmd, cmd, NULL);
+		execvp(parse_cmd.args[0], parse_cmd.args);
 		_exit(EX_OSERR);
 	} else {
 		/* parent */

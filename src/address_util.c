@@ -1,3 +1,4 @@
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -7,6 +8,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <logger.h>
+#include <limits.h>
 
 #include "common_macro.h"
 #include "string_util.h"

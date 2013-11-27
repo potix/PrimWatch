@@ -25,6 +25,12 @@ struct kv_split {
 };
 typedef struct kv_split kv_split_t;
 
+struct parse_cmd {
+        char *args[NCARGS];
+        int arg_size;
+};
+typedef struct parse_cmd parse_cmd_t;
+
 int string_lstrip_b(
     char **new_str,
     char *str,
@@ -48,5 +54,9 @@ int strtouc(
     unsigned char *value,
     const char *str,
     int base);
+
+int parse_cmd_b(
+    parse_cmd_t *parse_cmd,
+    char *cmd);
 
 #endif

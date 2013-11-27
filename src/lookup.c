@@ -1,3 +1,4 @@
+#include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -8,6 +9,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <errno.h>
+#include <limits.h>
 
 #include "bson/bson.h"
 
