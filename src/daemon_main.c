@@ -57,6 +57,10 @@ primwatch_initialize(
         ASSERT(primwatch != NULL);
 	memset(primwatch, 0, sizeof(primwatch_t));
 	primwatch->config_file = DEFAULT_PRIMWATCH_CONFIG_FILE_PATH;
+	if (config_manager_create(&primwatch->config_manager)) {
+		fprintf(stderr, "can not create config instance\n");
+		return 1;
+	} 
 
 	return 0;
 }
@@ -73,10 +77,6 @@ primwatch_event_initialize(
 		fprintf(stderr, "can not initialize event priority\n");
 		return 1;
 	}
-	if (config_manager_create(&primwatch->config_manager)) {
-		fprintf(stderr, "can not create config instance\n");
-		return 1;
-	} 
 	if (watcher_create(
             &primwatch->watcher,
             primwatch->event_base,
