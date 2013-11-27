@@ -233,24 +233,6 @@ main(int argc, char *argv[]) {
 		fprintf(stderr, "failed in create logger");
 		ret = EX_OSERR;
 	}
-        if (!primwatch.foreground) {
-		if (daemon(1,1)) {
-			LOG(LOG_LV_ERR, "failed in daemon");
-			ret = EX_OSERR;
-			goto last;
-		}
-		setsid();
-	}
-	if (primwatch_event_initialize(&primwatch)) {
-		fprintf(stderr, "failed in initaizliae");
-		ret = EX_OSERR;
-		goto last;
-	}
-	if (make_pidfile(pid_file_path)) {
-		LOG(LOG_LV_ERR, "failed in create file of process id");
-		ret = EX_OSERR;
-		goto last;
-	}
 	if (config_manager_load(primwatch.config_manager, primwatch.config_file)) {
 		LOG(LOG_LV_ERR, "failed in load config file %s", primwatch.config_file);
 		ret = EX_DATAERR;
@@ -283,6 +265,24 @@ main(int argc, char *argv[]) {
 	}
 	if (logger_open((log_level_t)verbose_level, log_type, PROGIDENT, LOG_PID, log_facility, log_path)) {
 		LOG(LOG_LV_ERR, "failed in open log");
+		ret = EX_OSERR;
+		goto last;
+	}
+        if (!primwatch.foreground) {
+		if (daemon(1,1)) {
+			LOG(LOG_LV_ERR, "failed in daemon");
+			ret = EX_OSERR;
+			goto last;
+		}
+		setsid();
+	}
+	if (primwatch_event_initialize(&primwatch)) {
+		fprintf(stderr, "failed in initaizliae");
+		ret = EX_OSERR;
+		goto last;
+	}
+	if (make_pidfile(pid_file_path)) {
+		LOG(LOG_LV_ERR, "failed in create file of process id");
 		ret = EX_OSERR;
 		goto last;
 	}
