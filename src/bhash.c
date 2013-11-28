@@ -31,12 +31,13 @@ struct bhash_kv_entry {
 	size_t value_actual_size;
 	size_t value_align_size;
 	uint64_t padding;
-	const char key_value_start[0];
+	char key_value_start[0];
 };
 
 struct bhash_hash_table_entry {
 	off_t kv_entry_start;
 	uint64_t padding;
+	char key_value_entry_start[0];
 };
 
 struct bhash_data {
@@ -384,6 +385,9 @@ bhash_get_base(
 	while (1) {
 		ASSERT(kv_entry->padding == MAGIC);
 		if (kv_entry->key_actual_size != key_size) {
+			if (NEXT_KV_ENTRY_OFFSET(kv_entry) == 0) {
+				break;
+			}
 			kv_entry = NEXT_KV_ENTRY_PTR(kv_entry);	
 			continue;
 		}
