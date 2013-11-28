@@ -614,7 +614,7 @@ lookup_domain_map(
 		tmp_name_ptr = tmp_name;
 		// domainMapからグループを取り出す
 		while (1) {
-			if (bhash_get(&domain_map, &candidate_group, NULL, lookup->input.name, strlen(lookup->input.name) + 1)) {
+			if (bhash_get(&domain_map, &candidate_group, NULL, tmp_name_ptr, strlen(tmp_name_ptr) + 1)) {
 				LOG(LOG_LV_ERR, "failed in get group from bhash");
 				return 1;
 			}
@@ -636,7 +636,7 @@ lookup_domain_map(
 		memcpy(&tmp_addr_mask, &lookup->params->revaddr_mask, sizeof(tmp_addr_mask));
 		// domainMapからグループを取り出す
 		while (1) {
-			if (bhash_get(&domain_map, &candidate_group, NULL, lookup->input.name, strlen(lookup->input.name) + 1)) {
+			if (bhash_get(&domain_map, &candidate_group, NULL, tmp_addr_mask, sizeof(tmp_addr_mask))) {
 				LOG(LOG_LV_ERR, "failed in get group from bhash");
 				return 1;
 			}
