@@ -974,7 +974,7 @@ lookup_record_roundrobin_cb(
 	int i;
 	accessa_status_t *new_accessa_status;
 	accessa_status_t *old_accessa_status;
-	char *buffer_data;
+	char *buffer_data = NULL;
 	lookup_record_roundrobin_cb_arg_t *lookup_record_roundrobin_cb_arg = handler_cb_arg;
 	accessa_status_group_t *accessa_status_group;
 	accessa_status_record_t *accessa_status_record;
@@ -1265,7 +1265,7 @@ lookup_group_roundrobin_cb(
         int *need_rewrite_accessa_status)
 {
 	lookup_group_roundrobin_cb_arg_t *lookup_group_roundrobin_cb_arg = handler_cb_arg;
-	char *buffer_data;
+	char *buffer_data = NULL;
 	accessa_status_t *new_accessa_status = NULL;
 
 	ASSERT(lookup != NULL);
