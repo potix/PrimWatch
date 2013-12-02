@@ -39,6 +39,7 @@ shared_buffer_touch(
 	int fd = -1;
 	int lock_fl = 0;
 	struct flock lock;
+	uint64_t size;
 
 	ASSERT(shared_buffer != NULL);
 	ASSERT(file_path != NULL);
@@ -64,6 +65,7 @@ shared_buffer_touch(
 	if (ftruncate(fd, DATA_SIZE_LENGTH)) {
 		LOG(LOG_LV_ERR, "fail in truncate (%m)\n");
 	}
+	write(fd, &size, sizeof(size));
 	memset(&lock, 0, sizeof(lock));
 	lock.l_whence = SEEK_SET;
 	lock.l_type = F_UNLCK;
