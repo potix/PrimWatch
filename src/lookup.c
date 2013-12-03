@@ -183,11 +183,13 @@ lookup_accessa_status_group_create(
 	size_t list_data_size;
 
 	ASSERT(accessa_status_group != NULL);
+	// リストを作る
 	if (blist_create(&blist, lookup_accessa_status_record_free, NULL)) {
 		LOG(LOG_LV_ERR, "failed in create blist of status of record of accessa");
 		goto fail;
 	}
 	if (record) {
+		// レコードがある場合はレコードに属するデータを登録する
 		accessa_status_record.record_weight = 0; /* XXXX weight */
 		if (blist_put(
 		    blist,
@@ -199,10 +201,12 @@ lookup_accessa_status_group_create(
 			goto fail;
 		}
 	}
+	// bitmapを抜出する
 	if (blist_get_blist_data(blist, &list_data, &list_data_size)) {
 		LOG(LOG_LV_ERR, "failed in get data of blist of status of record of accessa");
 		goto fail;
 	}
+        // 確保した領域にコピー抽出したbitmapをコピー
 	new = malloc(sizeof(accessa_status_group_t) + list_data_size);
 	if (new == NULL) {
 		LOG(LOG_LV_ERR, "failed in allocate memory for status of record of accessa");
@@ -212,11 +216,11 @@ lookup_accessa_status_group_create(
 	new->group_weight = 0; /* XXXX weight */
 	new->records_data_size = list_data_size;
 	memcpy(((char *)new) + offsetof(accessa_status_group_t, records_data), list_data, list_data_size);
+        // 不要なのでリストは消す
 	if (blist_destroy(blist)) {
 		LOG(LOG_LV_ERR, "failed in destroy blist of status of record of accessa");
 		goto fail;
 	}
-	blist = NULL;
 	*accessa_status_group = new;
 
 	return 0;
@@ -251,15 +255,19 @@ lookup_accessa_status_create(
 	size_t list_data_size;
 
 	ASSERT(accessa_status != NULL);
+	// リスト構造を作る
 	if (blist_create(&blist, lookup_accessa_status_group_free, NULL)) {
 		LOG(LOG_LV_ERR, "failed in create blist of status of group of accessa");
 		goto fail;
 	}
+	// groupが見つかっている場合、グループに属するデータも作る
 	if (group) {
+		// レコード情報を作る
 		if (lookup_accessa_status_group_create(&accessa_status_group, record)) {
 			LOG(LOG_LV_ERR, "failed in create status of group of accessa");
 			goto fail;
 		}
+		// リスト構造にレコード情報を入れる
 		if (blist_put(
 		    blist,
 		    group,
@@ -272,10 +280,12 @@ lookup_accessa_status_create(
 		lookup_accessa_status_group_destroy(accessa_status_group);
 		accessa_status_group = NULL;
 	}
+	// bitmapを取り出し
 	if (blist_get_blist_data(blist, &list_data, &list_data_size)) {
 		LOG(LOG_LV_ERR, "failed in get data from blist of status of accessa");
 		goto fail;
 	}
+	// 確保したメモリに取り出したbitmapをコピー
 	new = malloc(sizeof(accessa_status_t) + list_data_size);
 	if (new == NULL) {
 		LOG(LOG_LV_ERR, "failed in allocate memory for status of accessa");
@@ -284,11 +294,11 @@ lookup_accessa_status_create(
 	new->group_rr_idx = 0;
 	new->groups_data_size = list_data_size;
 	memcpy(((char *)new) + offsetof(accessa_status_t, groups_data), list_data, list_data_size);
+	// 不要になったリストを削除
 	if (blist_destroy(blist)) {
 		LOG(LOG_LV_ERR, "failed in destroy blist of status of group of acessa");
 		goto fail;
 	}
-	blist = NULL;
 	*accessa_status = new;
 
 	return 0;
@@ -328,6 +338,7 @@ lookup_accessa_status_add_record(
 
 	ASSERT(new_accessa_status_group != NULL);
 	ASSERT(accessa_status_group != NULL);
+	// クローンを作成
 	if (blist_clone(
 	    &blist,
 	    ((char *)accessa_status_group) + offsetof(accessa_status_group_t, records_data))) {
@@ -335,6 +346,7 @@ lookup_accessa_status_add_record(
 		return 1;
 	}
 	if (record) {
+		// レコードが存在する場合、レコードの情報を引っ張る
 		if (blist_get(
 		    blist,
 		    &ptr,
@@ -344,8 +356,9 @@ lookup_accessa_status_add_record(
 			LOG(LOG_LV_ERR, "failed in get from blist of status of record of accessa (%s)", record);
 			return 1;
 		}
+		// レコードが無ければレコード情報を追加
 		if (ptr == NULL) {
-			accessa_status_record.record_weight = 0;
+			accessa_status_record.record_weight = 0; /* XXX weight */
 			if (blist_put(
 			    blist,
 			    record,
@@ -357,10 +370,12 @@ lookup_accessa_status_add_record(
 			}
 		}
 	}
+	// bitmap領域を取り出す
 	if (blist_get_blist_data(blist, &list_data, &list_data_size)) {
 		LOG(LOG_LV_ERR, "failed in get data of blist of status of record of accessa");
 		goto fail;
 	}
+	// 新たに確保したメモリ領域にbitmapをコピー
 	new = malloc(sizeof(accessa_status_group_t) + list_data_size);
 	if (new == NULL) {
 		LOG(LOG_LV_ERR, "failed in allocate memory for status of record of accessa");
@@ -370,11 +385,11 @@ lookup_accessa_status_add_record(
 	new->group_weight = accessa_status_group->group_weight; /* XXXX weight */
 	new->records_data_size = list_data_size;
 	memcpy(((char *)new) + offsetof(accessa_status_group_t, records_data), list_data, list_data_size);
+	// 不要なリストを削除
 	if (blist_destroy(blist)) {
 		LOG(LOG_LV_ERR, "failed in destroy blist of status of record of accessa");
 		goto fail;
 	}
-	blist = NULL;
 	*new_accessa_status_group = new;
 	
 	return 0;
@@ -407,12 +422,14 @@ lookup_accessa_status_add_group(
 	ASSERT(new_accessa_status != NULL);
 	ASSERT(accessa_status != NULL);
 	ASSERT(group != NULL);
+	// クローンをつくる
 	if (blist_clone(
 	    &blist,
 	    ((char *)accessa_status) + offsetof(accessa_status_t, groups_data))) {
 		LOG(LOG_LV_ERR, "failed in clone blist of status of accessa");
 		goto fail;
 	}
+        // 該当グループ情報を取り出す
 	group_str_size = strlen(group) + 1;
 	if (blist_get(
 	    blist,
@@ -423,23 +440,27 @@ lookup_accessa_status_add_group(
 		LOG(LOG_LV_ERR, "failed in get from blist of status of accessa (%s)", group);
 		goto fail;
 	}
+	// グループが存在しない場合はグループを作成
 	if (ptr == NULL) {
 		if (lookup_accessa_status_group_create(&new_accessa_status_group, record)) {
 			LOG(LOG_LV_ERR, "failed in create status of group of acessa");
 			goto fail;
 		}
 	} else {
+		// グループが存在する場合はレコード情報を新規に作成
 		accessa_status_group = (accessa_status_group_t *)ptr;
 		if (lookup_accessa_status_add_record(&new_accessa_status_group, accessa_status_group, record)) {
 			LOG(LOG_LV_ERR, "failed in create status of group of acessa");
 			goto fail;
 		}
+		// 古いグループ情報を削除
 		if (blist_delete(blist, group, group_str_size)) {
 			LOG(LOG_LV_ERR, "failed in delete group from blist of status of group of acessa (%s)", group);
 			goto fail;
 		}
 		/* XXXX blist shrink */
 	}
+	// 新しいグループ情報を追加
 	if (blist_put(
 	    blist,
 	    group,
@@ -449,12 +470,14 @@ lookup_accessa_status_add_group(
 		LOG(LOG_LV_ERR, "failed in put status of group of acessa (%s)", group);
 		goto fail;
 	}
+	// 不要なaccessa status groupを削除 
 	lookup_accessa_status_group_destroy(new_accessa_status_group);
-	new_accessa_status_group = NULL;	
+        // bitmapデータの取り出し
 	if (blist_get_blist_data(blist, &list_data, &list_data_size)) {
 		LOG(LOG_LV_ERR, "failed in get data from blist of status of accessa");
 		goto fail;
 	}
+	// 取り出したbitmapを新しい領域にコピー
 	new = malloc(sizeof(accessa_status_t) + list_data_size);
 	if (new == NULL) {
 		LOG(LOG_LV_ERR, "failed in allocate memory for status of accessa");
@@ -463,6 +486,7 @@ lookup_accessa_status_add_group(
 	new->group_rr_idx = accessa_status->group_rr_idx;
 	new->groups_data_size = list_data_size;
 	memcpy(((char *)new) + offsetof(accessa_status_t, groups_data), list_data, list_data_size);
+	// 不要なリストを削除
 	if (blist_destroy(blist)) {
 		LOG(LOG_LV_ERR, "failed in destroy blist of status of group of acessa");
 		goto fail;
@@ -516,6 +540,7 @@ lookup_accessa_status_handle(
 		goto fail;
 	}
 	rmap = 1;
+	// コールバックハンドラを呼び出す
 	if (handler_cb(
 	    lookup,
 	    handler_cb_arg,
@@ -525,6 +550,7 @@ lookup_accessa_status_handle(
 		LOG(LOG_LV_ERR, "failed in process callback");
 		goto fail;
 	}
+	// handler callbackでaccessa_statusがNULLになっている場合はエラー
 	if (accessa_status == NULL) {
 		LOG(LOG_LV_ERR, "accessa status is NULL");
 		goto fail;
@@ -535,6 +561,7 @@ lookup_accessa_status_handle(
 		goto fail;
 	}
 	rmap = 0;
+	// accessa_statusの再書き込みが必要な場合
 	if (need_rewrite_accessa_status) {
 		if (shared_buffer_wmap(lookup->accessa->accessa_buffer, write_size)) {
 			LOG(LOG_LV_ERR, "failed in map accessa buffer with writing");
@@ -556,6 +583,7 @@ lookup_accessa_status_handle(
 		goto fail;
 	}
 	lock = 0;
+	// accessaステータスのfreeが必要な場合
 	if (need_free_accessa_status) {
 		lookup_accessa_status_destroy(accessa_status);
 	}
@@ -925,15 +953,18 @@ lookup_record_roundrobin_foreach(
 	ASSERT(key_size > 0);
 	ASSERT(value != NULL);
 	ASSERT(value_size > 0);
+	// インデックスが一致するか確認
 	for (i = 0; i < lookup_record_roundrobin_foreach_arg->max_records; i++) {
 		if (idx == lookup_record_roundrobin_foreach_arg->idxs[i]) {
 			break;
 		}
 	}
+	// インデックスが一致しない場合はスキップ
 	if (i == lookup_record_roundrobin_foreach_arg->max_records) {
 		/* skip */
 		return;
 	}
+	// 一致するものがあったのでレコードの情報を記録する
 	lookup = lookup_record_roundrobin_foreach_arg->lookup;
 	record_buffer = (record_buffer_t *)value;
 	switch (lookup->params->lookup_type) {
@@ -999,6 +1030,7 @@ lookup_record_roundrobin_cb(
 		*need_rewrite_accessa_status = 1;
 	} else {
 		old_accessa_status = (accessa_status_t *)buffer_data;
+		// statusを取り出す。
 		if (lookup_accessa_status_find(
 		    &accessa_status_group,
 		    &accessa_status_record,
@@ -1009,6 +1041,7 @@ lookup_record_roundrobin_cb(
 			return 1;
 		}
 		if (accessa_status_group == NULL) {
+			// グループを追加する
 			if (lookup_accessa_status_add_group(
 			    &new_accessa_status,
 			    old_accessa_status,
@@ -1020,7 +1053,8 @@ lookup_record_roundrobin_cb(
 			*need_free_accessa_status = 1;
 			*need_rewrite_accessa_status = 1;
 		} else {
-			accessa_status_group->record_rr_idx++;
+			new_accessa_status = old_accessa_status;
+			accessa_status_group->record_rr_idx = (accessa_status_group->record_rr_idx + 1) % lookup_record_roundrobin_cb_arg->record_members_count;
 			if (shared_buffer_set_dirty(lookup->accessa->accessa_buffer)) {
 				LOG(LOG_LV_ERR, "failed in set dirty");
 				return 1;
@@ -1028,10 +1062,12 @@ lookup_record_roundrobin_cb(
 		}
 	}
 	*accessa_status = new_accessa_status;
+	// max_record分record_rr_idxを起点にレコードのインデックスを記録しておく
 	for (i = 0; i < lookup_record_roundrobin_cb_arg->max_records; i++) {
 		lookup_record_roundrobin_foreach_arg.idxs[i]
 		    = (accessa_status_group->record_rr_idx + i) % lookup_record_roundrobin_cb_arg->record_members_count;
 	}
+	// 記録したレコードインデックスの情報を引っ張り出す
 	if (bhash_foreach(
 	    lookup_record_roundrobin_cb_arg->target,
 	    lookup_record_roundrobin_foreach,
@@ -1089,11 +1125,13 @@ lookup_record(
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
 	name = bson_iterator_key(group_itr);
+	// レコード選択アルゴリズムを取得
 	snprintf(path, sizeof(path), "%s.%s", name, "recordSelectAlgorithmValue");
 	if (bson_helper_itr_get_long(group_itr, &record_select_algorithm, path, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get value of record select algorithm");
 		return 1;
 	}
+	// lookupタイプによって、何のパラメータからデータを取り出すかが変わる
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
 		param = "ipv4Hostnames";
@@ -1123,16 +1161,19 @@ lookup_record(
 		ABORT("unexpected type of lookup");
 		return 1;
 	}
+	// groupにターゲットとなるレコードが最大どのくらいいるか取得
 	snprintf(path, sizeof(path), "%s.%s", name, cnt);
 	if (bson_helper_itr_get_long(group_itr, &record_members_count, path, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get count of record Members");
 		return 1;
 	}
+	// レスポンスで返す最大レコード数を取得 
 	snprintf(path, sizeof(path), "%s.%s", name, "maxRecords");
 	if (bson_helper_itr_get_long(group_itr, &max_records, path, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get max record");
 		return 1;
 	}
+	// メンバより最大レコード数が多い場合、メンバの数に合わせる
 	if (max_records > record_members_count) {
 		max_records = record_members_count;
 	}
@@ -1141,6 +1182,7 @@ lookup_record(
 		LOG(LOG_LV_INFO, "lookup dns record is empty (%s)", name);
 		return 0;
 	}
+	// 対象タのハッシュデータ取り出し
 	snprintf(path, sizeof(path), "%s.%s", name, param);
 	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
@@ -1150,6 +1192,7 @@ lookup_record(
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
+	// 各アルゴリズムの処理
 	switch (record_select_algorithm) {
 	case 0: /* random */
 		if (lookup_record_random(lookup, max_records, record_members_count, &target)) {
@@ -1159,13 +1202,13 @@ lookup_record(
 		break;
 	case 1: /* priority */
 		if (lookup_record_priority(lookup, max_records, &target)) {
-			LOG(LOG_LV_ERR, "failed in lookup record by random");
+			LOG(LOG_LV_ERR, "failed in lookup record by priority");
 			return 1;
 		}
 		break;
 	case 2: /* roundrobin */
 		if (lookup_record_roundrobin(lookup, max_records, record_members_count, &target, name)) {
-			LOG(LOG_LV_ERR, "failed in lookup record by random");
+			LOG(LOG_LV_ERR, "failed in lookup record by roundrobin");
 			return 1;
 		}
 		break;
@@ -1192,7 +1235,9 @@ lookup_group_random(
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
 	ASSERT(group_members_count > 0);
+	// ランダムにインデックスを作成し
 	idx = (int)(random() % (int)group_members_count);
+	// そのインデックスにあるデータを引っ張る。なければエラーを返す。
 	if (bson_helper_bson_get_itr_by_idx(group_itr, &lookup->params->status, "groups", idx)) {
 		LOG(LOG_LV_ERR, "failed in get iterator of groups");
 		return 1;
@@ -1217,10 +1262,13 @@ lookup_group_priority_foreach(
 	ASSERT(itr != NULL);
 	name = bson_iterator_key(itr);
 	snprintf(p, sizeof(p), "%s.%s", name, "priority");
+        // priorityの値を取得する
 	if (bson_helper_itr_get_long(itr, &priority, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get value of priority (%s)", p);
 		goto last;
 	}
+	// priorityが現在のmax_priorityより小さければそれを採用する
+	// つまり、値が小さい方が優先
 	if (priority < lookup_group_priority_foreach_arg->max_priority) {
 		lookup_group_priority_foreach_arg->max_priority = priority;
 		*lookup_group_priority_foreach_arg->group_itr = *itr;
@@ -1240,6 +1288,7 @@ lookup_group_priority(
 	};
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
+	// bsonの中からpriorityが一番高いものを探す
 	if (bson_helper_bson_foreach(
 	    &lookup->params->status,
 	    "groups",
@@ -1248,6 +1297,7 @@ lookup_group_priority(
 		LOG(LOG_LV_ERR, "failed in get iterator of groups");
 		return 1;
 	}
+	// groupが何も見つからなかったらエラーを返す
 	if (lookup_group_priority_foreach_arg.max_priority == INITIAL_MAX_PRIORITY) {
 		LOG(LOG_LV_ERR, "no group");
 		return 1;
@@ -1272,28 +1322,30 @@ lookup_group_roundrobin_cb(
 	ASSERT(handler_cb_arg != NULL);
 	ASSERT(accessa_status != NULL);
 	ASSERT(need_free_accessa_status != NULL);
+	// accessaのstatus情報を読み込む
 	if (shared_buffer_read(lookup->accessa->accessa_buffer, &buffer_data, NULL)) {
 		LOG(LOG_LV_ERR, "failed in read from accessa buffer");
 		return 1;
 	}
 	if (buffer_data == NULL) {
+		// データが無ければ新たに作る
 		if (lookup_accessa_status_create(&new_accessa_status, NULL, NULL)) {
 			LOG(LOG_LV_ERR, "dailes in create status of addessa");
 			return 1;
 		}
 		*need_free_accessa_status = 1;
 		*need_rewrite_accessa_status = 1;
-		*accessa_status = new_accessa_status;
 	} else {
 		new_accessa_status = (accessa_status_t *)buffer_data; 
 		new_accessa_status->group_rr_idx
-		     = (int)((new_accessa_status->group_rr_idx + 1) % lookup_group_roundrobin_cb_arg->group_members_count);
-		*accessa_status = new_accessa_status;
+		     = (new_accessa_status->group_rr_idx + 1) % lookup_group_roundrobin_cb_arg->group_members_count;
+		// 値が変わったのでdirtyをセットしておいて後から更新されるようにする
 		if (shared_buffer_set_dirty(lookup->accessa->accessa_buffer)) {
 			LOG(LOG_LV_ERR, "failed in set dirty");
 			return 1;
 		}
 	}
+	*accessa_status = new_accessa_status;
 	if (bson_helper_bson_get_itr_by_idx(
 	    lookup_group_roundrobin_cb_arg->group_itr,
 	    &lookup->params->status,
@@ -1320,6 +1372,7 @@ lookup_group_roundrobin(
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
 	ASSERT(group_members_count > 0);
+	// 過去のaccessaのstatus情報をみながら、採用を決定する
 	if (lookup_accessa_status_handle(lookup, lookup_group_roundrobin_cb, &lookup_group_roundrobin_cb_arg)) {
 		LOG(LOG_LV_ERR, "failed in handling of accessa status");
 		return 1;	
@@ -1338,14 +1391,17 @@ lookup_group(
 	bson_iterator group_itr;
 
 	ASSERT(lookup != NULL);
+	// アルゴリズム情報を取得
 	if (bson_helper_bson_get_long(&lookup->params->status, &group_select_algorithm, "groupSelectAlgorithmValue", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get value of group select algorithm value");
 		return 1;
 	}
+	// グループの最大数を取得
 	if (bson_helper_bson_get_long(&lookup->params->status, &group_members_count, "groupMembersCount", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get value of group members count");
 		return 1;
 	}
+	// 各アルゴリズムの処理
 	switch (group_select_algorithm) {
 	case 0: /* random */
 		if (lookup_group_random(lookup, &group_itr, group_members_count)) {
@@ -1355,13 +1411,13 @@ lookup_group(
 		break;
 	case 1: /* priority */
 		if (lookup_group_priority(lookup, &group_itr)) {
-			LOG(LOG_LV_ERR, "failed in lookup group by random");
+			LOG(LOG_LV_ERR, "failed in lookup group by priority");
 			return 1;
 		}
 		break;
 	case 2: /* roundrobin */
 		if (lookup_group_roundrobin(lookup, &group_itr, group_members_count)) {
-			LOG(LOG_LV_ERR, "failed in lookup group by raundrobin");
+			LOG(LOG_LV_ERR, "failed in lookup group by roundrobin");
 			return 1;
 		}
 		break;
@@ -1528,11 +1584,13 @@ lookup_native(
 		}
 	}
 	if (group) {
+		// groupが見つかったので、レコードを探す
 		if (lookup_record(lookup, &group_itr)) {
 			LOG(LOG_LV_ERR, "failed in lookup record");
 			return 1;
 		}
 	} else {
+		// groupが見つかってないので、アルゴリズムからグループを決定する
 		if (lookup_group(lookup)) {
 			LOG(LOG_LV_ERR, "failed in lookup group");
 			return 1;
