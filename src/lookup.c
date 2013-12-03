@@ -850,7 +850,7 @@ lookup_record_match_foreach(
 			break;
 		case 2: /* roundrobin */
 			// ロンゲストマッチ + roundrobinになるようにsort_valueを調整
-			lookup->output.entry[lookup->output.entry_count].sort_value = (MAX_RECORDS * decrement_level) + (idx + (record_members_count - record_rr_idx));
+			lookup->output.entry[lookup->output.entry_count].sort_value = (MAX_RECORDS * decrement_level) + ((idx + (record_members_count - record_rr_idx)) % record_members_count);
 			break;
 		case 3: /* weight */
 			/* XXXXX */
