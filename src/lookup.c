@@ -842,7 +842,7 @@ lookup_record_match_foreach(
 		switch (record_select_algorithm) {
 		case 0: /* random*/
 			// プライオリティの値をそのまま流用
-			lookup->output.entry[lookup->output.entry_count].sort_value = rand();
+			lookup->output.entry[lookup->output.entry_count].sort_value = random();
 			break;
 		case 1: /* priority */
 			// プライオリティの値をそのまま流用
