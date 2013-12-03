@@ -911,12 +911,11 @@ lookup_record_roundrobin_cb(
     int *need_free_accessa_status,
     int *need_rewrite_accessa_status)
 {
-	accessa_status_t *new_accessa_status;
-	accessa_status_t *old_accessa_status;
+	accessa_status_t *new_accessa_status = NULL;
+	accessa_status_t *old_accessa_status = NULL;
 	char *buffer_data = NULL;
 	lookup_record_roundrobin_cb_arg_t *lookup_record_roundrobin_cb_arg = handler_cb_arg;
 	accessa_status_group_t *accessa_status_group = NULL;
-	accessa_status_record_t *accessa_status_record = NULL;
 	lookup_record_match_foreach_arg_t lookup_record_match_foreach_arg = {
 		.lookup = lookup,
 		.record_members_count = lookup_record_roundrobin_cb_arg->record_members_count,
@@ -942,7 +941,7 @@ lookup_record_roundrobin_cb(
 		// statusを取り出す。
 		if (lookup_accessa_status_find(
 		    &accessa_status_group,
-		    &accessa_status_record,
+		    NULL,
 		    old_accessa_status,
 		    lookup_record_roundrobin_cb_arg->name,
 		    NULL)) {
@@ -961,6 +960,15 @@ lookup_record_roundrobin_cb(
 			}
 			*need_free_accessa_status = 1;
 			*need_rewrite_accessa_status = 1;
+			if (lookup_accessa_status_find(
+			    &accessa_status_group,
+			    NULL,
+			    new_accessa_status,
+			    lookup_record_roundrobin_cb_arg->name,
+			    NULL)) {
+				LOG(LOG_LV_ERR, "failed in refind from status of accessa");
+				return 1;
+			}
 		} else {
 			new_accessa_status = old_accessa_status;
 			accessa_status_group->record_rr_idx
