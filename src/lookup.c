@@ -903,8 +903,8 @@ lookup_record_roundrobin_cb(
 	accessa_status_t *old_accessa_status;
 	char *buffer_data = NULL;
 	lookup_record_roundrobin_cb_arg_t *lookup_record_roundrobin_cb_arg = handler_cb_arg;
-	accessa_status_group_t *accessa_status_group;
-	accessa_status_record_t *accessa_status_record;
+	accessa_status_group_t *accessa_status_group = NULL;
+	accessa_status_record_t *accessa_status_record = NULL;
 	lookup_record_match_foreach_arg_t lookup_record_match_foreach_arg = {
 		.lookup = lookup,
 		.record_members_count = lookup_record_roundrobin_cb_arg->record_members_count,
@@ -928,7 +928,8 @@ lookup_record_roundrobin_cb(
 	} else {
 		old_accessa_status = (accessa_status_t *)buffer_data;
 		// statusを取り出す。
-		if (lookup_accessa_status_find(
+		if (old_access_status->groups_data_size > 0 &&
+		    lookup_accessa_status_find(
 		    &accessa_status_group,
 		    &accessa_status_record,
 		    old_accessa_status,
