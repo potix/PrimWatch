@@ -112,7 +112,6 @@ lookup_accessa_status_find(
 	char *ptr;
 
 	ASSERT(accessa_status_group != NULL);
-	ASSERT(accessa_status_record != NULL);
 	ASSERT(accessa_status != NULL);
 	ASSERT(group != NULL);
 	*accessa_status_group = NULL;
@@ -144,7 +143,7 @@ lookup_accessa_status_find(
 		LOG(LOG_LV_ERR, "not found group in blist of status of group of accessa (%s)", group);
 		return 1;
 	}
-	if (!record || !accessa_status_record) {
+	if (!(record && !accessa_status_record)) {
 		return 0;
 	}
 	if (blist_create_wrap_bhash_data(
@@ -168,6 +167,7 @@ lookup_accessa_status_find(
 		LOG(LOG_LV_ERR, "not found record in blist of status of record of accessa (%s)", record);
 		return 1;
 	}
+
 
 	return 0;
 }
