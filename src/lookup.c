@@ -119,7 +119,7 @@ lookup_accessa_status_find(
 	if (accessa_status_record) {
 		*accessa_status_record = NULL;
 	}
-	if (accessa_status->groups_data_size > 0) {
+	if (accessa_status->groups_data_size == 0) {
 		// データが空ならすぐ戻る
 		return 0;
 	}
