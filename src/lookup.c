@@ -27,9 +27,7 @@
 
 #define INITIAL_MAX_PRIORITY (0xFFFFFFFF)
 
-typedef struct lookup_record_random_foreach_arg lookup_record_random_foreach_arg_t;
-typedef struct lookup_record_priority_foreach_arg lookup_record_priority_foreach_arg_t;
-typedef struct lookup_record_roundrobin_foreach_arg lookup_record_roundrobin_foreach_arg_t;
+typedef struct lookup_record_match_foreach_arg lookup_record_match_foreach_arg_t;
 typedef struct lookup_record_roundrobin_cb_arg lookup_record_roundrobin_cb_arg_t;
 typedef struct lookup_group_priority_foreach_arg lookup_group_priority_foreach_arg_t;
 typedef struct lookup_group_roundrobin_cb_arg lookup_group_roundrobin_cb_arg_t;
@@ -43,29 +41,18 @@ struct lookup_params {
 	revfmt_type_t revfmt_type;
 };
 
-struct lookup_record_random_foreach_arg {
+struct lookup_record_match_foreach_arg {
 	lookup_t *lookup;
-	int idxs[MAX_RECORDS];
-	int64_t max_records; 
-};
-
-struct lookup_record_priority_foreach_arg {
-	lookup_t *lookup;
-	int idxs[MAX_RECORDS];
-	int64_t priorities[MAX_RECORDS];
-	int64_t max_records; 
-};
-
-struct lookup_record_roundrobin_foreach_arg {
-	lookup_t *lookup;
-	int idxs[MAX_RECORDS];
-	int64_t max_records; 
+	int64_t record_members_count; 
+	int64_t record_select_algorithm;
+	int record_rr_idx;
 };
 
 struct lookup_record_roundrobin_cb_arg {
 	lookup_t *lookup;
 	int64_t max_records;
 	int64_t record_members_count;
+	int64_t record_select_algorithm;
 	bhash_t *target;
 	const char *name;
 };
@@ -79,6 +66,16 @@ struct lookup_group_roundrobin_cb_arg {
 	bson_iterator *group_itr;
 	int64_t group_members_count;
 };
+
+
+static int
+output_entry_cmp(const void *p1, const void *p2)
+{
+	lookup_output_entry_t *entry1 = (lookup_output_entry_t *)p1;
+	lookup_output_entry_t *entry2 = (lookup_output_entry_t *)p2;
+
+        return entry1->sort_value - entry2->sort_value;
+}
 
 static void
 lookup_accessa_status_record_free(
@@ -746,7 +743,7 @@ lookup_remote_address_map(
 }
 
 static void
-lookup_record_random_foreach(
+lookup_record_match_foreach(
     void *foreach_cb_arg,
     int idx,
     const char *key,
@@ -754,244 +751,144 @@ lookup_record_random_foreach(
     char *value,
     size_t value_size)
 {
-	int i;
-	lookup_record_random_foreach_arg_t *lookup_record_random_foreach_arg = foreach_cb_arg;
+	int decrement_level = 1;
+	lookup_record_match_foreach_arg_t *lookup_record_match_foreach_arg = foreach_cb_arg;
 	record_buffer_t *record_buffer;
 	lookup_t *lookup;
+        char *tmp_name_ptr, tmp_name[NI_MAXHOST];
+	size_t tmp_name_size;
+        v4v6_addr_mask_t tmp_addr_mask;
+	int match = 0;
+	int64_t record_members_count, record_select_algorithm;
+	int record_rr_idx;
 	
-	ASSERT(lookup_record_random_foreach_arg != NULL);
-	ASSERT(lookup_record_random_foreach_arg->lookup != NULL);
+	ASSERT(lookup_record_match_foreach_arg != NULL);
+	ASSERT(lookup_record_match_foreach_arg->lookup != NULL);
 	ASSERT(idx >= 0);
 	ASSERT(key != NULL);
 	ASSERT(key_size > 0);
 	ASSERT(value != NULL);
 	ASSERT(value_size > 0);
 
-	for (i = 0; i < lookup_record_random_foreach_arg->max_records; i++) {
-		if (idx == lookup_record_random_foreach_arg->idxs[i]) {
-			break;
-		}
-	}
-	if (i == lookup_record_random_foreach_arg->max_records) {
-		/* skip */
-		return;
-	}
-	lookup = lookup_record_random_foreach_arg->lookup;
+	lookup = lookup_record_match_foreach_arg->lookup;
+	record_members_count = lookup_record_match_foreach_arg->record_members_count;
+	record_select_algorithm = lookup_record_match_foreach_arg->record_select_algorithm;
+	record_rr_idx = lookup_record_match_foreach_arg->record_rr_idx;
 	record_buffer = (record_buffer_t *)value;
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
 	case LOOKUP_TYPE_NATIVE_AAAA:
-		strlcpy(
-		    lookup->output.entry[i].name,
-		    key,
-		    sizeof(lookup->output.entry[i].name));
+		// ドメインが一致するものを探す
+		strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
+		tmp_name_ptr = tmp_name;
+		while (1) {
+			tmp_name_size = strlen(tmp_name_ptr) + 1;
+			if (key_size == tmp_name_size
+			     && strncmp(key, tmp_name_ptr, tmp_name_size) == 0) {
+				strlcpy(
+				    lookup->output.entry[lookup->output.entry_count].name,
+				    key,
+				    sizeof(lookup->output.entry[lookup->output.entry_count].name));
+				match = 1;
+				break;
+			}
+			// ここで、レベルを上げながらチェック
+			if (decrement_domain_b(&tmp_name_ptr)) {
+				break;
+			}
+			decrement_level++;
+		}
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
-		addrmask_to_revaddrstr(
-		    lookup->output.entry[i].name,
-		    sizeof(lookup->output.entry[i].name),
-		    &record_buffer->addr_mask,
-		    lookup->params->revfmt_type);
+		// アドレスが一致するものを探す。
+		memcpy(&tmp_addr_mask, &lookup->params->revaddr_mask, sizeof(tmp_addr_mask));
+		while (1) {
+			// アドレス構造体をチェックして、それをrevaddrフォーマットにして返す
+			if (sizeof(tmp_addr_mask) == sizeof(record_buffer->addr_mask)
+			    && memcmp(&tmp_addr_mask, &record_buffer->addr_mask, sizeof(tmp_addr_mask)) == 0) {
+				addrmask_to_revaddrstr(
+				    lookup->output.entry[lookup->output.entry_count].name,
+				    sizeof(lookup->output.entry[lookup->output.entry_count].name),
+				    &record_buffer->addr_mask,
+				    lookup->params->revfmt_type);
+				match = 1;
+				break;
+			}
+			// ここで、maskを上げながらチェック
+			if (decrement_mask_b(&tmp_addr_mask)) {
+				break;
+			}
+			decrement_level++;
+		}
 		break;
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected type of lookup");
 	}
-	lookup->output.entry[i].class = lookup->input.class;
-	lookup->output.entry[i].type = lookup->input.type;
-	lookup->output.entry[i].ttl = (unsigned long long)record_buffer->ttl;
-	lookup->output.entry[i].id = lookup->input.id;
-	lookup->output.entry[i].content = ((char *)record_buffer) + offsetof(record_buffer_t, value);
-	lookup->output.entry_count++;
+	// 一致してる場合は情報を細かい情報を取得
+	if (match) {
+		switch (record_select_algorithm) {
+		case 0: /* random*/
+			// プライオリティの値をそのまま流用
+			lookup->output.entry[lookup->output.entry_count].sort_value = rand();
+			break;
+		case 1: /* priority */
+			// プライオリティの値をそのまま流用
+			lookup->output.entry[lookup->output.entry_count].sort_value = record_buffer->record_priority;
+			break;
+		case 2: /* roundrobin */
+			// ロンゲストマッチ + roundrobinになるようにsort_valueを調整
+			lookup->output.entry[lookup->output.entry_count].sort_value = (MAX_RECORDS * decrement_level) + (idx + (record_members_count - record_rr_idx));
+			break;
+		case 3: /* weight */
+			/* XXXXX */
+			lookup->output.entry[lookup->output.entry_count].sort_value = 0;
+			break;
+		default:
+			/* NOTREACHED */
+			ABORT("unexpected algorithm of group select");
+			return;
+		}
+		lookup->output.entry[lookup->output.entry_count].class = lookup->input.class;
+		lookup->output.entry[lookup->output.entry_count].type = lookup->input.type;
+		lookup->output.entry[lookup->output.entry_count].ttl = (unsigned long long)record_buffer->ttl;
+		lookup->output.entry[lookup->output.entry_count].id = lookup->input.id;
+		lookup->output.entry[lookup->output.entry_count].content = ((char *)record_buffer) + offsetof(record_buffer_t, value);
+		lookup->output.entry_count++;
+	}
 }
 
 static int
-lookup_record_random(
+lookup_record_basic(
     lookup_t *lookup,
     int64_t max_records,
     int64_t record_members_count,
-    bhash_t *target)
+    bhash_t *target,
+    int64_t record_select_algorithm)
 {
-	int i, j;
-	int idx;
-	lookup_record_random_foreach_arg_t lookup_record_random_foreach_arg = {
+	lookup_record_match_foreach_arg_t lookup_record_match_foreach_arg = {
 		.lookup = lookup,
-		.max_records = max_records,
+		.record_members_count = record_members_count,
+		.record_select_algorithm = record_select_algorithm,
+		.record_rr_idx = 0
 	};
 
 	ASSERT(lookup != NULL);
-	ASSERT(max_records > 0);
 	ASSERT(target != NULL);
-	for (i = 0; i < max_records; i++) {
-		while (1) {
-			idx = (int)(random() % (int)record_members_count);
-			for (j = 0; j < i; j ++) {
-				if (lookup_record_random_foreach_arg.idxs[j] == idx) {
-					break;
-				}
-			}
-			if (j != i) {
-				continue;
-			}
-			lookup_record_random_foreach_arg.idxs[i] = idx;
-			break;
-		}
-	}
-	if (bhash_foreach(target, lookup_record_random_foreach, &lookup_record_random_foreach_arg))  {
+
+	// マッチするものを取り出す
+	if (bhash_foreach(target, lookup_record_match_foreach, &lookup_record_match_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
-
-	return 0;
-}
-
-static void
-lookup_record_priority_foreach(
-    void *foreach_cb_arg,
-    int idx,
-    const char *key,
-    size_t key_size,
-    char *value,
-    size_t value_size)
-{
-	int i, j;
-	lookup_record_priority_foreach_arg_t *lookup_record_priority_foreach_arg = foreach_cb_arg;
-	record_buffer_t *record_buffer;
-	lookup_t *lookup;
-	
-	ASSERT(lookup_record_priority_foreach_arg != NULL);
-	ASSERT(lookup_record_priority_foreach_arg->lookup != NULL);
-	lookup = lookup_record_priority_foreach_arg->lookup;
-	record_buffer = (record_buffer_t *)value;
-	for (i = 0; i < lookup_record_priority_foreach_arg->max_records; i++) {
-		if (lookup_record_priority_foreach_arg->priorities[i] > record_buffer->record_priority) {
-			for (j = lookup_record_priority_foreach_arg->max_records - 1; j >= i; j--) {
-				lookup_record_priority_foreach_arg->priorities[j + 1] = lookup_record_priority_foreach_arg->priorities[j];
-				lookup_record_priority_foreach_arg->idxs[j + 1] = lookup_record_priority_foreach_arg->idxs[j];
-				memcpy(&lookup->output.entry[j + 1], &lookup->output.entry[j], sizeof(lookup->output.entry[0]));
-			}
-			lookup_record_priority_foreach_arg->priorities[i] = record_buffer->record_priority; 
-			lookup_record_priority_foreach_arg->idxs[i] = idx; 
-			break;
-		}
-	}
-	if (i == lookup_record_priority_foreach_arg->max_records) {
-		/* skip */
-		return;
-	}
-	switch (lookup->params->lookup_type) {
-	case LOOKUP_TYPE_NATIVE_A:
-	case LOOKUP_TYPE_NATIVE_AAAA:
-		strlcpy(
-		    lookup->output.entry[i].name,
-		    key,
-		    sizeof(lookup->output.entry[i].name));
-		break;
-	case LOOKUP_TYPE_NATIVE_PTR:
-		addrmask_to_revaddrstr(
-		    lookup->output.entry[i].name,
-		    sizeof(lookup->output.entry[i].name),
-		    &record_buffer->addr_mask,
-		    lookup->params->revfmt_type);
-		break;
-	default:
-		/* NOTREACHED */
-		ABORT("unexpected type of lookup");
-	}
-	lookup->output.entry[i].class = lookup->input.class;
-	lookup->output.entry[i].type = lookup->input.type;
-	lookup->output.entry[i].ttl = (unsigned long long)record_buffer->ttl;
-	lookup->output.entry[i].id = lookup->input.id;
-	lookup->output.entry[i].content = ((char *)record_buffer) + offsetof(record_buffer_t, value);
-	lookup->output.entry_count++;
-}
-
-static int
-lookup_record_priority(
-    lookup_t *lookup,
-    int64_t max_records,
-    bhash_t *target)
-{
-	int i;
-	lookup_record_priority_foreach_arg_t lookup_record_priority_foreach_arg = {
-		.lookup = lookup,
-		.max_records = max_records,
-	};
-
-	ASSERT(lookup != NULL);
-	ASSERT(max_records > 0);
-	ASSERT(target != NULL);
-	for (i = 0; i < max_records; i++) {
-		lookup_record_priority_foreach_arg.priorities[i] = INITIAL_MAX_PRIORITY; 
-	}
-	if (bhash_foreach(target, lookup_record_priority_foreach, &lookup_record_priority_foreach_arg))  {
-		LOG(LOG_LV_ERR, "failed in foreach of bhash");
-		return 1;
+	// マッチしたもののsort_valueを小さい順に並べる
+	qsort(lookup->output.entry, lookup->output.entry_count, sizeof(lookup_output_entry_t), output_entry_cmp);
+	// max_record分を超過しているものは無かったことにする
+	if (lookup->output.entry_count > max_records) {
+		lookup->output.entry_count = max_records;
 	}
 
 	return 0;
-}
-
-static void
-lookup_record_roundrobin_foreach(
-    void *foreach_cb_arg,
-    int idx,
-    const char *key,
-    size_t key_size,
-    char *value,
-    size_t value_size)
-{
-	int i;
-	lookup_record_roundrobin_foreach_arg_t *lookup_record_roundrobin_foreach_arg = foreach_cb_arg;
-	record_buffer_t *record_buffer;
-	lookup_t *lookup;
-	
-	ASSERT(lookup_record_roundrobin_foreach_arg != NULL);
-	ASSERT(lookup_record_roundrobin_foreach_arg->lookup != NULL);
-	ASSERT(idx >= 0);
-	ASSERT(key != NULL);
-	ASSERT(key_size > 0);
-	ASSERT(value != NULL);
-	ASSERT(value_size > 0);
-	// インデックスが一致するか確認
-	for (i = 0; i < lookup_record_roundrobin_foreach_arg->max_records; i++) {
-		if (idx == lookup_record_roundrobin_foreach_arg->idxs[i]) {
-			break;
-		}
-	}
-	// インデックスが一致しない場合はスキップ
-	if (i == lookup_record_roundrobin_foreach_arg->max_records) {
-		/* skip */
-		return;
-	}
-	// 一致するものがあったのでレコードの情報を記録する
-	lookup = lookup_record_roundrobin_foreach_arg->lookup;
-	record_buffer = (record_buffer_t *)value;
-	switch (lookup->params->lookup_type) {
-	case LOOKUP_TYPE_NATIVE_A:
-	case LOOKUP_TYPE_NATIVE_AAAA:
-		strlcpy(
-		    lookup->output.entry[i].name,
-		    key,
-		    sizeof(lookup->output.entry[i].name));
-		break;
-	case LOOKUP_TYPE_NATIVE_PTR:
-		addrmask_to_revaddrstr(
-		    lookup->output.entry[i].name,
-		    sizeof(lookup->output.entry[i].name),
-		    &record_buffer->addr_mask,
-		    lookup->params->revfmt_type);
-		break;
-	default:
-		/* NOTREACHED */
-		ABORT("unexpected type of lookup");
-	}
-	lookup->output.entry[i].class = lookup->input.class;
-	lookup->output.entry[i].type = lookup->input.type;
-	lookup->output.entry[i].ttl = (unsigned long long)record_buffer->ttl;
-	lookup->output.entry[i].id = lookup->input.id;
-	lookup->output.entry[i].content = ((char *)record_buffer) + offsetof(record_buffer_t, value);
-	lookup->output.entry_count++;
 }
 
 static int
@@ -1002,16 +899,16 @@ lookup_record_roundrobin_cb(
     int *need_free_accessa_status,
     int *need_rewrite_accessa_status)
 {
-	int i;
 	accessa_status_t *new_accessa_status;
 	accessa_status_t *old_accessa_status;
 	char *buffer_data = NULL;
 	lookup_record_roundrobin_cb_arg_t *lookup_record_roundrobin_cb_arg = handler_cb_arg;
 	accessa_status_group_t *accessa_status_group;
 	accessa_status_record_t *accessa_status_record;
-	lookup_record_roundrobin_foreach_arg_t lookup_record_roundrobin_foreach_arg = {
+	lookup_record_match_foreach_arg_t lookup_record_match_foreach_arg = {
 		.lookup = lookup,
-		.max_records = lookup_record_roundrobin_cb_arg->max_records,
+		.record_members_count = lookup_record_roundrobin_cb_arg->record_members_count,
+		.record_select_algorithm = lookup_record_roundrobin_cb_arg->record_select_algorithm
 	};
 
         if (shared_buffer_read(lookup->accessa->accessa_buffer, &buffer_data, NULL)) {
@@ -1054,7 +951,8 @@ lookup_record_roundrobin_cb(
 			*need_rewrite_accessa_status = 1;
 		} else {
 			new_accessa_status = old_accessa_status;
-			accessa_status_group->record_rr_idx = (accessa_status_group->record_rr_idx + 1) % lookup_record_roundrobin_cb_arg->record_members_count;
+			accessa_status_group->record_rr_idx
+			    = (accessa_status_group->record_rr_idx + 1) % lookup_record_roundrobin_cb_arg->record_members_count;
 			if (shared_buffer_set_dirty(lookup->accessa->accessa_buffer)) {
 				LOG(LOG_LV_ERR, "failed in set dirty");
 				return 1;
@@ -1062,18 +960,21 @@ lookup_record_roundrobin_cb(
 		}
 	}
 	*accessa_status = new_accessa_status;
-	// max_record分record_rr_idxを起点にレコードのインデックスを記録しておく
-	for (i = 0; i < lookup_record_roundrobin_cb_arg->max_records; i++) {
-		lookup_record_roundrobin_foreach_arg.idxs[i]
-		    = (accessa_status_group->record_rr_idx + i) % lookup_record_roundrobin_cb_arg->record_members_count;
-	}
-	// 記録したレコードインデックスの情報を引っ張り出す
+	// マッチする情報を引っ張り出す
+	// マッチ情報にはsort_valueを付与しておく
+	lookup_record_match_foreach_arg.record_rr_idx = accessa_status_group->record_rr_idx;
 	if (bhash_foreach(
 	    lookup_record_roundrobin_cb_arg->target,
-	    lookup_record_roundrobin_foreach,
-	    &lookup_record_roundrobin_foreach_arg))  {
+	    lookup_record_match_foreach,
+	    &lookup_record_match_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
+	}
+	// マッチしたもののsort_valueを小さい順に並べる
+	qsort(lookup->output.entry, lookup->output.entry_count, sizeof(lookup_output_entry_t), output_entry_cmp);
+	// max_record分を超過しているものは無かったことにする
+	if (lookup->output.entry_count > lookup_record_roundrobin_cb_arg->max_records) {
+		lookup->output.entry_count = lookup_record_roundrobin_cb_arg->max_records;
 	}
 
 	return 0;
@@ -1085,7 +986,8 @@ lookup_record_roundrobin(
     int64_t max_records,
     int64_t record_members_count,
     bhash_t *target,
-    const char *name)
+    const char *name,
+    int64_t record_select_algorithm)
 {
 	lookup_record_roundrobin_cb_arg_t lookup_record_roundrobin_cb_arg = {
 		.lookup = lookup,
@@ -1093,6 +995,7 @@ lookup_record_roundrobin(
 		.record_members_count = record_members_count,
 		.target = target,
 		.name = name,
+		.record_select_algorithm = record_select_algorithm
 	};
 
 	ASSERT(lookup != NULL);
@@ -1195,19 +1098,19 @@ lookup_record(
 	// 各アルゴリズムの処理
 	switch (record_select_algorithm) {
 	case 0: /* random */
-		if (lookup_record_random(lookup, max_records, record_members_count, &target)) {
+		if (lookup_record_basic(lookup, max_records, record_members_count, &target, record_select_algorithm)) {
 			LOG(LOG_LV_ERR, "failed in lookup record by random");
 			return 1;
 		}
 		break;
 	case 1: /* priority */
-		if (lookup_record_priority(lookup, max_records, &target)) {
+		if (lookup_record_basic(lookup, max_records, record_members_count, &target, record_select_algorithm)) {
 			LOG(LOG_LV_ERR, "failed in lookup record by priority");
 			return 1;
 		}
 		break;
 	case 2: /* roundrobin */
-		if (lookup_record_roundrobin(lookup, max_records, record_members_count, &target, name)) {
+		if (lookup_record_roundrobin(lookup, max_records, record_members_count, &target, name, record_select_algorithm)) {
 			LOG(LOG_LV_ERR, "failed in lookup record by roundrobin");
 			return 1;
 		}

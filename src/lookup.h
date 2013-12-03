@@ -30,6 +30,7 @@ struct lookup_input {
 };
 
 struct lookup_output_entry {
+	unsigned long long sort_value;
 	char name[REVADDRSTRLEN];
 	const char *class;
 	const char *type;
