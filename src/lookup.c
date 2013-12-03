@@ -928,7 +928,7 @@ lookup_record_roundrobin_cb(
 	} else {
 		old_accessa_status = (accessa_status_t *)buffer_data;
 		// statusを取り出す。
-		if (old_access_status->groups_data_size > 0 &&
+		if (old_accessa_status->groups_data_size > 0 &&
 		    lookup_accessa_status_find(
 		    &accessa_status_group,
 		    &accessa_status_record,
