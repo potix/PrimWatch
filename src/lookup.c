@@ -119,6 +119,10 @@ lookup_accessa_status_find(
 	if (accessa_status_record) {
 		*accessa_status_record = NULL;
 	}
+	if (accessa_status->groups_data_size > 0) {
+		// データが空ならすぐ戻る
+		return 0;
+	}
 	if (blist_create_wrap_bhash_data(
 	    &group_blist,
 	    ((char *)accessa_status) + offsetof(accessa_status_t, groups_data),
@@ -419,12 +423,20 @@ lookup_accessa_status_add_group(
 	ASSERT(new_accessa_status != NULL);
 	ASSERT(accessa_status != NULL);
 	ASSERT(group != NULL);
-	// クローンをつくる
-	if (blist_clone(
-	    &blist,
-	    ((char *)accessa_status) + offsetof(accessa_status_t, groups_data))) {
-		LOG(LOG_LV_ERR, "failed in clone blist of status of accessa");
-		goto fail;
+	if (accessa_status->groups_data_size == 0) {
+		// データが空なら新規
+		if (blist_create(&blist, lookup_accessa_status_group_free, NULL)) {
+			LOG(LOG_LV_ERR, "failed in create blist of status of record of accessa");
+			goto fail;
+		}
+	} else {
+		// データがあればクローンをつくる
+		if (blist_clone(
+		    &blist,
+		    ((char *)accessa_status) + offsetof(accessa_status_t, groups_data))) {
+			LOG(LOG_LV_ERR, "failed in clone blist of status of accessa");
+			goto fail;
+		}
 	}
         // 該当グループ情報を取り出す
 	group_str_size = strlen(group) + 1;
@@ -928,8 +940,7 @@ lookup_record_roundrobin_cb(
 	} else {
 		old_accessa_status = (accessa_status_t *)buffer_data;
 		// statusを取り出す。
-		if (old_accessa_status->groups_data_size > 0 &&
-		    lookup_accessa_status_find(
+		if (lookup_accessa_status_find(
 		    &accessa_status_group,
 		    &accessa_status_record,
 		    old_accessa_status,
