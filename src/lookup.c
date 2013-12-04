@@ -840,8 +840,8 @@ lookup_record_match_foreach(
 			lookup->output.entry[lookup->output.entry_count].sort_value = record_buffer->record_priority;
 			break;
 		case 2: /* roundrobin */
-			// ロンゲストマッチ + roundrobinになるようにsort_valueを調整
-			lookup->output.entry[lookup->output.entry_count].sort_value = (MAX_RECORDS * decrement_level) + ((idx + (record_members_count - record_rr_idx)) % record_members_count);
+			// ここではロンゲストマッチになるようにsort_valueを調整するだけ
+			lookup->output.entry[lookup->output.entry_count].sort_value = (MAX_RECORDS * decrement_level) + 1;
 			break;
 		case 3: /* weight */
 			/* XXXXX */
@@ -902,6 +902,7 @@ lookup_record_roundrobin_cb(
     int *need_free_accessa_status,
     int *need_rewrite_accessa_status)
 {
+	int i;
 	accessa_status_t *new_accessa_status = NULL;
 	accessa_status_t *old_accessa_status = NULL;
 	char *buffer_data = NULL;
@@ -962,8 +963,7 @@ lookup_record_roundrobin_cb(
 			}
 		} else {
 			new_accessa_status = old_accessa_status;
-			accessa_status_group->record_rr_idx
-			    = (accessa_status_group->record_rr_idx + 1) % lookup_record_roundrobin_cb_arg->record_members_count;
+			accessa_status_group->record_rr_idx++;
 			if (shared_buffer_set_dirty(lookup->accessa->accessa_buffer)) {
 				LOG(LOG_LV_ERR, "failed in set dirty");
 				return 1;
@@ -980,6 +980,14 @@ lookup_record_roundrobin_cb(
 	    &lookup_record_match_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
+	}
+	// ここで record_rr_idx をマッチ数に調整する
+	if (accessa_status_group->record_rr_idx > lookup->output.entry_count) {
+		accessa_status_group->record_rr_idx = lookup->output.entry_count;
+	}
+	// sort_valueの調整
+	for (i = 0; i < lookup->output.entry_count; i++) {
+		lookup->output.entry[i].sort_value += (i + (lookup->output.entry_count - accessa_status_group->record_rr_idx)) % lookup->output.entry_count;
 	}
 	// マッチしたもののsort_valueを小さい順に並べる
 	qsort(lookup->output.entry, lookup->output.entry_count, sizeof(lookup_output_entry_t), output_entry_cmp);
