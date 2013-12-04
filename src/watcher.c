@@ -360,8 +360,8 @@ watcher_reverse_record_foreach_cb(
 	entry->value_size = host_size;
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), host, host_size);
 	if (bhash_append(address,
-	    (char *)&addr_mask,
-	    sizeof(v4v6_addr_mask_t),
+	    (char *)addr_mask,
+	    addr_mask_size,
 	    (char *)entry,
 	    sizeof(record_buffer_t) + entry->value_size)) {
 		LOG(LOG_LV_ERR, "failed in append address (index = %s)", idx);
