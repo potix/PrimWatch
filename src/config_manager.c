@@ -30,7 +30,8 @@
 #define DEFAULT_POLLING_INTERVAL	      5
 #define DEFAULT_GROUP_PRIORITY		      1000
 #define DEFAULT_GROUP_WEIGHT		      1000
-#define DEFAULT_MAX_RECORDS	  	      3
+#define DEFAULT_MAX_FORWARD_RECORDS	      3
+#define DEFAULT_MAX_REVERSE_RECORDS	      1 
 #define DEFAULT_RECORD_SELECT_ALGORITHM      "random"
 #define DEFAULT_RECORD_SELECT_ALGORITHM_VALUE 0
 #define DEFAULT_RECORD_PREEMPT		      1
@@ -235,7 +236,10 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^defaultGroupWeight$", 1, 65535, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_integer(json_parser, "^defaultMaxRecords$", 1, 64, NULL, NULL)) {
+	if (json_parser_add_validation_integer(json_parser, "^defaultMaxForwardRecords$", 1, 64, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^defaultMaxReverseRecords$", 1, 64, NULL, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_string(json_parser, "^defaultRecordSelectAlgorithm$", 6, 10, record_select_algorithm_candidate, 4, config_manager_append_value, NULL)) {
@@ -274,7 +278,10 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_string(json_parser, "^healthCheck\\.executeScript$", 1, MAXPATHLEN, NULL, 0, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.maxRecords$", 1, MAX_RECORDS, NULL, NULL)) {
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.maxForwardRecords$", 1, MAX_RECORDS, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.maxReverseRecords$", 1, MAX_RECORDS, NULL, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.recordSelectAlgorithm$", 6, 10, record_select_algorithm_candidate, 4, config_manager_append_value, NULL)) {
@@ -289,22 +296,34 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.groupWeight$", 1, 65535, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.records\\.[0-9]+\\.matchHostname$", 1, NI_MAXHOST, NULL, 0, NULL, NULL)) {
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.forwardRecords\\.[0-9]+\\.hostname$", 1, NI_MAXHOST, NULL, 0, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.records\\.[0-9]+\\.hostname$", 1, NI_MAXHOST, NULL, 0, NULL, NULL)) {
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.forwardRecords\\.[0-9]+\\.address$", 7, INET_ADDRSTRLEN, NULL, 0, config_manager_append_addrmask, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.records\\.[0-9]+\\.address$", 7, INET_ADDRSTRLEN, NULL, 0, config_manager_append_addrmask, NULL)) {
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.forwardRecords\\.[0-9]+\\.recordPriority$", 1, 65535, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.records\\.[0-9]+\\.recordPriority$", 1, 65535, NULL, NULL)) {
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.forwardRecords\\.[0-9]+\\.recordWeight$", 1, 65535, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.records\\.[0-9]+\\.recordWeight$", 1, 65535, NULL, NULL)) {
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.forwardRecords\\.[0-9]+\\.ttl$", 1, 2592000, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.records\\.[0-9]+\\.recordWeight$", 1, 2592000, NULL, NULL)) {
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.reverseRecords\\.[0-9]+\\.hostname$", 1, NI_MAXHOST, NULL, 0, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.reverseRecords\\.[0-9]+\\.address$", 7, INET_ADDRSTRLEN, NULL, 0, config_manager_append_addrmask, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.reverseRecords\\.[0-9]+\\.recordPriority$", 1, 65535, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.reverseRecords\\.[0-9]+\\.recordWeight$", 1, 65535, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.reverseRecords\\.[0-9]+\\.ttl$", 1, 2592000, NULL, NULL)) {
 		return 1;
 	}
 
@@ -376,7 +395,10 @@ config_finish(bson *config)
 	if (bson_append_long(config, "defaultGroupWeight", DEFAULT_GROUP_WEIGHT) != BSON_OK) {
 		return 1;
 	}
-	if (bson_append_long(config, "defaultMaxRecords", DEFAULT_MAX_RECORDS) != BSON_OK) {
+	if (bson_append_long(config, "defaultMaxForwardRecords", DEFAULT_MAX_FORWARD_RECORDS) != BSON_OK) {
+		return 1;
+	}
+	if (bson_append_long(config, "defaultMaxReverseRecords", DEFAULT_MAX_REVERSE_RECORDS) != BSON_OK) {
 		return 1;
 	}
 	if (bson_append_string(config, "defaultRecordSelectAlgorithm", DEFAULT_RECORD_SELECT_ALGORITHM) != BSON_OK) {

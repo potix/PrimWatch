@@ -816,8 +816,8 @@ lookup_record_match_foreach(
 		// 逆引きは完全一致のみ
 		// アドレス構造体をチェックして、それをrevaddrフォーマットにして返す
 		memcpy(&tmp_addr_mask, &lookup->params->revaddr_mask, sizeof(tmp_addr_mask));
-		if (sizeof(tmp_addr_mask) == sizeof(record_buffer->addr_mask)
-		    && memcmp(&tmp_addr_mask, &record_buffer->addr_mask, sizeof(tmp_addr_mask)) == 0) {
+		if (key_size == sizeof(v4v6_addr_mask_t) &&
+		    memcmp(&tmp_addr_mask, key, sizeof(v4v6_addr_mask_t)) == 0) {
 			strlcpy(
 			    lookup->output.entry[lookup->output.entry_count].name,
 			    lookup->input.name,
@@ -1051,21 +1051,21 @@ lookup_record(
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
 		param = "ipv4Hostnames";
-		cnt = "ipv4RecordMembersCount";
+		cnt = "ipv4HostnameRecordMembersCount";
 		break;
 	case LOOKUP_TYPE_NATIVE_AAAA:
 		param = "ipv6Hostnames";
-		cnt = "ipv6RecordMembersCount";
+		cnt = "ipv6HostnameRecordMembersCount";
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
 		switch (lookup->params->revaddr_mask.addr.family) {
 		case AF_INET:
 			param = "ipv4Addresses";
-			cnt = "ipv4RecordMembersCount";
+			cnt = "ipv4AddressRecordMembersCount";
 			break;
 		case AF_INET6:
 			param = "ipv6Addresses";
-			cnt = "ipv6RecordMembersCount";
+			cnt = "ipv6AddressRecordMembersCount";
 			break;
 		default:
 			LOG(LOG_LV_ERR, "unsupported address family");
@@ -1084,9 +1084,23 @@ lookup_record(
 		return 1;
 	}
 	// レスポンスで返す最大レコード数を取得 
-	snprintf(path, sizeof(path), "%s.%s", name, "maxRecords");
-	if (bson_helper_itr_get_long(group_itr, &max_records, path, NULL, NULL)) {
-		LOG(LOG_LV_ERR, "failed in get max record");
+        if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_A ||
+            lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA) {
+		snprintf(path, sizeof(path), "%s.%s", name, "maxForwardRecords");
+		if (bson_helper_itr_get_long(group_itr, &max_records, path, NULL, NULL)) {
+			LOG(LOG_LV_ERR, "failed in get max record");
+			return 1;
+		}
+
+	 } else if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
+		snprintf(path, sizeof(path), "%s.%s", name, "maxReverseRecords");
+		if (bson_helper_itr_get_long(group_itr, &max_records, path, NULL, NULL)) {
+			LOG(LOG_LV_ERR, "failed in get max record");
+			return 1;
+		}
+	} else  {
+		/* NOTREACHED */
+		ABORT("unexpected type of lookup");
 		return 1;
 	}
 	// メンバより最大レコード数が多い場合、メンバの数に合わせる
