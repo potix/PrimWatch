@@ -104,6 +104,7 @@ struct reverse_record_foreach_cb_arg {
 	group_foreach_cb_arg_t *group_foreach_cb_arg;
 	bhash_t *ipv4address;
 	bhash_t *ipv6address;
+	int preempt;
 };
 
 struct root_copy_param {
@@ -309,24 +310,40 @@ watcher_reverse_record_foreach_cb(
 {
 	reverse_record_foreach_cb_arg_t *arg = reverse_record_foreach_cb_arg;
 	bson *config;
-	bhash_t *address;
+	bhash_t *health_check, *address;
+	const char *default_record_status;
 	char p[MAX_BSON_PATH_LEN];
 	char entry_buffer[MAX_RECORD_BUFFER];
 	record_buffer_t *entry;
 	const char *idx, *addr, *host;
 	size_t addr_size, host_size;
+	watcher_health_check_element_t *health_check_element;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
+	int force_down = 0;
 	
 	ASSERT(arg != NULL);
 	ASSERT(arg->group_foreach_cb_arg != NULL);
 	ASSERT(arg->group_foreach_cb_arg->config != NULL);
+	ASSERT(arg->group_foreach_cb_arg->status != NULL);
+	ASSERT(arg->group_foreach_cb_arg->health_check != NULL);
+	ASSERT(arg->group_foreach_cb_arg->default_record_status != NULL);
 	ASSERT(arg->ipv4address != NULL);
 	ASSERT(arg->ipv6address != NULL);
 	config = arg->group_foreach_cb_arg->config;
+	health_check = arg->group_foreach_cb_arg->health_check;
+	default_record_status = arg->group_foreach_cb_arg->default_record_status;
 	entry = (record_buffer_t *)&entry_buffer[0];
 	idx = bson_iterator_key(itr);
 
+	snprintf(p, sizeof(p),  "%s.forceDown", idx);
+	if (bson_helper_itr_get_bool(itr, &force_down, p, NULL, NULL )) {
+		// pass
+	}
+	if (force_down) {
+		// assume down record
+		return BSON_HELPER_FOREACH_SUCCESS;
+	}
 	snprintf(p, sizeof(p),  "%s.address", idx);
 	if (bson_helper_itr_get_string(itr, &addr, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get address (index = %s)", idx);
@@ -356,6 +373,25 @@ watcher_reverse_record_foreach_cb(
 		goto fail;
 	}
 	host_size = strlen(host) + 1;
+	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
+		LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
+		goto fail;
+	}
+	if (health_check_element == NULL) {
+		if (strcasecmp(default_record_status, "up") != 0) {
+			return BSON_HELPER_FOREACH_SUCCESS;
+		}
+	}
+	/* update valid of health check flag if record preempt is enable */
+	if (arg->preempt == 1 &&
+	    health_check_element->current_status == 1 &&
+	    health_check_element->valid == 0) {
+		health_check_element->valid = 1;
+	}
+	if (health_check_element->current_status == 0 ||
+	    health_check_element->valid == 0) {
+		return BSON_HELPER_FOREACH_SUCCESS;
+	}
 	snprintf(p, sizeof(p),  "%s.ttl", idx);
 	if (bson_helper_itr_get_long(itr, &entry->ttl, p, config, "defaultTtl")) {
 		LOG(LOG_LV_ERR, "failed in get ttl (index = %s)", idx);
@@ -483,6 +519,7 @@ watcher_group_foreach_cb(
 	reverse_record_foreach_cb_arg.group_foreach_cb_arg = group_foreach_cb_arg;
 	reverse_record_foreach_cb_arg.ipv4address = ipv4address;
 	reverse_record_foreach_cb_arg.ipv6address = ipv6address;
+	reverse_record_foreach_cb_arg.preempt = preempt;
 	// コンフィグの正引きレコード情報を読み込む
 	// この際health checkの値も考慮する
 	snprintf(p, sizeof(p),  "%s.%s", name, "forwardRecords");

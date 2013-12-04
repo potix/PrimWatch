@@ -329,6 +329,9 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.reverseRecords\\.[0-9]+\\.ttl$", 1, 2592000, NULL, NULL)) {
 		return 1;
 	}
+	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]\\.reverseRecords\\.[0-9]+\\.forceDown$", NULL, NULL)) {
+		return 1;
+	}
 
 	return 0;
 }
