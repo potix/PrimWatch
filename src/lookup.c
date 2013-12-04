@@ -799,7 +799,7 @@ lookup_record_match_foreach(
 			     && strncmp(key, tmp_name_ptr, tmp_name_size) == 0) {
 				strlcpy(
 				    lookup->output.entry[lookup->output.entry_count].name,
-				    key,
+				    lookup->input.name,
 				    sizeof(lookup->output.entry[lookup->output.entry_count].name));
 				match = 1;
 				break;
@@ -813,24 +813,17 @@ lookup_record_match_foreach(
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
 		// アドレスが一致するものを探す。
+		// 逆引きは完全一致のみ
+		// アドレス構造体をチェックして、それをrevaddrフォーマットにして返す
 		memcpy(&tmp_addr_mask, &lookup->params->revaddr_mask, sizeof(tmp_addr_mask));
-		while (1) {
-			// アドレス構造体をチェックして、それをrevaddrフォーマットにして返す
-			if (sizeof(tmp_addr_mask) == sizeof(record_buffer->addr_mask)
-			    && memcmp(&tmp_addr_mask, &record_buffer->addr_mask, sizeof(tmp_addr_mask)) == 0) {
-				addrmask_to_revaddrstr(
-				    lookup->output.entry[lookup->output.entry_count].name,
-				    sizeof(lookup->output.entry[lookup->output.entry_count].name),
-				    &record_buffer->addr_mask,
-				    lookup->params->revfmt_type);
-				match = 1;
-				break;
-			}
-			// ここで、maskを上げながらチェック
-			if (decrement_mask_b(&tmp_addr_mask)) {
-				break;
-			}
-			decrement_level++;
+		if (sizeof(tmp_addr_mask) == sizeof(record_buffer->addr_mask)
+		    && memcmp(&tmp_addr_mask, &record_buffer->addr_mask, sizeof(tmp_addr_mask)) == 0) {
+			strlcpy(
+			    lookup->output.entry[lookup->output.entry_count].name,
+			    lookup->input.name,
+			    sizeof(lookup->output.entry[lookup->output.entry_count].name));
+			match = 1;
+			break;
 		}
 		break;
 	default:

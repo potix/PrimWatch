@@ -184,8 +184,8 @@ watcher_record_foreach_cb(
 	char p[MAX_BSON_PATH_LEN];
 	char entry_buffer[MAX_RECORD_BUFFER];
 	record_buffer_t *entry;
-	const char *idx, *addr, *host;
-	size_t addr_size, host_size;
+	const char *idx, *addr, *host, *match_host = NULL;
+	size_t addr_size, host_size, match_host_size;
 	watcher_health_check_element_t *health_check_element;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
@@ -231,6 +231,18 @@ watcher_record_foreach_cb(
 		goto fail;
 	}
 	addr_size = strlen(addr) + 1;
+	snprintf(p, sizeof(p),  "%s.hostname", idx);
+	if (bson_helper_itr_get_string(itr, &host, p, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get hostname (index = %s)", idx);
+		goto fail;
+	}
+	host_size = strlen(host) + 1;
+	snprintf(p, sizeof(p),  "%s.matchHostname", idx);
+	if (bson_helper_itr_get_string(itr, &match_host, p, NULL, NULL)) {
+		/* if not found matchHostname then use hostname ad matchHostname */
+		match_host = host;
+	}
+	match_host_size = strlen(match_host) + 1;
 	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
 		LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
 		goto fail;
@@ -250,12 +262,6 @@ watcher_record_foreach_cb(
 	    health_check_element->valid == 0) {
 		return BSON_HELPER_FOREACH_SUCCESS;
 	}
-	snprintf(p, sizeof(p),  "%s.hostname", idx);
-	if (bson_helper_itr_get_string(itr, &host, p, NULL, NULL)) {
-		LOG(LOG_LV_ERR, "failed in get hostname (index = %s)", idx);
-		goto fail;
-	}
-	host_size = strlen(host) + 1;
 	snprintf(p, sizeof(p),  "%s.ttl", idx);
 	if (bson_helper_itr_get_long(itr, &entry->ttl, p, config, "defaultTtl")) {
 		LOG(LOG_LV_ERR, "failed in get ttl (index = %s)", idx);
@@ -280,8 +286,8 @@ watcher_record_foreach_cb(
 	entry->value_size = addr_size;
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), addr, addr_size);
 	if (bhash_append(hostname,
-	    host,
-	    host_size,
+	    match_host,
+	    match_host_size,
 	    (char *)entry,
 	    sizeof(record_buffer_t) + entry->value_size)) {
 		LOG(LOG_LV_ERR, "failed in append hostname (index %s)", idx);
