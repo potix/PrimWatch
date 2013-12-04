@@ -983,7 +983,7 @@ lookup_record_roundrobin_cb(
 	}
 	// ここで record_rr_idx をマッチ数に調整する
 	if (accessa_status_group->record_rr_idx > lookup->output.entry_count) {
-		accessa_status_group->record_rr_idx = lookup->output.entry_count;
+		accessa_status_group->record_rr_idx %= lookup->output.entry_count;
 	}
 	// sort_valueの調整
 	for (i = 0; i < lookup->output.entry_count; i++) {
