@@ -199,6 +199,7 @@ watcher_forward_record_foreach_cb(
 	watcher_health_check_element_t *health_check_element;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
+	int force_down = 0;
 	
 	ASSERT(arg != NULL);
 	ASSERT(arg->group_foreach_cb_arg != NULL);
@@ -214,6 +215,14 @@ watcher_forward_record_foreach_cb(
 	entry = (record_buffer_t *)&entry_buffer[0];
 	idx = bson_iterator_key(itr);
 
+	snprintf(p, sizeof(p),  "%s.forceDown", idx);
+	if (bson_helper_itr_get_bool(itr, &force_down, p, NULL, NULL )) {
+		// pass
+	}
+	if (force_down) {
+		// assume down record
+		return BSON_HELPER_FOREACH_SUCCESS;
+	}
 	snprintf(p, sizeof(p),  "%s.address", idx);
 	if (bson_helper_itr_get_string(itr, &addr, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get address (index = %s)", idx);
