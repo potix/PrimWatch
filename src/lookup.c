@@ -814,8 +814,8 @@ lookup_record_match_foreach(
 	case LOOKUP_TYPE_NATIVE_PTR:
 		// アドレスが一致するものを探す。
 		// 逆引きは完全一致のみ
-		if (key_size == sizeof(v4v6_addr_mask_t) &&
-		    memcmp(&tmp_addr_mask, key, sizeof(v4v6_addr_mask_t)) == 0) {
+		if (key_size == sizeof(lookup->params->revaddr_mask) &&
+		    memcmp(key, &lookup->params->revaddr_mask, key_size) == 0) {
 			strlcpy(
 			    lookup->output.entry[lookup->output.entry_count].name,
 			    lookup->input.name,
