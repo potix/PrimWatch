@@ -769,7 +769,6 @@ lookup_record_match_foreach(
 	lookup_t *lookup;
         char *tmp_name_ptr, tmp_name[NI_MAXHOST];
 	size_t tmp_name_size;
-        v4v6_addr_mask_t tmp_addr_mask;
 	int match = 0;
 	int64_t record_members_count, record_select_algorithm;
 	int record_rr_idx;
