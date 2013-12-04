@@ -194,8 +194,8 @@ watcher_forward_record_foreach_cb(
 	char p[MAX_BSON_PATH_LEN];
 	char entry_buffer[MAX_RECORD_BUFFER];
 	record_buffer_t *entry;
-	const char *idx, *addr, *host, *match_host = NULL;
-	size_t addr_size, host_size, match_host_size;
+	const char *idx, *addr, *host;
+	size_t addr_size, host_size;
 	watcher_health_check_element_t *health_check_element;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
@@ -243,7 +243,6 @@ watcher_forward_record_foreach_cb(
 		goto fail;
 	}
 	host_size = strlen(host) + 1;
-	match_host_size = strlen(match_host) + 1;
 	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
 		LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
 		goto fail;
@@ -276,8 +275,8 @@ watcher_forward_record_foreach_cb(
 	entry->value_size = addr_size;
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), addr, addr_size);
 	if (bhash_append(hostname,
-	    match_host,
-	    match_host_size,
+	    host,
+	    host_size,
 	    (char *)entry,
 	    sizeof(record_buffer_t) + entry->value_size)) {
 		LOG(LOG_LV_ERR, "failed in append hostname (index %s)", idx);
