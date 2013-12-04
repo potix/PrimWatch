@@ -981,10 +981,15 @@ lookup_record_roundrobin_cb(
 		return 1;
 	}
 	// ここで record_rr_idx をマッチ数に調整する
-	if (accessa_status_group->record_rr_idx > lookup->output.entry_count && lookup->output.entry_count > 0) {
-		accessa_status_group->record_rr_idx %= lookup->output.entry_count;
+	if (accessa_status_group->record_rr_idx > lookup->output.entry_count) {
+		if (lookup->output.entry_count == 0) {
+			accessa_status_group->record_rr_idx = 0;
+		} else {
+			accessa_status_group->record_rr_idx %= lookup->output.entry_count;
+		}
 	}
 	// sort_valueの調整
+	// rr_idxに近いインデックスのものが値が小さくなるように調整
 	for (i = 0; i < lookup->output.entry_count; i++) {
 		lookup->output.entry[i].sort_value += (i + (lookup->output.entry_count - accessa_status_group->record_rr_idx)) % lookup->output.entry_count;
 	}
