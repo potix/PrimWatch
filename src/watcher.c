@@ -541,6 +541,8 @@ watcher_group_foreach_cb(
 	// valid情報を新しいgroupステータスに継承
 	if (old_group_status) {
 		new_group_status.valid = old_group_status->valid;
+	} else {
+		new_group_status.valid = 1;
 	}
 	// 何もrecordがない場合はdownとみなす
 	if ((ipv4hostname_record_member_count + ipv6hostname_record_member_count
@@ -1050,6 +1052,8 @@ watcher_polling_common_add_element(
 		// valid情報を新しいhealth_checkに継承
 		if (old_health_check_element) {
 			new_health_check_element.valid = old_health_check_element->valid;
+		} else {
+			new_health_check_element.valid = 1;
 		}
 		// up/downのチェック
 		if (strcasecmp(value, "up") != 0) {
