@@ -51,6 +51,7 @@ enum watcher_target_type {
 };
 
 struct watcher_status_element {
+	// XXX delete timestamp
         time_t ts;
         int current_status;
         int valid;
@@ -62,6 +63,8 @@ struct watcher_target {
 	struct timeval polling_interval;
 	char remain_buffer[DEFAULT_IO_BUFFER_SIZE];
 	size_t remain_buffer_len;
+	// XXX old element and new element and tmp element
+	// XXX add finish flag
         bhash_t *elements;
         watcher_t *backptr;
 };
@@ -835,10 +838,12 @@ watcher_status_make(
 		LOG(LOG_LV_ERR, "failed in get default record status");
 		goto fail;
 	}
+//XXXX create new groups
 	group_foreach_cb_arg.status = status;
 	group_foreach_cb_arg.config = config;
 	group_foreach_cb_arg.health_check = health_check;
 	group_foreach_cb_arg.default_record_status = default_record_status;
+//XXXX set new groups and old groups
 	group_foreach_cb_arg.groups = groups;
 	group_foreach_cb_arg.group_preempt = group_preempt;
 	if (bson_append_start_object(status, "groups") != BSON_OK) {
@@ -861,7 +866,8 @@ watcher_status_make(
         if (bson_finish(status) != BSON_OK) {
 		goto fail;
 	}
-	// XXXX groups、 health_check, domain_map. remote_address_map -> 掃除
+//XXXX swap group to old group
+//XXXX swap new group to groups
 
 	return 0;
 
@@ -995,6 +1001,7 @@ watcher_polling_common_add_element(
     char *key,
     char *value,
     bhash_t *elements)
+//XXX arg new element and old_element
 {
 	char buffer[sizeof(map_element_t) + DEFAULT_IO_BUFFER_SIZE];
 	watcher_status_element_t new_health_check_element, *old_health_check_element = NULL;
@@ -1005,6 +1012,7 @@ watcher_polling_common_add_element(
 
 	switch (target_type) {
         case TARGET_TYPE_DOMAIN_MAP:
+// XXXX new element
 		value_size = strlen(value) + 1;
 		map_element = (map_element_t *)buffer;
 		map_element->ts = time(NULL);
@@ -1022,6 +1030,7 @@ watcher_polling_common_add_element(
 		}
 		break;
         case TARGET_TYPE_REMOTE_ADDRESS_MAP:
+// XXXX new element
 		value_size = strlen(value) + 1;
 		map_element = (map_element_t *)buffer;
 		map_element->ts = time(NULL);
@@ -1043,6 +1052,7 @@ watcher_polling_common_add_element(
 		}
 		break;
         case TARGET_TYPE_HEALTH_CHECK:
+// XXXX old delement, new element
 		key_size = strlen(key) + 1;
 		// 古いhealth_checkを取得
 		if (bhash_get(elements, (char **)&old_health_check_element, NULL, key, key_size)) {
@@ -1117,12 +1127,21 @@ watcher_polling_common_response(
 	switch (target->type) {
         case TARGET_TYPE_DOMAIN_MAP:
                 update_value = 0x01;
+		// XXX if finish flag == 1
+		// XXX create new element set tmp element
+		// XXX finish flag = 0
 		break;
         case TARGET_TYPE_REMOTE_ADDRESS_MAP:
                 update_value = 0x02;
+		// XXX if finish flag == 1
+		// XXX create new element set tmp element
+		// XXX finish flag = 0
 		break;
         case TARGET_TYPE_HEALTH_CHECK:
                 update_value = 0x04;
+		// XXX if finish flag == 1
+		// XXX create new element set tmp element
+		// XXX finish flag = 0
 		break;
 	default:
 		/* NOTREACHED */
@@ -1145,6 +1164,7 @@ watcher_polling_common_response(
 			tmp_buffer[target->remain_buffer_len] = '\0';
 			if (tmp_buffer[0] != '\0') {
 				string_kv_split_b(&kv, tmp_buffer, " \t" );
+//XXX arg new element and old_element
 				if (watcher_polling_common_add_element(
 				    target->type,
 				    kv.key,
@@ -1157,6 +1177,9 @@ watcher_polling_common_response(
 		target->remain_buffer_len = 0;
 		*exec_flag = EXEC_FL_FINISH;
 		watcher->updated |= update_value;
+		// XXXX finish flag = 1;
+		// XXX swicth new element to old element
+		// XXX swicth tmp element to new element
 	} else {
 		memcpy(tmp_buffer,
 		     target->remain_buffer,
@@ -1312,6 +1335,7 @@ watcher_create(
         if (bhash_create(&new_groups, DEFAULT_HASH_SIZE, NULL, NULL)) {
                 goto fail;
         }
+// XXXX old_element = NULL, new_element = NULL, tmp_element = NULL
 	new->shared_buffer = new_shared_buffer;
 	new->domain_map.type = TARGET_TYPE_DOMAIN_MAP;
 	new->domain_map.elements = new_domain_map;
