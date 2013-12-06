@@ -1458,6 +1458,10 @@ lookup_native(
 		LOG(LOG_LV_ERR, "failed in read shared_buffer");
 		return 1;
 	}
+	if (lookup->params->shared_buffer_data == NULL) {
+		LOG(LOG_LV_WARNING, "not status data of daemon");
+		return 0;
+	}
 	if (bson_init_finished_data(&lookup->params->status, lookup->params->shared_buffer_data, 0) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in initialize of bson");
 		return 1;
