@@ -20,7 +20,7 @@
 #include "bson_helper.h"
 #include "string_util.h"
 #include "address_util.h"
-#include "record.h"
+#include "common_struct.h"
 #include "accessa.h"
 #include "logger.h"
 #include "lookup.h"
@@ -628,6 +628,7 @@ lookup_domain_map(
 	bhash_t domain_map;
 	char *tmp_name_ptr, tmp_name[NI_MAXHOST];
         v4v6_addr_mask_t tmp_addr_mask;
+	map_element_t *map_element;
 	char *candidate_group;
 	char path[MAX_BSON_PATH_LEN];
 
@@ -651,16 +652,17 @@ lookup_domain_map(
 		tmp_name_ptr = tmp_name;
 		// domainMapからグループを取り出す
 		while (1) {
-			if (bhash_get(&domain_map, &candidate_group, NULL, tmp_name_ptr, strlen(tmp_name_ptr) + 1)) {
+			if (bhash_get(&domain_map, (char **)&map_element, NULL, tmp_name_ptr, strlen(tmp_name_ptr) + 1)) {
 				LOG(LOG_LV_ERR, "failed in get group from bhash");
 				return 1;
 			}
-			if (candidate_group == NULL) {
+			if (map_element == NULL) {
 				if (decrement_domain_b(&tmp_name_ptr)) {
 					break;
 				}
 				continue;
 			}
+			candidate_group = ((char *)map_element) + offsetof(map_element_t, value);
 			snprintf(path, sizeof(path), "groups.%s", candidate_group);
 			if (bson_helper_bson_get_itr(group_itr, &lookup->params->status, path)) {
 				LOG(LOG_LV_WARNING, "found group in domain map, but not exist group in config (%s)", candidate_group);
@@ -673,16 +675,17 @@ lookup_domain_map(
 		memcpy(&tmp_addr_mask, &lookup->params->revaddr_mask, sizeof(tmp_addr_mask));
 		// domainMapからグループを取り出す
 		while (1) {
-			if (bhash_get(&domain_map, &candidate_group, NULL, (char *)&tmp_addr_mask, sizeof(tmp_addr_mask))) {
+			if (bhash_get(&domain_map, (char **)&map_element, NULL, (char *)&tmp_addr_mask, sizeof(tmp_addr_mask))) {
 				LOG(LOG_LV_ERR, "failed in get group from bhash");
 				return 1;
 			}
-			if (candidate_group == NULL) {
+			if (map_element == NULL) {
 				if (decrement_mask_b(&tmp_addr_mask)) {
 					break;
 				}
 				continue;
 			}
+			candidate_group = ((char *)map_element) + offsetof(map_element_t, value);
 			snprintf(path, sizeof(path), "groups.%s", candidate_group);
 			if (bson_helper_bson_get_itr(group_itr, &lookup->params->status, path)) {
 				LOG(LOG_LV_WARNING, "found group in domain map, but not exist group in config (%s)", candidate_group);
@@ -706,6 +709,7 @@ lookup_remote_address_map(
 	const char *bin_data;
 	size_t bin_data_size;
 	bhash_t remote_address_map;
+	map_element_t *map_element;
         v4v6_addr_mask_t remoteaddr_mask;
 	char *candidate_group;
 	char path[MAX_BSON_PATH_LEN];
@@ -732,16 +736,17 @@ lookup_remote_address_map(
 		return 1;
 	}
 	while (1) {
-		if (bhash_get(&remote_address_map, &candidate_group, NULL, (const char *)(&remoteaddr_mask), sizeof(v4v6_addr_mask_t))) {
+		if (bhash_get(&remote_address_map, (char**)&map_element, NULL, (const char *)(&remoteaddr_mask), sizeof(v4v6_addr_mask_t))) {
 			LOG(LOG_LV_ERR, "failed in get remote address from remote address map\n");
 			return 1;
 		}
-		if (candidate_group == NULL) {
+		if (map_element == NULL) {
 			if (decrement_mask_b(&remoteaddr_mask)) {
 				break;
 			}
 			continue;
 		}
+		candidate_group = ((char *)map_element) + offsetof(map_element_t, value);
 		snprintf(path, sizeof(path), "groups.%s", candidate_group);
 		if (bson_helper_bson_get_itr(group_itr, &lookup->params->status, path)) {
 			LOG(LOG_LV_WARNING, "found group in remote address map, but not exist group in config (%s)", candidate_group);
@@ -1588,96 +1593,3 @@ lookup_output_foreach(
 
 	return 0;
 }
-	
-/*
-	memo 
-
-        { BSON_LONG, "groupMemberCount" },
-        { BSON_LONG, "groupSelectAlgorithmValue" }
-	
-	    groupselectalgorithm検索チェック
-	        random
-		    groupMembercount取得
-                    random % groupMemberCount
-		    n番目のgroup取得
-		    foreach() {
-			n番目のとき
-			    maxreocrd数
-                            record数取得
-                            record検索アルゴリズム
-				random
-                                   for (recprd数文 < 0) {
-				       random % recor数
-				   }
-				   foreach() {
-					候補番号のとき
-				   }
-			 	rr
-				   for record数　{
-				       rr_index + 1 % record数	
-				   }
-				   foreach() {
-					候補番号のとき
-				   }
-				priority
-				   foreach() {
-					priority低いのをrecord数文確保
-				   }
-				   foreach() {
-					候補番号のとき
-				   }
-				weight
-				   foreach() {
-					weight低いのをrecord数文確保
-					accessabufferのweight足しておく
-				   }
-				   foreach() {
-					候補番号のとき
-				   }
-		    }
-	        roudrobin
-		    groupMembercount取得
-                    accessabufferopen
-		    groupの情報取得
-                    groupの情報なければ新規
-                    groupのrr_idxを取得
-		    rr_idx + 1 % groupMemberCount
-		    foreach() {
-			n番目のとき
-                            record検索アルゴリズム
-		    }
-                    accessabufferclose
-	        priority
-                    foreach() {
-                        priorityが一番でかいやつ
-                            record検索アルゴリズム
-		    }
-	        weight
-                    accessabufferopen
-                    foreach {
-                       accessaのweightが一番小さいやつn番目
-                       accessaバッファになかったらあらたに追加
-                       weight足しておく
-                    }
-		    foreach() {
-			n番目のとき
-                            record検索アルゴリズム
-		    }
-                    accessabufferclose
-
-]
-	lookアップ処理
-	
-	if (shared_bufer_rwopen(accessa->accessa_buffer, ACCESSA_BUFFER_FILE_PATH)) {
-		return 1;
-	}
-	shared_bufer_read
-	現在のaccessa情報から該当エントリをピックアップ
-	
-	shared_bufer_write
-	
-	if (shared_bufer_rwopen(accessa->accessa_buffer, ACCESSA_BUFFER_FILE_PATH)) {
-		return 1;
-	}
-	
-*/

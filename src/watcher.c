@@ -24,7 +24,7 @@
 #include "string_util.h"
 #include "address_util.h"
 #include "bson_helper.h"
-#include "record.h"
+#include "common_struct.h"
 #include "logger.h"
 
 #ifndef DEFAULT_IO_BUFFER_SIZE
@@ -36,7 +36,7 @@
 
 typedef enum watcher_target_type watcher_target_type_t;
 typedef enum watcher_status_change watcher_status_change_t;
-typedef struct watcher_health_check_element watcher_health_check_element_t;
+typedef struct watcher_status_element watcher_status_element_t;
 typedef struct watcher_target watcher_target_t;
 typedef struct group_foreach_cb_arg group_foreach_cb_arg_t;
 typedef struct forward_record_foreach_cb_arg forward_record_foreach_cb_arg_t;
@@ -44,21 +44,14 @@ typedef struct reverse_record_foreach_cb_arg reverse_record_foreach_cb_arg_t;
 typedef struct root_copy_param root_copy_param_t;
 typedef struct sub_copy_param sub_copy_param_t;
 
-enum watcher_status_change {
-        STATUS_CHANGE_KEEP_DOWN = 1,
-        STATUS_CHANGE_DOWN_TO_UP,
-        STATUS_CHANGE_UP_TO_DOWN,
-        STATUS_CHANGE_KEEP_UP
-};
-
 enum watcher_target_type {
 	TARGET_TYPE_DOMAIN_MAP = 1,
 	TARGET_TYPE_REMOTE_ADDRESS_MAP,
 	TARGET_TYPE_HEALTH_CHECK
 };
 
-struct watcher_health_check_element {
-        watcher_status_change_t latest_status_change;
+struct watcher_status_element {
+        time_t ts;
         int current_status;
         int valid;
 };
@@ -77,6 +70,7 @@ struct watcher {
         watcher_target_t domain_map;
         watcher_target_t remote_address_map;
         watcher_target_t health_check;
+        bhash_t *groups;
 	struct event update_check_event;
 	struct timeval update_check_interval;
 	int updated;
@@ -90,7 +84,9 @@ struct group_foreach_cb_arg {
 	bson *status;
 	bson *config;
         bhash_t *health_check;
+	bhash_t *groups;
 	const char *default_record_status;
+	int group_preempt;
 };
 
 struct forward_record_foreach_cb_arg {
@@ -154,16 +150,9 @@ static int watcher_status_make(
     config_manager_t *config_manager,
     bhash_t *domain_map,
     bhash_t *remote_address_map,
-    bhash_t *health_check);
+    bhash_t *health_check,
+    bhash_t *groups);
 static void watcher_status_clean(bson *status);
-static void watcher_health_check_element_compare(
-    void *replace_cb_arg,
-    const char *key,
-    size_t key_size,
-    char *old_value,
-    size_t old_value_size,
-    char *new_value,
-    size_t new_value_size);
 static int watcher_update(watcher_t *watcher);
 static int watcher_polling_common_add_element(
     watcher_target_type_t target_type,
@@ -197,10 +186,15 @@ watcher_forward_record_foreach_cb(
 	record_buffer_t *entry;
 	const char *idx, *addr, *host;
 	size_t addr_size, host_size;
-	watcher_health_check_element_t *health_check_element;
+	watcher_status_element_t *health_check_element;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
 	int force_down = 0;
+	/*
+         * not return BSON_HELPER_FOREACH_ERROR
+         * then, skip record entry
+         */ 
+	int error = BSON_HELPER_FOREACH_SUCCESS;
 	
 	ASSERT(arg != NULL);
 	ASSERT(arg->group_foreach_cb_arg != NULL);
@@ -221,18 +215,17 @@ watcher_forward_record_foreach_cb(
 		// pass
 	}
 	if (force_down) {
-		// assume down record
-		return BSON_HELPER_FOREACH_SUCCESS;
+		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.address", idx);
 	if (bson_helper_itr_get_string(itr, &addr, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get address (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.addressAndMask", idx);
 	if (bson_helper_itr_get_binary(itr, (char const **)&addr_mask, &addr_mask_size, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get address and mask (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	switch (addr_mask->addr.family) {
 	case AF_INET:
@@ -244,43 +237,43 @@ watcher_forward_record_foreach_cb(
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected address family");
-		goto fail;
+		goto last;
 	}
 	addr_size = strlen(addr) + 1;
 	snprintf(p, sizeof(p),  "%s.hostname", idx);
 	if (bson_helper_itr_get_string(itr, &host, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get hostname (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	host_size = strlen(host) + 1;
 	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
 		LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	if (health_check_element == NULL) {
 		if (strcasecmp(default_record_status, "up") != 0) {
-			return BSON_HELPER_FOREACH_SUCCESS;
+			goto last;
 		}
 	}
 	/* update valid of health check flag if record preempt is enable */
-	if (arg->preempt == 1 &&
+	if (arg->preempt &&
 	    health_check_element->current_status == 1 &&
-	    health_check_element->valid == 0) {
+	    !health_check_element->valid) {
 		health_check_element->valid = 1;
 	}
 	if (health_check_element->current_status == 0 ||
-	    health_check_element->valid == 0) {
-		return BSON_HELPER_FOREACH_SUCCESS;
+	    !health_check_element->valid) {
+		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.ttl", idx);
 	if (bson_helper_itr_get_long(itr, &entry->ttl, p, config, "defaultTtl")) {
 		LOG(LOG_LV_ERR, "failed in get ttl (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.recordPriority", idx);
 	if (bson_helper_itr_get_long(itr, &entry->record_priority, p, config, "defaultRecordPriority")) {
 		LOG(LOG_LV_ERR, "failed in get record priority (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	entry->value_size = addr_size;
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), addr, addr_size);
@@ -290,16 +283,12 @@ watcher_forward_record_foreach_cb(
 	    (char *)entry,
 	    sizeof(record_buffer_t) + entry->value_size)) {
 		LOG(LOG_LV_ERR, "failed in append hostname (index %s)", idx);
-		goto fail;
+		goto last;
 	}
 
 	return BSON_HELPER_FOREACH_SUCCESS;
-fail:
-	/*
-         * not return BSON_HELPER_FOREACH_ERROR
-         * then, skip record entry
-         */ 
-	return BSON_HELPER_FOREACH_SUCCESS;
+last:
+	return error;
 }
 
 static int
@@ -317,10 +306,15 @@ watcher_reverse_record_foreach_cb(
 	record_buffer_t *entry;
 	const char *idx, *addr, *host;
 	size_t addr_size, host_size;
-	watcher_health_check_element_t *health_check_element;
+	watcher_status_element_t *health_check_element;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
 	int force_down = 0;
+	/*
+         * not return BSON_HELPER_FOREACH_ERROR
+         * then, skip record entry
+         */ 
+	int error = BSON_HELPER_FOREACH_SUCCESS;
 	
 	ASSERT(arg != NULL);
 	ASSERT(arg->group_foreach_cb_arg != NULL);
@@ -335,24 +329,23 @@ watcher_reverse_record_foreach_cb(
 	default_record_status = arg->group_foreach_cb_arg->default_record_status;
 	entry = (record_buffer_t *)&entry_buffer[0];
 	idx = bson_iterator_key(itr);
-
+	// forceDownがtrueなら無視
 	snprintf(p, sizeof(p),  "%s.forceDown", idx);
 	if (bson_helper_itr_get_bool(itr, &force_down, p, NULL, NULL )) {
 		// pass
 	}
 	if (force_down) {
-		// assume down record
-		return BSON_HELPER_FOREACH_SUCCESS;
+		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.address", idx);
 	if (bson_helper_itr_get_string(itr, &addr, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get address (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.addressAndMask", idx);
 	if (bson_helper_itr_get_binary(itr, (char const **)&addr_mask, &addr_mask_size, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get address and mask (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	switch (addr_mask->addr.family) {
 	case AF_INET:
@@ -364,43 +357,43 @@ watcher_reverse_record_foreach_cb(
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected address family");
-		goto fail;
+		goto last;
 	}
 	addr_size = strlen(addr) + 1;
 	snprintf(p, sizeof(p),  "%s.hostname", idx);
 	if (bson_helper_itr_get_string(itr, &host, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get hostname (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	host_size = strlen(host) + 1;
 	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
 		LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	if (health_check_element == NULL) {
 		if (strcasecmp(default_record_status, "up") != 0) {
-			return BSON_HELPER_FOREACH_SUCCESS;
+			goto last;
 		}
 	}
 	/* update valid of health check flag if record preempt is enable */
-	if (arg->preempt == 1 &&
+	if (arg->preempt &&
 	    health_check_element->current_status == 1 &&
-	    health_check_element->valid == 0) {
+	    !health_check_element->valid) {
 		health_check_element->valid = 1;
 	}
 	if (health_check_element->current_status == 0 ||
-	    health_check_element->valid == 0) {
-		return BSON_HELPER_FOREACH_SUCCESS;
+	    !health_check_element->valid) {
+		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.ttl", idx);
 	if (bson_helper_itr_get_long(itr, &entry->ttl, p, config, "defaultTtl")) {
 		LOG(LOG_LV_ERR, "failed in get ttl (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.recordPriority", idx);
 	if (bson_helper_itr_get_long(itr, &entry->record_priority, p, config, "defaultRecordPriority")) {
 		LOG(LOG_LV_ERR, "failed in get record priority (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 	entry->value_size = host_size;
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), host, host_size);
@@ -410,16 +403,12 @@ watcher_reverse_record_foreach_cb(
 	    (char *)entry,
 	    sizeof(record_buffer_t) + entry->value_size)) {
 		LOG(LOG_LV_ERR, "failed in append address (index = %s)", idx);
-		goto fail;
+		goto last;
 	}
 
 	return BSON_HELPER_FOREACH_SUCCESS;
-fail:
-	/*
-         * not return BSON_HELPER_FOREACH_ERROR
-         * then, skip record entry
-         */ 
-	return BSON_HELPER_FOREACH_SUCCESS;
+last:
+	return error;
 }
 
 static int
@@ -435,6 +424,7 @@ watcher_group_foreach_cb(
 	bson *config;
 	bson *status;
 	const char *name;
+	size_t name_size;
 	int64_t l;
 	int b, preempt;
 	const char *s;
@@ -444,7 +434,11 @@ watcher_group_foreach_cb(
 	bhash_t *ipv6address = NULL, *ipv6hostname = NULL;
 	char *bhash_data;
 	size_t bhash_data_size;
-	int record_member_count;
+	int ipv4address_record_member_count = 0, ipv6address_record_member_count = 0;
+	int ipv4hostname_record_member_count = 0, ipv6hostname_record_member_count = 0;
+	watcher_status_element_t new_group_status, *old_group_status;
+	int force_down = 0;
+	int error = BSON_HELPER_FOREACH_ERROR;
 
 	ASSERT(arg != NULL);
 	ASSERT(arg->config != NULL);
@@ -453,63 +447,33 @@ watcher_group_foreach_cb(
 	ASSERT(arg->default_record_status != NULL);
 	config = arg->config;
 	status = arg->status;
-	// bsonデータにconfigパラメータを追加
 	name = bson_iterator_key(itr);
-        if (bson_append_start_object(status, name) != BSON_OK) {
-		LOG(LOG_LV_ERR, "failed in start group entry object (group %s)", name);
-                goto fail;
-        }
-	group_object_start = 1;
-	if (bson_helper_itr_get_bool(itr, &preempt, "recordPreempt", config, "defaultRecordPreempt")) {
-		LOG(LOG_LV_ERR, "failed in get record preempt (group %s)", name);
-		goto fail;
+
+	// forceDownがtrueなら無視
+	snprintf(p, sizeof(p),  "%s.%s", name, "forceDown");
+	if (bson_helper_itr_get_bool(itr, &force_down, p, NULL, NULL)) {
+		// pass
 	}
-	for (i = 0; i < sizeof(group_copy_params)/sizeof(group_copy_params[0]); i++) {
-		snprintf(p, sizeof(p),  "%s.%s", name, group_copy_params[i].path);
-		switch (group_copy_params[i].bson_type) {
-		case BSON_STRING:
-			if (bson_helper_itr_get_string(itr, &s, p, config, group_copy_params[i].default_path)) {
-				LOG(LOG_LV_ERR, "failed in get %s (group %s)", group_copy_params[i].path, name);
-				goto fail;
-			}
-			bson_append_string(status, group_copy_params[i].path, s);
-			break;
-		case BSON_BOOL:
-			if (bson_helper_itr_get_bool(itr, &b, p, config, group_copy_params[i].default_path)) {
-				LOG(LOG_LV_ERR, "failed in get %s (group %s)", group_copy_params[i].path, name);
-				goto fail;
-			}
-			bson_append_bool(status, group_copy_params[i].path, b);
-			break;
-		case BSON_LONG:
-			if (bson_helper_itr_get_long(itr, &l, p, config, group_copy_params[i].default_path)) {
-				LOG(LOG_LV_ERR, "failed in get %s (group %s)", group_copy_params[i].path, name);
-				goto fail;
-			}
-			bson_append_long(status, group_copy_params[i].path, l);
-			break;
-		default:
-			/* NOTREACHED */
-			ABORT("unexpected bson type");
-			goto fail;
-		}
+	if (force_down) {
+		error = BSON_HELPER_FOREACH_SUCCESS;
+		goto last;
 	}
 	// 一時的にbitmap領域を作成
 	if (bhash_create(&ipv4address, DEFAULT_HASH_SIZE, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in create address hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	if (bhash_create(&ipv4hostname, DEFAULT_HASH_SIZE, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in create hostname hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	if (bhash_create(&ipv6address, DEFAULT_HASH_SIZE, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in create address hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	if (bhash_create(&ipv6hostname, DEFAULT_HASH_SIZE, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in create hostname hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	// コールバック引数を作る
 	forward_record_foreach_cb_arg.group_foreach_cb_arg = group_foreach_cb_arg;
@@ -525,109 +489,207 @@ watcher_group_foreach_cb(
 	snprintf(p, sizeof(p),  "%s.%s", name, "forwardRecords");
 	if (bson_helper_itr_foreach(itr, p, watcher_forward_record_foreach_cb, &forward_record_foreach_cb_arg)) {
 		LOG(LOG_LV_ERR, "failed in foreach of forward records (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	// コンフィグの逆引きレコード情報を読み込む
 	snprintf(p, sizeof(p),  "%s.%s", name, "reverseRecords");
 	if (bson_helper_itr_foreach(itr, p, watcher_reverse_record_foreach_cb, &reverse_record_foreach_cb_arg)) {
 		LOG(LOG_LV_ERR, "failed in foreach of reverse records (group %s)", name);
-		goto fail;
+		goto last;
 	}
-	/* XXXX group preempt */
-
-	// ipv4正引き用のデータを取り出す
+	// ipv4正引き用のbitmapデータを取り出す
 	if (bhash_get_bhash_data(ipv4hostname, &bhash_data, &bhash_data_size)) {
 		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
-	if (bson_append_binary(status, "ipv4Hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
-		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
-		goto fail;
-	}
-	if (bhash_get_entry_count(ipv4hostname, &record_member_count)) {
+	if (bhash_get_entry_count(ipv4hostname, &ipv4hostname_record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
-		goto fail;
+		goto last;
 	}
-	if (bson_append_long(status, "ipv4HostnameRecordMembersCount", (int64_t)record_member_count)) {
-		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
-		goto fail;
-	}
-	// ipv6正引き用のデータを取り出す
+	// ipv6正引き用のbitmapデータを取り出す
 	if (bhash_get_bhash_data(ipv6hostname, &bhash_data, &bhash_data_size)) {
 		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
-		goto fail;
+		goto last;
+	}
+	if (bhash_get_entry_count(ipv6hostname, &ipv6hostname_record_member_count)) {
+		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
+		goto last;
+	}
+        // ipv4の逆引き用のbitmapデータを取り出す
+	if (bhash_get_bhash_data(ipv4address, &bhash_data, &bhash_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
+		goto last;
+	}
+	if (bhash_get_entry_count(ipv4address, &ipv4address_record_member_count)) {
+		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
+		goto last;
+	}
+	// ipv6の逆引き用のbitmapデータを取り出す
+	if (bhash_get_bhash_data(ipv6address, &bhash_data, &bhash_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
+		goto last;
+	}
+	if (bhash_get_entry_count(ipv6address, &ipv4address_record_member_count)) {
+		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
+		goto last;
+	}
+	// 古いgroupステータスを取得
+	name_size = strlen(name) + 1;
+	if (bhash_get(arg->groups, (char **)&old_group_status, NULL, name, name_size)) {
+		// pass
+	}
+	// valid情報を新しいgroupステータスに継承
+	if (old_group_status) {
+		new_group_status.valid = old_group_status->valid;
+	}
+	// 何もrecordがない場合はdownとみなす
+	if ((ipv4hostname_record_member_count + ipv6hostname_record_member_count
+	     + ipv4address_record_member_count + ipv4address_record_member_count) == 0) {
+		new_group_status.current_status = 0;
+		new_group_status.valid = 0;
+		new_group_status.ts = time(NULL);
+	} else {
+		new_group_status.current_status = 1;
+		new_group_status.ts = time(NULL);
+	}
+	// ログ出力
+	if (old_group_status) {
+		if (old_group_status->current_status == 0 && new_group_status.current_status == 1) {
+			// DOWN TO UP
+			LOG(LOG_LV_INFO, "%s status change down to up (group)", name);
+		} else if (old_group_status->current_status == 1 && new_group_status.current_status == 0) {
+			// UP TO DOWN
+			LOG(LOG_LV_INFO, "%s status change up to down (group)", name);
+		}
+	}
+	// group_preemptが立っていて、現在のステータスがupでvalidでなければvalidとする
+	if (arg->group_preempt &&
+	    !new_group_status.valid &&
+	    new_group_status.current_status == 1) {
+		new_group_status.valid = 1;
+	}
+	// bhashに保存
+	if (bhash_replace(
+	    arg->groups,
+	    name,
+	    name_size,
+	    (char *)&new_group_status,
+	    sizeof(new_group_status),
+            NULL,
+	    NULL)) {
+		LOG(LOG_LV_INFO, "failed in replace %s entry (groups)", name);
+		goto last;
+	}
+	// groupがdownまたはvalid出なければ終了
+	if (new_group_status.current_status == 0 ||
+	    !new_group_status.valid) {
+		error = BSON_HELPER_FOREACH_SUCCESS;
+		goto last;
+	}
+	// bsonにデータを追加開始
+        if (bson_append_start_object(status, name) != BSON_OK) {
+		LOG(LOG_LV_ERR, "failed in start group entry object (group %s)", name);
+                goto last;
+        }
+	group_object_start = 1;
+	// bsonにconfigパラメータを追加
+        if (bson_append_start_object(status, name) != BSON_OK) {
+		LOG(LOG_LV_ERR, "failed in start group entry object (group %s)", name);
+                goto last;
+        }
+	group_object_start = 1;
+	if (bson_helper_itr_get_bool(itr, &preempt, "recordPreempt", config, "defaultRecordPreempt")) {
+		LOG(LOG_LV_ERR, "failed in get record preempt (group %s)", name);
+		goto last;
+	}
+	for (i = 0; i < sizeof(group_copy_params)/sizeof(group_copy_params[0]); i++) {
+		snprintf(p, sizeof(p),  "%s.%s", name, group_copy_params[i].path);
+		switch (group_copy_params[i].bson_type) {
+		case BSON_STRING:
+			if (bson_helper_itr_get_string(itr, &s, p, config, group_copy_params[i].default_path)) {
+				LOG(LOG_LV_ERR, "failed in get %s (group %s)", group_copy_params[i].path, name);
+				goto last;
+			}
+			bson_append_string(status, group_copy_params[i].path, s);
+			break;
+		case BSON_BOOL:
+			if (bson_helper_itr_get_bool(itr, &b, p, config, group_copy_params[i].default_path)) {
+				LOG(LOG_LV_ERR, "failed in get %s (group %s)", group_copy_params[i].path, name);
+				goto last;
+			}
+			bson_append_bool(status, group_copy_params[i].path, b);
+			break;
+		case BSON_LONG:
+			if (bson_helper_itr_get_long(itr, &l, p, config, group_copy_params[i].default_path)) {
+				LOG(LOG_LV_ERR, "failed in get %s (group %s)", group_copy_params[i].path, name);
+				goto last;
+			}
+			bson_append_long(status, group_copy_params[i].path, l);
+			break;
+		default:
+			/* NOTREACHED */
+			ABORT("unexpected bson type");
+			goto last;
+		}
+	}
+	// bsonに取り出したbitmapデータを保存する
+	if (bson_append_binary(status, "ipv4Hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
+		goto last;
+	}
+	if (bson_append_long(status, "ipv4HostnameRecordMembersCount", (int64_t)ipv4hostname_record_member_count)) {
+		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
+		goto last;
 	}
 	if (bson_append_binary(status, "ipv6Hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
-		goto fail;
+		goto last;
 	}
-	if (bhash_get_entry_count(ipv6hostname, &record_member_count)) {
-		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
-		goto fail;
-	}
-	if (bson_append_long(status, "ipv6HostnameRecordMembersCount", (int64_t)record_member_count)) {
+	if (bson_append_long(status, "ipv6HostnameRecordMembersCount", (int64_t)ipv6hostname_record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
-		goto fail;
-	}
-        // ipv4の逆引き用のデータを取り出す
-	if (bhash_get_bhash_data(ipv4address, &bhash_data, &bhash_data_size)) {
-		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	if (bson_append_binary(status, "ipv4Addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of  address hash to new status (group %s)", name);
-		goto fail;
+		goto last;
 	}
-	if (bhash_get_entry_count(ipv4address, &record_member_count)) {
-		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
-		goto fail;
-	}
-	if (bson_append_long(status, "ipv4AddressRecordMembersCount", (int64_t)record_member_count)) {
+	if (bson_append_long(status, "ipv4AddressRecordMembersCount", (int64_t)ipv4address_record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
-		goto fail;
-	}
-	// ipv6の逆引き用のデータを取り出す
-	if (bhash_get_bhash_data(ipv6address, &bhash_data, &bhash_data_size)) {
-		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	if (bson_append_binary(status, "ipv6Addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of  address hash to new status (group %s)", name);
-		goto fail;
+		goto last;
 	}
-	if (bhash_get_entry_count(ipv6address, &record_member_count)) {
-		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
-		goto fail;
-	}
-	if (bson_append_long(status, "ipv6AddressRecordMembersCount", (int64_t)record_member_count)) {
+	if (bson_append_long(status, "ipv6AddressRecordMembersCount", (int64_t)ipv6address_record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	// 一時的に作ったbitmap領域を削除
 	if (bhash_destroy(ipv4address)) {
 		LOG(LOG_LV_ERR, "failed in destroy address hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	if (bhash_destroy(ipv4hostname)) {
 		LOG(LOG_LV_ERR, "failed in destroy hostname hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	if (bhash_destroy(ipv6address)) {
 		LOG(LOG_LV_ERR, "failed in destroy address hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
 	if (bhash_destroy(ipv6hostname)) {
 		LOG(LOG_LV_ERR, "failed in destroy hostname hash (group %s)", name);
-		goto fail;
+		goto last;
 	}
         if (bson_append_finish_object(status) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in group entry object (group %s)", name);
-                goto fail;
+                goto last;
         }
 
 	return BSON_HELPER_FOREACH_SUCCESS;
 
-fail:
+last:
 	if (ipv4address) {
 		bhash_destroy(ipv4address);
 	}
@@ -644,7 +706,7 @@ fail:
 		bson_append_finish_object(status);
 	}
 
-	return BSON_HELPER_FOREACH_ERROR;
+	return error;
 }
 
 static int
@@ -654,7 +716,8 @@ watcher_status_make(
     config_manager_t *config_manager,
     bhash_t *domain_map,
     bhash_t *remote_address_map,
-    bhash_t *health_check) 
+    bhash_t *health_check,
+    bhash_t *groups) 
 {
 	int i;
 	bson *config;
@@ -663,13 +726,14 @@ watcher_status_make(
 	group_foreach_cb_arg_t group_foreach_cb_arg;
 	int group_object_start;
 	const char *default_record_status;
-	
+	int group_preempt;
 
 	if (status == NULL ||
 	    config_manager == NULL ||
             domain_map == NULL ||
 	    remote_address_map == NULL ||
-	    health_check == NULL) {
+	    health_check == NULL ||
+	    groups == NULL) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -762,10 +826,20 @@ watcher_status_make(
 		LOG(LOG_LV_ERR, "failed in get default record status");
 		goto fail;
 	}
+	if (bson_helper_bson_get_bool(
+	    config,
+	    &group_preempt,
+	    "groupPreempt",
+	    NULL)) {
+		LOG(LOG_LV_ERR, "failed in get default record status");
+		goto fail;
+	}
 	group_foreach_cb_arg.status = status;
 	group_foreach_cb_arg.config = config;
 	group_foreach_cb_arg.health_check = health_check;
 	group_foreach_cb_arg.default_record_status = default_record_status;
+	group_foreach_cb_arg.groups = groups;
+	group_foreach_cb_arg.group_preempt = group_preempt;
 	if (bson_append_start_object(status, "groups") != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in start group object");
 		goto fail;
@@ -786,6 +860,7 @@ watcher_status_make(
         if (bson_finish(status) != BSON_OK) {
 		goto fail;
 	}
+	// XXXX groups、 health_check, domain_map. remote_address_map -> 掃除
 
 	return 0;
 
@@ -833,7 +908,8 @@ watcher_update(
 	    watcher->config_manager,
 	    watcher->domain_map.elements,
 	    watcher->remote_address_map.elements,
-	    watcher->health_check.elements)) {
+	    watcher->health_check.elements,
+	    watcher->groups)) {
 		LOG(LOG_LV_ERR, "failed in update status");
 		goto fail;
 	}
@@ -912,37 +988,6 @@ watcher_set_polling_common(
 	return 0;
 }
 
-static void
-watcher_health_check_element_compare(
-    void *replace_cb_arg,
-    const char *key,
-    size_t key_size,
-    char *old_value,
-    size_t old_value_size,
-    char *new_value,
-    size_t new_value_size)
-{
-	watcher_health_check_element_t *old_element = (watcher_health_check_element_t *)old_value;
-	watcher_health_check_element_t *new_element = (watcher_health_check_element_t *)new_value;
-
-        // take over old valid status in case down.
-        // if preempt flag is enable, valid flag is true in shared date creating 
-        if (old_element->valid == 0) {
-		new_element->valid = 0;
-	}
-	if (old_element->current_status == 0 && new_element->current_status == 0) {
-		new_element->latest_status_change = STATUS_CHANGE_KEEP_DOWN;
-	} else if (old_element->current_status == 0 && new_element->current_status == 1) {
-		LOG(LOG_LV_INFO, "%s status change down to up", key);
-		new_element->latest_status_change = STATUS_CHANGE_DOWN_TO_UP;
-	} else if (old_element->current_status == 1 && new_element->current_status == 0) {
-		LOG(LOG_LV_INFO, "%s status change up to down", key);
-		new_element->latest_status_change = STATUS_CHANGE_UP_TO_DOWN;
-	} else if (old_element->current_status == 1 && new_element->current_status == 1) {
-		new_element->latest_status_change = STATUS_CHANGE_KEEP_UP;
-	}
-}
-
 static int
 watcher_polling_common_add_element(
     watcher_target_type_t target_type,
@@ -950,17 +995,25 @@ watcher_polling_common_add_element(
     char *value,
     bhash_t *elements)
 {
-	watcher_health_check_element_t health_check_element;
+	char buffer[sizeof(map_element_t) + DEFAULT_IO_BUFFER_SIZE];
+	watcher_status_element_t new_health_check_element, *old_health_check_element = NULL;
+	map_element_t *map_element;
 	v4v6_addr_mask_t addr_mask;
+	size_t key_size;
+	size_t value_size;
 
 	switch (target_type) {
         case TARGET_TYPE_DOMAIN_MAP:
+		value_size = strlen(value) + 1;
+		map_element = (map_element_t *)buffer;
+		map_element->ts = time(NULL);
+		memcpy(buffer + offsetof(map_element_t, value), value, value_size); 
 		if (bhash_replace(
 		    elements,
 		    key,
 		    strlen(key) + 1,
-		    value,
-		    strlen(value) + 1,
+		    buffer,
+		    sizeof(map_element_t) + value_size,
                     NULL,
 		    NULL)) {
 			LOG(LOG_LV_INFO, "failed in replace %s entry (type = %d)", key, target_type);
@@ -968,6 +1021,10 @@ watcher_polling_common_add_element(
 		}
 		break;
         case TARGET_TYPE_REMOTE_ADDRESS_MAP:
+		value_size = strlen(value) + 1;
+		map_element = (map_element_t *)buffer;
+		map_element->ts = time(NULL);
+		memcpy(buffer + offsetof(map_element_t, value), value, value_size); 
 		if (addrstr_to_addrmask_b(&addr_mask, key)) {
 			LOG(LOG_LV_INFO, "failed in convert string to address and mask %s entry (type = %d)", key, target_type);
 			return 1;
@@ -976,8 +1033,8 @@ watcher_polling_common_add_element(
 		    elements,
 		    (const char *)&addr_mask,
 		    sizeof(v4v6_addr_mask_t),
-		    value,
-		    strlen(value) + 1,
+		    buffer,
+		    sizeof(map_element_t) + value_size,
                     NULL,
 		    NULL)) {
 			LOG(LOG_LV_INFO, "failed in replace %s entry (type = %d)", key, target_type);
@@ -985,22 +1042,42 @@ watcher_polling_common_add_element(
 		}
 		break;
         case TARGET_TYPE_HEALTH_CHECK:
-		memset(&health_check_element, 0, sizeof(health_check_element));
-		if (strcasecmp(value, "up") == 0) {
-			health_check_element.current_status = 1;
-			// mayby overwrite valid in compare 
-			health_check_element.valid = 1;
-		} else {
-			health_check_element.current_status = 0;
-			health_check_element.valid = 0;
+		key_size = strlen(key) + 1;
+		// 古いhealth_checkを取得
+		if (bhash_get(elements, (char **)&old_health_check_element, NULL, key, key_size)) {
+			// pass
+                }
+		// valid情報を新しいhealth_checkに継承
+		if (old_health_check_element) {
+			new_health_check_element.valid = old_health_check_element->valid;
 		}
+		// up/downのチェック
+		if (strcasecmp(value, "up") != 0) {
+			new_health_check_element.current_status = 0;
+			new_health_check_element.valid = 0;
+			new_health_check_element.ts = time(NULL);
+		} else {
+			new_health_check_element.current_status = 1;
+			new_health_check_element.ts = time(NULL);
+		}
+		// ログ出力
+		if (old_health_check_element) {
+			if (old_health_check_element->current_status == 0 && new_health_check_element.current_status == 1) {
+				// DOWN TO UP
+				LOG(LOG_LV_INFO, "%s status change down to up (record)", key);
+			} else if (old_health_check_element->current_status == 1 && new_health_check_element.current_status == 0) {
+				// UP TO DOWN
+				LOG(LOG_LV_INFO, "%s status change up to down (record)", key);
+			}
+		}
+		//データを更新
 		if (bhash_replace(
 		    elements,
 		    key,
 		    strlen(key) + 1,
-		    (char *)&health_check_element,
-		    sizeof(health_check_element),
-		    watcher_health_check_element_compare,
+		    (char *)&new_health_check_element,
+		    sizeof(watcher_status_element_t),
+		    NULL,
                     NULL)) {
 			LOG(LOG_LV_INFO, "failed in replace %s entry of health check (type = %d)", key, target_type);
 			return 1;	
@@ -1198,6 +1275,7 @@ watcher_create(
 	bhash_t *new_domain_map = NULL;
 	bhash_t *new_remote_address_map = NULL;
 	bhash_t *new_health_check = NULL;
+	bhash_t *new_groups = NULL;
 
 	if (watcher == NULL ||
 	    event_base == NULL ||
@@ -1228,6 +1306,9 @@ watcher_create(
         if (bhash_create(&new_health_check, DEFAULT_HASH_SIZE, NULL, NULL)) {
                 goto fail;
         }
+        if (bhash_create(&new_groups, DEFAULT_HASH_SIZE, NULL, NULL)) {
+                goto fail;
+        }
 	new->shared_buffer = new_shared_buffer;
 	new->domain_map.type = TARGET_TYPE_DOMAIN_MAP;
 	new->domain_map.elements = new_domain_map;
@@ -1244,6 +1325,7 @@ watcher_create(
 	new->health_check.backptr = new;
 	new->health_check.remain_buffer[0] = '\0';
 	new->health_check.remain_buffer_len = 0;
+	new->groups = new_groups;
 	new->executor = new_executor;
 	new->event_base = event_base;
 	new->config_manager = config_manager;
@@ -1252,6 +1334,9 @@ watcher_create(
 	return 0;
 
 fail:
+	if (new_groups) {
+		bhash_destroy(new_groups);
+	}
         if (new_domain_map) {
 		bhash_destroy(new_domain_map);
         }
@@ -1283,6 +1368,9 @@ watcher_destroy(
 		errno = EINVAL;
 		return 1;
 	}
+        if (watcher->groups) {
+		bhash_destroy(watcher->groups);
+        }
         if (watcher->domain_map.elements) {
 		bhash_destroy(watcher->domain_map.elements);
         }

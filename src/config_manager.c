@@ -296,6 +296,9 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.groupWeight$", 1, 65535, NULL, NULL)) {
 		return 1;
 	}
+	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]+\\.forceDown$", NULL, NULL)) {
+		return 1;
+	}
 	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.forwardRecords\\.[0-9]+\\.hostname$", 1, NI_MAXHOST, NULL, 0, NULL, NULL)) {
 		return 1;
 	}
