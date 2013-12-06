@@ -595,11 +595,6 @@ watcher_group_foreach_cb(
         }
 	group_object_start = 1;
 	// bsonにconfigパラメータを追加
-        if (bson_append_start_object(status, name) != BSON_OK) {
-		LOG(LOG_LV_ERR, "failed in start group entry object (group %s)", name);
-                goto last;
-        }
-	group_object_start = 1;
 	if (bson_helper_itr_get_bool(itr, &preempt, "recordPreempt", config, "defaultRecordPreempt")) {
 		LOG(LOG_LV_ERR, "failed in get record preempt (group %s)", name);
 		goto last;
