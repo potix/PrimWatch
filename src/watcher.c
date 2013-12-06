@@ -510,7 +510,7 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
 		goto last;
 	}
-	if (bhash_get_entry_count(ipv6address, &ipv4address_record_member_count)) {
+	if (bhash_get_entry_count(ipv6address, &ipv6address_record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
 		goto last;
 	}
