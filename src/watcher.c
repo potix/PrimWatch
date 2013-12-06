@@ -497,36 +497,17 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in foreach of reverse records (group %s)", name);
 		goto last;
 	}
-	// ipv4正引き用のbitmapデータを取り出す
-	if (bhash_get_bhash_data(ipv4hostname, &bhash_data, &bhash_data_size)) {
-		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
-		goto last;
-	}
+	// レコードカウントの取得
 	if (bhash_get_entry_count(ipv4hostname, &ipv4hostname_record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
-		goto last;
-	}
-	// ipv6正引き用のbitmapデータを取り出す
-	if (bhash_get_bhash_data(ipv6hostname, &bhash_data, &bhash_data_size)) {
-		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
 		goto last;
 	}
 	if (bhash_get_entry_count(ipv6hostname, &ipv6hostname_record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
 		goto last;
 	}
-        // ipv4の逆引き用のbitmapデータを取り出す
-	if (bhash_get_bhash_data(ipv4address, &bhash_data, &bhash_data_size)) {
-		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
-		goto last;
-	}
 	if (bhash_get_entry_count(ipv4address, &ipv4address_record_member_count)) {
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
-		goto last;
-	}
-	// ipv6の逆引き用のbitmapデータを取り出す
-	if (bhash_get_bhash_data(ipv6address, &bhash_data, &bhash_data_size)) {
-		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
 		goto last;
 	}
 	if (bhash_get_entry_count(ipv6address, &ipv4address_record_member_count)) {
@@ -629,7 +610,12 @@ watcher_group_foreach_cb(
 			goto last;
 		}
 	}
-	// bsonに取り出したbitmapデータを保存する
+	// ipv4正引き用のbitmapデータを取り出す
+	if (bhash_get_bhash_data(ipv4hostname, &bhash_data, &bhash_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
+		goto last;
+	}
+	// bsonに取り出したipv4正引き用のbitmapデータを保存する
 	if (bson_append_binary(status, "ipv4Hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
 		goto last;
@@ -638,6 +624,12 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
 		goto last;
 	}
+	// ipv6正引き用のbitmapデータを取り出す
+	if (bhash_get_bhash_data(ipv6hostname, &bhash_data, &bhash_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of hostname hash (group %s)", name);
+		goto last;
+	}
+	// bsonに取り出したipv6正引き用のbitmapデータを保存する
 	if (bson_append_binary(status, "ipv6Hostnames", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of hostname hash to new status (group %s)", name);
 		goto last;
@@ -646,6 +638,12 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
 		goto last;
 	}
+        // ipv4の逆引き用のbitmapデータを取り出す
+	if (bhash_get_bhash_data(ipv4address, &bhash_data, &bhash_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
+		goto last;
+	}
+	// bsonに取り出したipv4逆引き用のbitmapデータを保存する
 	if (bson_append_binary(status, "ipv4Addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of  address hash to new status (group %s)", name);
 		goto last;
@@ -654,6 +652,12 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
 		goto last;
 	}
+	// ipv6の逆引き用のbitmapデータを取り出す
+	if (bhash_get_bhash_data(ipv6address, &bhash_data, &bhash_data_size)) {
+		LOG(LOG_LV_ERR, "failed in get data of address hash (group %s)", name);
+		goto last;
+	}
+	// bsonに取り出したipv6逆引き用のbitmapデータを保存する
 	if (bson_append_binary(status, "ipv6Addresses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of  address hash to new status (group %s)", name);
 		goto last;
