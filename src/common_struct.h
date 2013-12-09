@@ -12,8 +12,6 @@ struct record_buffer {
 };
 
 struct map_element {
-	// XXXX delete timestamp
-        time_t ts;
         char value[0];
 };
 

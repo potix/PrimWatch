@@ -51,8 +51,6 @@ enum watcher_target_type {
 };
 
 struct watcher_status_element {
-	// XXX delete timestamp
-        time_t ts;
         int current_status;
         int valid;
 };
@@ -63,9 +61,9 @@ struct watcher_target {
 	struct timeval polling_interval;
 	char remain_buffer[DEFAULT_IO_BUFFER_SIZE];
 	size_t remain_buffer_len;
-	// XXX old element and new element and tmp element
-	// XXX add finish flag
         bhash_t *elements;
+        bhash_t *tmp_elements;
+	int reading;
         watcher_t *backptr;
 };
 
@@ -87,9 +85,10 @@ struct group_foreach_cb_arg {
 	bson *status;
 	bson *config;
         bhash_t *health_check;
-	bhash_t *groups;
-	const char *default_record_status;
+	bhash_t *new_groups;
+	bhash_t *old_groups;
 	int group_preempt;
+	const char *default_record_status;
 };
 
 struct forward_record_foreach_cb_arg {
@@ -154,14 +153,16 @@ static int watcher_status_make(
     bhash_t *domain_map,
     bhash_t *remote_address_map,
     bhash_t *health_check,
-    bhash_t *groups);
+    bhash_t *new_groups,
+    bhash_t *old_groups);
 static void watcher_status_clean(bson *status);
 static int watcher_update(watcher_t *watcher);
 static int watcher_polling_common_add_element(
     watcher_target_type_t target_type,
     char *key,
     char *value,
-    bhash_t *elements);
+    bhash_t *new_elements,
+    bhash_t *old_elements);
 static int watcher_set_polling_common(
     watcher_t *watcher,
     watcher_target_type_t type);
@@ -439,7 +440,7 @@ watcher_group_foreach_cb(
 	size_t bhash_data_size;
 	int ipv4address_record_member_count = 0, ipv6address_record_member_count = 0;
 	int ipv4hostname_record_member_count = 0, ipv6hostname_record_member_count = 0;
-	watcher_status_element_t new_group_status, *old_group_status;
+	watcher_status_element_t new_group_status, *old_group_status = NULL;
 	int force_down = 0;
 	int error = BSON_HELPER_FOREACH_ERROR;
 
@@ -517,26 +518,25 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get count of record member (group %s)", name);
 		goto last;
 	}
-	// 古いgroupステータスを取得
 	name_size = strlen(name) + 1;
-	if (bhash_get(arg->groups, (char **)&old_group_status, NULL, name, name_size)) {
-		// pass
-	}
-	// valid情報を新しいgroupステータスに継承
-	if (old_group_status) {
-		new_group_status.valid = old_group_status->valid;
-	} else {
-		new_group_status.valid = 1;
+	// 古いgroupステータスを取得
+	new_group_status.valid = 1;
+	if (arg->old_groups) {
+		if (bhash_get(arg->old_groups, (char **)&old_group_status, NULL, name, name_size)) {
+			// pass
+		}
+		// valid情報を新しいgroupステータスに継承
+		if (old_group_status) {
+			new_group_status.valid = old_group_status->valid;
+		}
 	}
 	// 何もrecordがない場合はdownとみなす
 	if ((ipv4hostname_record_member_count + ipv6hostname_record_member_count
 	     + ipv4address_record_member_count + ipv4address_record_member_count) == 0) {
 		new_group_status.current_status = 0;
 		new_group_status.valid = 0;
-		new_group_status.ts = time(NULL);
 	} else {
 		new_group_status.current_status = 1;
-		new_group_status.ts = time(NULL);
 	}
 	// ログ出力
 	if (old_group_status) {
@@ -556,7 +556,7 @@ watcher_group_foreach_cb(
 	}
 	// bhashに保存
 	if (bhash_replace(
-	    arg->groups,
+	    arg->new_groups,
 	    name,
 	    name_size,
 	    (char *)&new_group_status,
@@ -721,7 +721,8 @@ watcher_status_make(
     bhash_t *domain_map,
     bhash_t *remote_address_map,
     bhash_t *health_check,
-    bhash_t *groups) 
+    bhash_t *new_groups,
+    bhash_t *old_groups) 
 {
 	int i;
 	bson *config;
@@ -737,7 +738,7 @@ watcher_status_make(
             domain_map == NULL ||
 	    remote_address_map == NULL ||
 	    health_check == NULL ||
-	    groups == NULL) {
+	    new_groups == NULL) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -838,13 +839,12 @@ watcher_status_make(
 		LOG(LOG_LV_ERR, "failed in get default record status");
 		goto fail;
 	}
-//XXXX create new groups
 	group_foreach_cb_arg.status = status;
 	group_foreach_cb_arg.config = config;
 	group_foreach_cb_arg.health_check = health_check;
 	group_foreach_cb_arg.default_record_status = default_record_status;
-//XXXX set new groups and old groups
-	group_foreach_cb_arg.groups = groups;
+	group_foreach_cb_arg.new_groups = new_groups;
+	group_foreach_cb_arg.old_groups = old_groups;
 	group_foreach_cb_arg.group_preempt = group_preempt;
 	if (bson_append_start_object(status, "groups") != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in start group object");
@@ -866,8 +866,6 @@ watcher_status_make(
         if (bson_finish(status) != BSON_OK) {
 		goto fail;
 	}
-//XXXX swap group to old group
-//XXXX swap new group to groups
 
 	return 0;
 
@@ -898,8 +896,13 @@ watcher_update(
 	bson status;
 	const char *data;
 	size_t data_size;
+	bhash_t *tmp_groups = NULL;
 
 	ASSERT(watcher != NULL);
+        if (bhash_create(&tmp_groups, DEFAULT_HASH_SIZE, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in create new group status");
+                goto fail;
+        }
 	if (config_manager_get_long(
 	    watcher->config_manager,
 	    &max_shared_buffer_size,
@@ -908,7 +911,6 @@ watcher_update(
 		LOG(LOG_LV_ERR, "failed in get max shared bufffer size");
 		goto fail;
 	}
-	ASSERT(watcher != NULL);
 	if (watcher_status_make(
 	    &status,
 	    max_shared_buffer_size,
@@ -916,11 +918,18 @@ watcher_update(
 	    watcher->domain_map.elements,
 	    watcher->remote_address_map.elements,
 	    watcher->health_check.elements,
-	    watcher->groups)) {
+	    tmp_groups,
+            watcher->groups)) {
 		LOG(LOG_LV_ERR, "failed in update status");
 		goto fail;
 	}
         mkstatus = 1;
+	/* switch group status */
+	if (watcher->groups) {
+		bhash_destroy(watcher->groups);
+	}
+	watcher->groups = tmp_groups;
+	/* save status data */
 	data = bson_data(&status);
 	data_size = bson_size(&status);
 	if (data_size > max_shared_buffer_size) {
@@ -949,6 +958,9 @@ fail:
 	}
 	if (mkstatus) {
 		watcher_status_clean(&status);
+	}
+	if (tmp_groups) {
+		bhash_destroy(tmp_groups);
 	}
 
 	return 1;
@@ -1000,8 +1012,8 @@ watcher_polling_common_add_element(
     watcher_target_type_t target_type,
     char *key,
     char *value,
-    bhash_t *elements)
-//XXX arg new element and old_element
+    bhash_t *new_elements,
+    bhash_t *old_elements)
 {
 	char buffer[sizeof(map_element_t) + DEFAULT_IO_BUFFER_SIZE];
 	watcher_status_element_t new_health_check_element, *old_health_check_element = NULL;
@@ -1012,13 +1024,11 @@ watcher_polling_common_add_element(
 
 	switch (target_type) {
         case TARGET_TYPE_DOMAIN_MAP:
-// XXXX new element
 		value_size = strlen(value) + 1;
 		map_element = (map_element_t *)buffer;
-		map_element->ts = time(NULL);
 		memcpy(buffer + offsetof(map_element_t, value), value, value_size); 
 		if (bhash_replace(
-		    elements,
+		    new_elements,
 		    key,
 		    strlen(key) + 1,
 		    buffer,
@@ -1030,17 +1040,15 @@ watcher_polling_common_add_element(
 		}
 		break;
         case TARGET_TYPE_REMOTE_ADDRESS_MAP:
-// XXXX new element
 		value_size = strlen(value) + 1;
 		map_element = (map_element_t *)buffer;
-		map_element->ts = time(NULL);
 		memcpy(buffer + offsetof(map_element_t, value), value, value_size); 
 		if (addrstr_to_addrmask_b(&addr_mask, key)) {
 			LOG(LOG_LV_INFO, "failed in convert string to address and mask %s entry (type = %d)", key, target_type);
 			return 1;
 		}
 		if (bhash_replace(
-		    elements,
+		    new_elements,
 		    (const char *)&addr_mask,
 		    sizeof(v4v6_addr_mask_t),
 		    buffer,
@@ -1052,26 +1060,24 @@ watcher_polling_common_add_element(
 		}
 		break;
         case TARGET_TYPE_HEALTH_CHECK:
-// XXXX old delement, new element
 		key_size = strlen(key) + 1;
 		// 古いhealth_checkを取得
-		if (bhash_get(elements, (char **)&old_health_check_element, NULL, key, key_size)) {
-			// pass
-                }
-		// valid情報を新しいhealth_checkに継承
-		if (old_health_check_element) {
-			new_health_check_element.valid = old_health_check_element->valid;
-		} else {
-			new_health_check_element.valid = 1;
+		new_health_check_element.valid = 1;
+		if (old_elements) {
+			if (bhash_get(old_elements, (char **)&old_health_check_element, NULL, key, key_size)) {
+				// pass
+			}
+			// valid情報を新しいhealth_checkに継承
+			if (old_health_check_element) {
+				new_health_check_element.valid = old_health_check_element->valid;
+			}
 		}
 		// up/downのチェック
 		if (strcasecmp(value, "up") != 0) {
 			new_health_check_element.current_status = 0;
 			new_health_check_element.valid = 0;
-			new_health_check_element.ts = time(NULL);
 		} else {
 			new_health_check_element.current_status = 1;
-			new_health_check_element.ts = time(NULL);
 		}
 		// ログ出力
 		if (old_health_check_element) {
@@ -1085,7 +1091,7 @@ watcher_polling_common_add_element(
 		}
 		//データを更新
 		if (bhash_replace(
-		    elements,
+		    new_elements,
 		    key,
 		    strlen(key) + 1,
 		    (char *)&new_health_check_element,
@@ -1127,26 +1133,24 @@ watcher_polling_common_response(
 	switch (target->type) {
         case TARGET_TYPE_DOMAIN_MAP:
                 update_value = 0x01;
-		// XXX if finish flag == 1
-		// XXX create new element set tmp element
-		// XXX finish flag = 0
 		break;
         case TARGET_TYPE_REMOTE_ADDRESS_MAP:
                 update_value = 0x02;
-		// XXX if finish flag == 1
-		// XXX create new element set tmp element
-		// XXX finish flag = 0
 		break;
         case TARGET_TYPE_HEALTH_CHECK:
                 update_value = 0x04;
-		// XXX if finish flag == 1
-		// XXX create new element set tmp element
-		// XXX finish flag = 0
 		break;
 	default:
 		/* NOTREACHED */
 		ABORT("unknown target type");
 		return;
+	}
+	if (!target->reading) {
+		if (bhash_create(&target->tmp_elements, DEFAULT_HASH_SIZE, NULL, NULL)) {
+			LOG(LOG_LV_INFO, "failed in create new hash");
+			target->tmp_elements = NULL;
+		}
+		target->reading = 1;
 	}
 	tmp_buffer[0] = '\0';
 	read_len = read(
@@ -1164,22 +1168,28 @@ watcher_polling_common_response(
 			tmp_buffer[target->remain_buffer_len] = '\0';
 			if (tmp_buffer[0] != '\0') {
 				string_kv_split_b(&kv, tmp_buffer, " \t" );
-//XXX arg new element and old_element
-				if (watcher_polling_common_add_element(
-				    target->type,
-				    kv.key,
-				    kv.value,
-				    target->elements)) {
-					LOG(LOG_LV_INFO, "failed in add element (type = %d)", target->type);
+				if (target->tmp_elements) {
+					if (watcher_polling_common_add_element(
+					    target->type,
+					    kv.key,
+					    kv.value,
+					    target->tmp_elements,
+					    target->elements)) {
+						LOG(LOG_LV_INFO, "failed in add element (type = %d)", target->type);
+					}
 				}
 			}
 		}
 		target->remain_buffer_len = 0;
 		*exec_flag = EXEC_FL_FINISH;
 		watcher->updated |= update_value;
-		// XXXX finish flag = 1;
-		// XXX swicth new element to old element
-		// XXX swicth tmp element to new element
+		// switch elements
+		target->reading = 0;
+		if (target->elements) {
+			bhash_destroy(target->elements);
+		}
+		target->elements = target->tmp_elements;
+		target->tmp_elements = NULL;
 	} else {
 		memcpy(tmp_buffer,
 		     target->remain_buffer,
@@ -1196,12 +1206,15 @@ watcher_polling_common_response(
                                 continue;
                         }
 			string_kv_split_b(&kv, line_start, " \t" );
-			if (watcher_polling_common_add_element(
-			    target->type,
-			    kv.key,
-			    kv.value,
-			    target->elements)) {
-				LOG(LOG_LV_INFO, "failed in add element (type = %d)", target->type);
+			if (target->tmp_elements) {
+				if (watcher_polling_common_add_element(
+				    target->type,
+				    kv.key,
+				    kv.value,
+				    target->tmp_elements,
+				    target->elements)) {
+					LOG(LOG_LV_INFO, "failed in add element (type = %d)", target->type);
+				}
 			}
 			line_start = line_end + 1;
 		}
@@ -1298,10 +1311,6 @@ watcher_create(
 	shared_buffer_t *new_shared_buffer = NULL;
 	int shbufopen = 0;
 	executor_t *new_executor = NULL;
-	bhash_t *new_domain_map = NULL;
-	bhash_t *new_remote_address_map = NULL;
-	bhash_t *new_health_check = NULL;
-	bhash_t *new_groups = NULL;
 
 	if (watcher == NULL ||
 	    event_base == NULL ||
@@ -1323,36 +1332,29 @@ watcher_create(
         if (executor_create(&new_executor, event_base)) {
                 goto fail;
         }
-        if (bhash_create(&new_domain_map, DEFAULT_HASH_SIZE, NULL, NULL)) {
-                goto fail;
-        }
-        if (bhash_create(&new_remote_address_map, DEFAULT_HASH_SIZE, NULL, NULL)) {
-                goto fail;
-        }
-        if (bhash_create(&new_health_check, DEFAULT_HASH_SIZE, NULL, NULL)) {
-                goto fail;
-        }
-        if (bhash_create(&new_groups, DEFAULT_HASH_SIZE, NULL, NULL)) {
-                goto fail;
-        }
-// XXXX old_element = NULL, new_element = NULL, tmp_element = NULL
 	new->shared_buffer = new_shared_buffer;
 	new->domain_map.type = TARGET_TYPE_DOMAIN_MAP;
-	new->domain_map.elements = new_domain_map;
+	new->domain_map.elements = NULL;
+	new->domain_map.tmp_elements = NULL;
 	new->domain_map.backptr = new;
 	new->domain_map.remain_buffer[0] = '\0';
 	new->domain_map.remain_buffer_len = 0;
+	new->domain_map.reading = 0;
 	new->remote_address_map.type = TARGET_TYPE_REMOTE_ADDRESS_MAP;
-	new->remote_address_map.elements = new_remote_address_map;
+	new->remote_address_map.elements = NULL;
+	new->remote_address_map.tmp_elements = NULL;
 	new->remote_address_map.backptr = new;
 	new->remote_address_map.remain_buffer[0] = '\0';
 	new->remote_address_map.remain_buffer_len = 0;
+	new->remote_address_map.reading = 0;
 	new->health_check.type = TARGET_TYPE_HEALTH_CHECK;
-	new->health_check.elements = new_health_check;
+	new->health_check.elements = NULL;
+	new->health_check.tmp_elements = NULL;
 	new->health_check.backptr = new;
 	new->health_check.remain_buffer[0] = '\0';
 	new->health_check.remain_buffer_len = 0;
-	new->groups = new_groups;
+	new->health_check.reading = 0;
+	new->groups = NULL;
 	new->executor = new_executor;
 	new->event_base = event_base;
 	new->config_manager = config_manager;
@@ -1361,18 +1363,6 @@ watcher_create(
 	return 0;
 
 fail:
-	if (new_groups) {
-		bhash_destroy(new_groups);
-	}
-        if (new_domain_map) {
-		bhash_destroy(new_domain_map);
-        }
-        if (new_remote_address_map) {
-		bhash_destroy(new_remote_address_map);
-        }
-        if (new_health_check) {
-		bhash_destroy(new_health_check);
-        }
 	if (new_executor) {
 		executor_destroy(new_executor);
 	}
