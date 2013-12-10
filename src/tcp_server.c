@@ -17,37 +17,6 @@
 #include "tcp_sock.h"
 #include "config.h"
 
-
-
-
-
-/*
- * # command:
- * #    show groups
- * #    show forwardRecords <group>
- * #    show reverseRecords <group>
- * #    valid group <group> <true|false>
- * #    valid forwardRecords <groups> <record> <true|false>
- * #    valid reverseRecords <groups> <record> <true|false>
- * #    forceDown group <group> <true|false>
- * #    forceDown forwardRecords <groups> <record> <true|false>
- * #    forceDown reverseRecords <groups> <record> <true|false>
- *
- *
- * strcasecmp(cmd_args[0], "show")
- *     strcasecmp(cmd_args[1], "groups")
- *         strcasecmp(cmd_args[1], "forwardRecords")
- *                 find_group(cmd_args[2]);
- *                     strcasecmp(cmd_args[1], "reverseRecords")
- *                             find_group(cmd_args[2]);
- *                             strcasecmp(cmd_args[0], "valid")
- *                                 strcasecmp(cmd_args[1], group)
- *                                         ...
- *                                         strcasecmp(cmd_args[0], "forceDown")
- *                                             ...
- *                                             */
-
-
 #ifndef MAX_TCP_LISTEN
 #define MAX_TCP_LISTEN 8
 #endif
@@ -67,9 +36,9 @@ typedef struct tcp_client tcp_client_t;
 typedef struct tcp_client_response tcp_client_response_t;
 
 struct tcp_client_response {
-	char result[MAX_LINE_BUFFER];
-	int result_len;
-	int write_len;
+	char *result;
+	size_t result_size;
+	size_t write_size;
 	TAILQ_ENTRY(tcp_client_response) next;
 };
 
@@ -98,9 +67,10 @@ struct tcp_listen {
 
 struct tcp_server {
 	struct event_base *event_base;
-	controller_t *controller;
 	tcp_listen_t tcp_listen[MAX_TCP_LISTEN];
 	int tcp_listen_count;
+	int (*on_recv_line_cb)(char **result, size_t *result_size, char *line, void *on_recv_line_cb_arg);
+	void *on_recv_line_cb_arg;
 };
 
 static void tcp_server_on_send(
@@ -112,23 +82,6 @@ static void tcp_server_on_recv(
     int fd,
     short event,
     void *arg);
-
-
-
-
-
-
-/* XXXXX 
- *
- *
- * paese
- * run
- *
- */
-
-
-
-
 
 static void
 set_nonblocking(
@@ -158,6 +111,7 @@ tcp_server_client_finish(
 	while(tcp_client_response) {
 		tcp_client_response_next = TAILQ_NEXT(tcp_client_response, next);
 		TAILQ_REMOVE(&tcp_client->response_head, tcp_client_response, next);
+		free(tcp_client_response->result);
 		free(tcp_client_response);
 		tcp_client_response = tcp_client_response_next;				
 	}
@@ -207,7 +161,7 @@ tcp_server_on_send(
 	tcp_client_t *tcp_client = arg;
 	tcp_listen_t *tcp_listen;
 	tcp_client_response_t *tcp_client_response;
-	int write_len;
+	int write_size;
 
 	ASSERT((event == EV_WRITE || event == EV_TIMEOUT));
 	ASSERT(arg != NULL);
@@ -221,14 +175,25 @@ tcp_server_on_send(
 	if (!tcp_client_response) {
 		return;
 	}
-	write_len = write(tcp_client->sd,
-	     &tcp_client_response->result[tcp_client_response->write_len],
-	     tcp_client_response->result_len - tcp_client_response->write_len);
-	if (write_len == 0) {
+	/* resultが空なら何もしない */
+	if (tcp_client_response->result == NULL) {
+		TAILQ_REMOVE(&tcp_client->response_head, tcp_client_response, next);
+		free(tcp_client_response);
+		if (!TAILQ_EMPTY(&tcp_client->response_head)) {
+			/* まだレスポンスデータがあるので一度WRITEする */
+			tcp_server_reset_write_event(tcp_listen, tcp_client);
+			return;
+		}
+		return;
+	}
+	write_size = write(tcp_client->sd,
+	     &tcp_client_response->result[tcp_client_response->write_size],
+	     tcp_client_response->result_size - tcp_client_response->write_size);
+	if (write_size == 0) {
 		logging(LOG_LV_INFO, "closed by peer (%m) in %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
-	} else if (write_len < 0) {
+	} else if (write_size < 0) {
 		if (errno == EAGAIN) {
 			tcp_server_reset_write_event(tcp_listen, tcp_client);
 			return;
@@ -237,9 +202,10 @@ tcp_server_on_send(
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
-	tcp_client_response->write_len += write_len;
-	if (write_len >= tcp_client_response->result_len) {
+	tcp_client_response->write_size += write_size;
+	if (write_size >= tcp_client_response->result_size) {
 		TAILQ_REMOVE(&tcp_client->response_head, tcp_client_response, next);
+		free(tcp_client_response->result);
 		free(tcp_client_response);
 		if (!TAILQ_EMPTY(&tcp_client->response_head)) {
 			/* まだレスポンスデータがあるので一度WRITEする */
@@ -295,7 +261,7 @@ tcp_server_on_recv(
 	struct timeval write_timeout;
 	char *line_ptr, *newline_ptr, *cr_ptr;
 	int line_len;
-	const char *result;
+	const char *tmp_result;
 
 	ASSERT(arg != NULL);
 	ASSERT((event == EV_READ || event == EV_TIMEOUT));
@@ -357,25 +323,30 @@ tcp_server_on_recv(
 		*cr_ptr = '\0';
 	}
 	
-/* XXXXXXXX */
-	/* parseして、実行後の結果 */
-	parse = parse(line_ptr);
-	result = run(parse);
-/* XXXXXXXX */
-
-	tcp_client_response->result_len = snprintf(tcp_client_response->result, sizeof(tcp_client_response->result), "%s\n", result); 
-	tcp_client_response->write_len = 0;
+	/* ラインparseコールバックの呼び出し */
+	tcp_client_response->write_size = 0;
+	tcp_client_response->result = NULL;
+	tcp_client_response->result_size = 0;
+	if (tcp_listen->tcp_server->on_recv_line(&tmp_result,
+	     &tcp_client_response->result_size, line_ptr, tcp_listen->tcp_server->on_recv_line_cb_args)) {
+		logging(LOG_LV_ERR, "failed in execute callback of receieved line message (%m)");
+	}
+	tcp_client_response->result = malloc(tcp_client_response->result_size);
+	if (tcp_client_response->result != NULL) {
+		memcpy(tcp_client_response->result, tmp_result, tcp_client_response->result_size);
+	}
 
 	/* 取り出した分を前につめる */
 	memmove(line_ptr, newline_ptr + 1, tcp_client->recvbuffer_len - line_len);
 	tcp_client->recvbuffer_len -= line_len;
 
 	/* レスポンス用の書き込みイベントを登録 */
-	if (!event_pending(&tcp_client->write_event, EV_WRITE, NULL)) {
+	if (tcp_client_response->result && !event_pending(&tcp_client->write_event, EV_WRITE, NULL)) {
 		event_set(&tcp_client->write_event, tcp_client->sd, EV_WRITE | EV_TIMEOUT, tcp_server_on_send, tcp_client);
 		if (event_base_set(tcp_listen->tcp_server->event_base, &tcp_client->write_event)){
 			logging(LOG_LV_ERR, "failed in set event base %m");
 			TAILQ_REMOVE(&tcp_client->response_head, tcp_client_response, next);
+			free(tcp_client_response->result);
 			free(tcp_client_response);
 			tcp_server_client_finish(tcp_client);
 			return;
@@ -383,6 +354,7 @@ tcp_server_on_recv(
 		if (event_add(&tcp_client->write_event, &write_timeout)) {
 			logging(LOG_LV_ERR, "failed in add liten event %m");
 			TAILQ_REMOVE(&tcp_client->response_head, tcp_client_response, next);
+			free(tcp_client_response->result);
 			free(tcp_client_response);
 			tcp_server_client_finish(tcp_client);
 			return;
@@ -446,7 +418,9 @@ tcp_server_start(
     controller_t *controller,
     struct event_base *event_base,
     const char *addr,
-    const char *port)
+    const char *port,
+    int (*on_recv_line_cb)(char **result, size_t *result_size, char *line, void *on_recv_line_cb_arg),
+    void *on_recv_line_cb_arg)
 {
 	tcp_server_t *new = NULL;	
 	tcp_listen_t *tcp_listen;	
@@ -538,6 +512,8 @@ tcp_server_start(
 	freeaddrinfo(res0);
 	new->controller = controller;
 	new->event_base = event_base;
+	new->on_recv_line_cb = on_recv_line_cb;
+	new->on_recv_line_cb_arg = on_recv_line_cb_arg;
 	*tcp_server = new;
 
 	return 0;
@@ -575,6 +551,7 @@ tcp_server_stop(
 			while(tcp_client_response) {
 				tcp_client_response_next = TAILQ_NEXT(tcp_client_response, next);
 				TAILQ_REMOVE(&tcp_client->response_head, tcp_client_response, next);
+				free(tcp_client_response->result);
 				free(tcp_client_response);
 				tcp_client_response = tcp_client_response_next;	
 			}

@@ -8,9 +8,9 @@ CC = gcc
 
 
 DAEMON_PROG = primwatchd
-DAEMON_SRCS = daemon_main.c string_util.c bhash.c config_manager.c json_parser.c shared_buffer.c watcher.c executor.c bson_helper.c bson/bson.c bson/encoding.c bson/numbers.c logger.c address_util.c
+DAEMON_SRCS = daemon_main.c string_util.c bhash.c config_manager.c json_parser.c shared_buffer.c watcher.c executor.c bson_helper.c bson/bson.c bson/encoding.c bson/numbers.c logger.c address_util.c controller.c tcp_server.c
 DAEMON_OBJS = $(DAEMON_SRCS:%.c=%.o)
-DAEMON_HEADERS = common_macro.h common_define.h config_manager.h bhash.h json_parser.h  string_util.h json_parser.h shared_buffer.h watcher.h executor.h bson_helper.h  bson/bson.h bson/encoding.h logger.h address_util.h record.h
+DAEMON_HEADERS = common_macro.h common_define.h config_manager.h bhash.h json_parser.h  string_util.h json_parser.h shared_buffer.h watcher.h executor.h bson_helper.h  bson/bson.h bson/encoding.h logger.h address_util.h common_struct.h controller.h tcp_server.h
 
 $(DAEMON_PROG): $(DAEMON_OBJS)
 	$(CC) $(CFLAGS) $(PROF) -o $@ $(DAEMON_OBJS) $(LIBS)

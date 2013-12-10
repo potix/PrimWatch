@@ -43,6 +43,7 @@ typedef struct forward_record_foreach_cb_arg forward_record_foreach_cb_arg_t;
 typedef struct reverse_record_foreach_cb_arg reverse_record_foreach_cb_arg_t;
 typedef struct root_copy_param root_copy_param_t;
 typedef struct sub_copy_param sub_copy_param_t;
+typedef struct watcher_status_foreach_cb_arg watcher_status_foreach_cb_arg_t;
 
 enum watcher_target_type {
 	TARGET_TYPE_DOMAIN_MAP = 1,
@@ -116,6 +117,11 @@ struct sub_copy_param {
 	const char *default_path;
 };
 
+struct watcher_status_foreach_cb_arg {
+	void (*foreach_cb)(void *foreach_cb_arg, const char *name);
+	void *foreach_cb_arg;
+};
+
 static struct root_copy_param root_copy_params[] = {
 	{ BSON_LONG, "groupMembersCount" },
 	{ BSON_STRING, "logType" },
@@ -174,6 +180,13 @@ static void watcher_polling_common_response(
 static void watcher_polling_common(int fd, short ev, void *arg);
 static int watcher_set_polling_update_check(watcher_t *watcher);
 static void watcher_polling_update_check(int fd, short ev, void *arg);
+static int watcher_status_foreach_cb(
+    void *foreach_cb_arg,
+    int idx,
+    const char *key,
+    size_t key_size,
+    char *value,
+    size_t value_size);
 
 static int
 watcher_forward_record_foreach_cb(
@@ -976,6 +989,7 @@ watcher_set_polling_common(
         const char *path = NULL;
 	int64_t interval;
 
+	ASSERT(watcher != NULL);
 	switch (target_type) {
         case TARGET_TYPE_DOMAIN_MAP:
 		target = &watcher->domain_map;
@@ -1272,6 +1286,8 @@ static int
 watcher_set_polling_update_check(
     watcher_t *watcher)
 {
+	ASSERT(watcher != NULL);
+
 	watcher->update_check_interval.tv_sec = 1;
 	evtimer_set(&watcher->update_check_event, watcher_polling_update_check, watcher);
 	event_priority_set(&watcher->update_check_event, DEFAULT_EVENT_PRIORITY + 20);
@@ -1289,6 +1305,8 @@ watcher_polling_update_check(
 {
 	watcher_t *watcher = arg;
 
+	ASSERT(watcher != NULL);
+
 	if (watcher->updated != 0) {
 		watcher_update(watcher);
 		watcher->updated = 0;
@@ -1299,6 +1317,26 @@ watcher_polling_update_check(
 		executor_waitpid(watcher->executor);
 	}
 	watcher_set_polling_update_check(watcher);
+}
+
+static int
+watcher_status_foreach_cb(
+    void *foreach_cb_arg,
+    int idx,
+    const char *key,
+    size_t key_size,
+    char *value,
+    size_t value_size)
+{
+	watcher_status_foreach_cb_arg_t *arg = foreach_cb_arg;
+
+	ASSERT(arg != NULL);
+
+	if (arg->foreach_cb(arg->foreach_cb_arg, key)) {
+		return 1;
+	}
+
+	return 0;
 }
 
 int
@@ -1455,3 +1493,176 @@ watcher_sigchild(
 	return 0;
 }
 
+int
+watcher_groups_status_foreach(
+    watcher_t *watcher,
+    void (*foreach_cb)(void *foreach_cb_arg, const char *name),
+    void *foreach_cb_arg)
+{
+	watcher_status_foreach_cb_arg_t watcher_status_foreach_cb_arg;
+	watcher_status_foreach_cb_arg.foreach_cb = foreach_cb;
+	watcher_status_foreach_cb_arg.foreach_cb_arg = foreach_cb_arg;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	if (bhash_foreach(watcher->groups, watcher_status_foreach_cb, &watcher_status_foreach_cb_arg)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+int
+watcher_healths_status_foreach(
+    watcher_t *watcher,
+    void (*foreach_cb)(void *foreach_cb_arg, const char *name),
+    void *foreach_cb_arg)
+{
+	watcher_status_foreach_cb_arg_t watcher_status_foreach_cb_arg;
+	watcher_status_foreach_cb_arg.foreach_cb = foreach_cb;
+	watcher_status_foreach_cb_arg.foreach_cb_arg = foreach_cb_arg;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	if (bhash_foreach(watcher->health_check.elements, watcher_status_foreach_cb, watcher_status_foreach_cb_arg)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+int
+watcher_get_group(
+    watcher_t *watcher,
+    const char *name,
+    int *current_status,
+    int *valid)
+{
+	size_t name_size;
+	watcher_status_element_t *group_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->groups, (char **)&group_status, NULL, name, name_size)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+int
+watcher_get_health(
+    watcher_t *watcher,
+    const char *name,
+    int *current_status,
+    int *valid)
+{
+	size_t name_size;
+	watcher_status_element_t *health_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->health_check.elements, (char **)&health_status, NULL, name, name_size)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+int
+watcher_update_group_status(
+    watcher_t *watcher,
+    const char *name,
+    int current_status)
+{
+	size_t name_size;
+	watcher_status_element_t *group_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->groups, (char **)&group_status, NULL, name, name_size)) {
+		return 1;
+	}
+	group_status->current_status = 1;
+
+	return 0;
+}
+
+int
+watcher_update_health_status(
+    watcher_t *watcher,
+    const char *name,
+    int current_status)
+{
+	size_t name_size;
+	watcher_status_element_t *health_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->health_check.elements, (char **)&health_status, NULL, name, name_size)) {
+		return 1;
+	}
+	health_status->current_status = 1;
+
+	return 0;
+}
+
+int
+watcher_update_group_valid(
+    watcher_t *watcher,
+    const char *name,
+    int valid)
+{
+	size_t name_size;
+	watcher_status_element_t *group_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->groups, (char **)&group_status, NULL, name, name_size)) {
+		return 1;
+	}
+	group_status->valid = 1;
+
+	return 0;
+}
+
+int
+watcher_update_health_valid(
+    watcher_t *watcher,
+    const char *name,
+    int valid)
+{
+	size_t name_size;
+	watcher_status_element_t *health_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->health_check.elements, (char **)&health_status, NULL, name, name_size)) {
+		return 1;
+	}
+	health_status->valid = 1;
+
+	return 0;
+}

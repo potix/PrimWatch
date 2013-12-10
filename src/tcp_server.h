@@ -9,10 +9,11 @@ typedef struct tcp_server tcp_server_t;
  */ 
 int tcp_server_start(
     tcp_server_t **tcp_server,
-    controller_t *controller,
     struct event_base *event_base,
     const char *addr,
-    const char *port);
+    const char *port,
+    int (*on_recv_line_cb)(char **result, size_t *result_len, char *line, void *on_recv_line_cb_arg),
+    void *on_recv_line_cb_arg);
 
 /*
  *  tcpサーバーを止める
