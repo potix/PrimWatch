@@ -307,7 +307,7 @@ main(int argc, char *argv[]) {
 		goto last;
 	}
 	if (controller_start(primwatch.controller)) {
-		LOG(LOG_LV_ERR, "failed in initial polling");
+		LOG(LOG_LV_ERR, "failed in start controller");
 		ret = EX_OSERR;
 		goto last;
 	}

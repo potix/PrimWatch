@@ -428,8 +428,8 @@ controller_start(
 		return 1;
 	}
 
-	if (tcp_server_start(&controller->tcp_server,
-	    controller->event_base, "127.0.0.1", "50000", controller_on_recv_line, controller)) {
+	if (tcp_server_start(&controller->tcp_server, controller->event_base,
+	     SERVER_HOST, SERVER_PORT, controller_on_recv_line, controller)) {
 		return 1;
 	}
 
