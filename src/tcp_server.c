@@ -314,8 +314,9 @@ tcp_server_on_recv(
 	*newline_ptr = '\0';
 	line_ptr = &tcp_client->recvbuffer[0];
 	line_len = newline_ptr + 1 - &tcp_client->recvbuffer[0];
-	if ((cr_ptr = strchr(line_ptr, '\r')) != NULL) {
+	if ((cr_ptr = strstr(line_ptr, "\r\n")) != NULL) {
 		*cr_ptr = '\0';
+		*(cr_ptr + 1) = '\0';
 	}
 	
 	/* ラインparseコールバックの呼び出し */
