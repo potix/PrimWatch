@@ -472,7 +472,7 @@ tcp_server_start(
 			LOG(LOG_LV_ERR, "failed in setsockopt %m");
 			continue;
 		}
-		if (setsockopt(sd, SOL_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay))) {
+		if (setsockopt(sd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay))) {
 			LOG(LOG_LV_ERR, "failed in setsockopt %m");
 			continue;
 		}
