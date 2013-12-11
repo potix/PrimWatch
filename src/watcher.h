@@ -24,12 +24,12 @@ int watcher_sigchild(
 
 int watcher_groups_status_foreach(
     watcher_t *watcher,
-    void (*foreach_cb)(void *foreach_cb_arg, const char *name, int current_status, int valid),
+    void (*foreach_cb)(void *foreach_cb_arg, const char *name),
     void *foreach_cb_arg);
 
 int watcher_healths_status_foreach(
     watcher_t *watcher,
-    void (*foreach_cb)(void *foreach_cb_arg, const char *name, int current_status, int valid),
+    void (*foreach_cb)(void *foreach_cb_arg, const char *name),
     void *foreach_cb_arg);
 
 int watcher_get_group(

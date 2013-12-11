@@ -11,21 +11,12 @@
 #include <fcntl.h>
 #include <event.h>
 
-#include "debug.h"
+#include "common_define.h"
+#include "common_macro.h"
 #include "logger.h"
 #include "controller.h"
 #include "tcp_sock.h"
 #include "config.h"
-
-#ifndef MAX_TCP_LISTEN
-#define MAX_TCP_LISTEN 8
-#endif
-#ifndef READ_TIMEOUT
-#define READ_TIMEOUT 60
-#endif
-#ifndef WRITE_TIMEOUT
-#define WRITE_TIMEOUT 60
-#endif
 
 #define READ_EVENT 0x01
 #define WRITE_EVENT 0x02

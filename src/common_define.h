@@ -16,5 +16,17 @@
 #ifndef MAX_RECORDS
 #define MAX_RECORDS 32
 #endif
+#ifndef MAX_LINE_BUFFER
+#define MAX_LINE_BUFFER 2048
+#endif
+#ifndef MAX_TCP_LISTEN
+#define MAX_TCP_LISTEN 8
+#endif
+#ifndef READ_TIMEOUT
+#define READ_TIMEOUT 60
+#endif
+#ifndef WRITE_TIMEOUT
+#define WRITE_TIMEOUT 60
+#endif
 
 #endif

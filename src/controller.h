@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#define MAX_LINE_BUFFER 2048
+typedef struct controller controller_t;
 
 int controller_create(
     controller_t **controller,

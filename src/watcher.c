@@ -180,7 +180,7 @@ static void watcher_polling_common_response(
 static void watcher_polling_common(int fd, short ev, void *arg);
 static int watcher_set_polling_update_check(watcher_t *watcher);
 static void watcher_polling_update_check(int fd, short ev, void *arg);
-static int watcher_status_foreach_cb(
+static void watcher_status_foreach_cb(
     void *foreach_cb_arg,
     int idx,
     const char *key,
@@ -1319,7 +1319,7 @@ watcher_polling_update_check(
 	watcher_set_polling_update_check(watcher);
 }
 
-static int
+static void
 watcher_status_foreach_cb(
     void *foreach_cb_arg,
     int idx,
@@ -1331,12 +1331,10 @@ watcher_status_foreach_cb(
 	watcher_status_foreach_cb_arg_t *arg = foreach_cb_arg;
 
 	ASSERT(arg != NULL);
+	ASSERT(arg->foreach_cb != NULL);
+	ASSERT(arg->foreach_cb_arg != NULL);
 
-	if (arg->foreach_cb(arg->foreach_cb_arg, key)) {
-		return 1;
-	}
-
-	return 0;
+	arg->foreach_cb(arg->foreach_cb_arg, key);
 }
 
 int
@@ -1528,7 +1526,7 @@ watcher_healths_status_foreach(
 		errno = EINVAL;
 		return 1;
 	}
-	if (bhash_foreach(watcher->health_check.elements, watcher_status_foreach_cb, watcher_status_foreach_cb_arg)) {
+	if (bhash_foreach(watcher->health_check.elements, watcher_status_foreach_cb, &watcher_status_foreach_cb_arg)) {
 		return 1;
 	}
 
