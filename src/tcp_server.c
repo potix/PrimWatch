@@ -428,7 +428,7 @@ tcp_server_start(
 	char hbuf[NI_MAXHOST];
 	char sbuf[NI_MAXSERV];
 
-	if (tcp_server == NULL || port == NULL || *port == '\0') {
+	if (tcp_server == NULL || port == NULL || *port == '\0' || on_recv_line_cb == NULL) {
 		errno = EINVAL;
 		return 1;
 	}

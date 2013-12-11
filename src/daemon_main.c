@@ -17,6 +17,7 @@
 #include "string_util.h"
 #include "config_manager.h"
 #include "watcher.h"
+#include "controller.h"
 #include "logger.h"
 
 #ifndef DEFAULT_PRIMWATCH_CONFIG_FILE_PATH 
@@ -37,6 +38,7 @@ struct primwatch {
 	int foreground;
 	const char *config_file;
 	watcher_t *watcher;
+	controller_t *controller;
 	config_manager_t *config_manager;
 };
 
@@ -81,7 +83,14 @@ primwatch_event_initialize(
             &primwatch->watcher,
             primwatch->event_base,
             primwatch->config_manager)) {
-		fprintf(stderr, "can not create shared buffer instance\n");
+		fprintf(stderr, "can not create wathcer instance\n");
+		return 1;
+	} 
+	if (controller_create(
+            &primwatch->controller,
+            primwatch->event_base,
+	    primwatch->watcher)) {
+		fprintf(stderr, "can not create controller instance\n");
 		return 1;
 	} 
 
@@ -92,6 +101,9 @@ static void
 primwatch_finalize(
     primwatch_t *primwatch)
 {
+	if (primwatch->controller) {
+		controller_destroy(primwatch->controller);
+	}
 	if (primwatch->watcher) {
 		watcher_destroy(primwatch->watcher);
 	}
@@ -111,6 +123,9 @@ primwatch_terminate(
 {
 	primwatch_t *primwatch = args;
 
+	if (controller_stop(primwatch->controller)) {
+		LOG(LOG_LV_WARNING, "failed in stop controller");
+	}
 	if (watcher_polling_stop(primwatch->watcher)) {
 		LOG(LOG_LV_WARNING, "failed in stop polling");
 	}
@@ -287,6 +302,11 @@ main(int argc, char *argv[]) {
 		goto last;
 	}
 	if (watcher_polling_start(primwatch.watcher)) {
+		LOG(LOG_LV_ERR, "failed in initial polling");
+		ret = EX_OSERR;
+		goto last;
+	}
+	if (controller_start(primwatch.controller)) {
 		LOG(LOG_LV_ERR, "failed in initial polling");
 		ret = EX_OSERR;
 		goto last;
