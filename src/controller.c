@@ -151,24 +151,24 @@ controller_execute_command(
 		err_msg = "too many arguments";
 		goto fail;
 	}
-	if (strcasecmp(parse_cmd->args[0],"show")) {
+	if (strcasecmp(parse_cmd->args[0], "show") == 0) {
 		if (parse_cmd->arg_size < 2) {
 			err_msg = "too few arguments";
 			goto fail;
 		}
-		if (strcasecmp(parse_cmd->args[1],"groups")) {
+		if (strcasecmp(parse_cmd->args[1], "groups") == 0) {
 			if (watcher_groups_status_foreach(controller->watcher, controller_groups_status_foreach_cb, controller)) {
 				err_msg = "failed in gather status of groups";
 				goto fail;
 			}
 			controller->result_real_size += 1;
-		} else if (strcasecmp(parse_cmd->args[1],"healths")) {
+		} else if (strcasecmp(parse_cmd->args[1], "healths") == 0) {
 			if (watcher_healths_status_foreach(controller->watcher, controller_healths_status_foreach_cb, controller)) {
 				err_msg = "failed in gather status of healths";
 				goto fail;
 			}
 			controller->result_real_size += 1;
-		} else if (strcasecmp(parse_cmd->args[1],"group")) {
+		} else if (strcasecmp(parse_cmd->args[1], "group") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
 				goto fail;
@@ -179,7 +179,7 @@ controller_execute_command(
 			}
 			snprintf(controller->result, controller->result_size, "OK group=%s, status=%s, valid=%s\n",
 			    parse_cmd->args[2], (current_status) ? "up":"down", (valid) ? "true":"false");
-		} else if (strcasecmp(parse_cmd->args[1],"health")) {
+		} else if (strcasecmp(parse_cmd->args[1], "health") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
 				goto fail;
@@ -194,17 +194,17 @@ controller_execute_command(
 			err_msg = "unexpected command";
 			goto fail;
 		}
-	} else if (strcasecmp(parse_cmd->args[0],"set")) {
+	} else if (strcasecmp(parse_cmd->args[0], "set") == 0) {
 		if (parse_cmd->arg_size < 2) {
 			err_msg = "too few arguments";
 			goto fail;
 		}
-		if (strcasecmp(parse_cmd->args[1],"status")) {
+		if (strcasecmp(parse_cmd->args[1], "status") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
 				goto fail;
 			}
-			if (strcasecmp(parse_cmd->args[2],"group")) {
+			if (strcasecmp(parse_cmd->args[2], "group") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
@@ -223,7 +223,7 @@ controller_execute_command(
 				}
 				snprintf(controller->result, controller->result_size,
 				    "OK group=%s status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
-			} else if (strcasecmp(parse_cmd->args[2],"health")) {
+			} else if (strcasecmp(parse_cmd->args[2], "health") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
@@ -246,12 +246,12 @@ controller_execute_command(
 				err_msg = "unexpected command";
 				goto fail;
 			}
-		} else if (strcasecmp(parse_cmd->args[1],"valid")) {
+		} else if (strcasecmp(parse_cmd->args[1], "valid") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
 				goto fail;
 			}
-			if (strcasecmp(parse_cmd->args[2],"group")) {
+			if (strcasecmp(parse_cmd->args[2], "group") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
@@ -270,7 +270,7 @@ controller_execute_command(
 				}
 				snprintf(controller->result, controller->result_size,
 				    "OK group=%s valid=%s\n", parse_cmd->args[3], (valid) ? "true":"false");
-			} else if (strcasecmp(parse_cmd->args[2],"health")) {
+			} else if (strcasecmp(parse_cmd->args[2], "health") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
