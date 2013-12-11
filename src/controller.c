@@ -5,7 +5,7 @@
 #include "watcher.h"
 #include "tcp_server.h"
 
-#define DEFAULT_BUFER_SIZE 65553
+#define DEFAULT_BUFER_SIZE (NI_MAXHOST + INET6_ADDRSTRLEN + MAX_LINE_BUFFER + 1024)
 
 struct controller {
 	struct event_base *event_base;
@@ -16,31 +16,99 @@ struct controller {
 	size_t result_real_size;
 };
 
-static int controller_status_foreach(
+static int controller_glow_result_buffer(
+    controller_t *controller,
+     size_t lacked_size);
+static int controller_groups_status_foreach_cb(
     void *foreach_cb_arg,
-    const char *name,
-    int current_status,
-    int valid);
-
+    const char *name);
+static int controller_health_status_foreach_cb(
+    void *foreach_cb_arg,
+    const char *name);
+static void controller_execute_command(
+    controller_t *controller
+    parse_cmd_t *parse_cmd);
+static int controller_on_recv_line(
+    char **result,
+    size_t *result_size,
+    char *line,
+    void *on_recv_line_cb_arg);
 
 static int
-controller_glow_result(
-   // XXXX)
+controller_glow_result_buffer(
+    controller_t *controller,
+     size_t lacked_size)
 {
+	void *new_mem;
+	void *old_mem;
+	size_t new_size;
 
+	ASSERT(controller != NULL);
+	ASSERT(lacked_size > 0);
 
+	new_size = (controller->result_size + lacked_size) * 2;
+	new_mem = realloc(controller->result, new_size);
+	if (new_mem == NULL) {
+		LOG(LOG_LV_ERR, "failed in reallocate memory of result buffer");
+		return 1;
+	}
+	controller->result = new_mem;
+	controller->result_size = new_size;
+	
+	return 0;
 }
 
-
 static int
-controller_status_foreach(
+controller_groups_status_foreach_cb(
     void *foreach_cb_arg,
     const char *name)
 {
-	//xxxxx
+	controller_t *controller = foreach_cb_arg;
+
+	ASSERT(controller != NULL);
+
+	wlen = snprintf(controller->result, controller->result_size, "OK groups:\n");
+	controller->result_real_size += wlen;
+	for (i = 0; i < parse_cmd->arg_size; i++) {
+		need_len = controller->result_real_size + strlen(parse_cmd->arg[i]) + 2;
+		if (need_len > controller->result_size) {
+			if (controller_glow_result_buffer(controller, need_len - controller->result_size)) {
+				LOG(LOG_LV_ERR, "failed in glow buffer of result");
+			}
+		}
+		wlen = snprintf(&controller->result[controller->result_real_size],
+		    controller->result_size - controller->result_real_size, " %s", parse_cmd->arg[i]);
+		controller->result_real_size += wlen;
+	}
+	controller->result_real_size += 1;
 
 } 
 
+static int
+controller_health_status_foreach_cb(
+    void *foreach_cb_arg,
+    const char *name)
+{
+	controller_t *controller = foreach_cb_arg;
+
+	ASSERT(controller != NULL);
+
+	if (controller->result_real_size == 0) {
+		wlen = snprintf(controller->result, controller->result_size, "OK health:\n");
+		controller->result_real_size += wlen;
+	}
+	for (i = 0; i < parse_cmd->arg_size; i++) {
+		need_len = controller->result_real_size + strlen(name) + 6 /* space * 4 + newline + termination */;
+		if (need_len > controller->result_size) {
+			if (controller_glow_result_buffer(controller, need_len - controller->result_size)) {
+				LOG(LOG_LV_ERR, "failed in glow buffer of result");
+			}
+		}
+		wlen = snprintf(&controller->result[controller->result_real_size],
+		    controller->result_size - controller->result_real_size, "    %s\n", name);
+		controller->result_real_size += wlen;
+	}
+} 
 
 /*
  *command:
@@ -53,12 +121,19 @@ controller_status_foreach(
  *    set valid group <group> <true|false>
  *    set valid health <address> <true|false>
  */
-void
-controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
+static void
+controller_execute_command(
+    controller_t *controller
+    parse_cmd_t *parse_cmd)
 {
 	const char *err_msg = NULL;
 	size_t msg_size;
 	int wlen;
+	int current_status = 0;
+	int valid = 0;
+
+	ASSERT(controller != NULL);
+	ASSERT(parse_cmd != NULL);
 
 	if (parse_cmd->arg_size > 5) {
 		err_msg = "too many arguments";
@@ -70,15 +145,17 @@ controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
 			goto fail;
 		}
 		if (strcasecmp(parse_cmd->arg[1],"groups")) {
-			if (watcher_groups_status_foreach(controller->watcher, controller_status_foreach, controller)) {
+			if (watcher_groups_status_foreach(controller->watcher, controller_group_status_foreach_cb, controller)) {
 				err_msg = "failed in gather status of groups";
 				goto fail;
 			}
+			controller->result_real_size += 1;
 		} else if (strcasecmp(parse_cmd->arg[1],"healths")) {
-			if (watcher_healths_status_foreach(controller->watcher, controller_status_foreach, controller)) {
+			if (watcher_healths_status_foreach(controller->watcher, controller_health_status_foreach_cb, controller)) {
 				err_msg = "failed in gather status of healths";
 				goto fail;
 			}
+			controller->result_real_size += 1;
 		} else if (strcasecmp(parse_cmd->arg[1],"group")) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
@@ -88,7 +165,8 @@ controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
 				err_msg = "failed in get status of group";
 				goto fail;
 			}
-			/* XXXX */
+			snprintf(controller->result, controller->result_size, "OK group=%s, status=%s, valid=%s\n",
+			    parse_cmd->arg[2], (current_status) ? "up":"down", (valid) ? "true":"false");
 		} else if (strcasecmp(parse_cmd->arg[1],"health")) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
@@ -98,7 +176,8 @@ controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
 				err_msg = "failed in get status of health";
 				goto fail;
 			}
-			/* XXXX */
+			snprintf(controller->result, controller->result_size, "OK address=%s, status=%s, valid=%s\n",
+			    parse_cmd->arg[2], (current_status) ? "up":"down", (valid) ? "true":"false");
 		} else {
 			err_msg = "unexpected command";
 			goto fail;
@@ -130,7 +209,8 @@ controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
 					err_msg = "can not update staus of group";
 					goto fail;
 				}
-				// XXXXXX
+				snprintf(controller->result, controller->result_size,
+				    "OK group=%s status=%s\n", parse_cmd->arg[3], (current_status) ? "up":"down");
 			} else if (strcasecmp(parse_cmd->arg[2],"health")) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
@@ -148,7 +228,8 @@ controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
 					err_msg = "can not update staus of health";
 					goto fail;
 				}
-				// XXXXX
+				snprintf(controller->result, controller->result_size,
+				    "OK address=%s status=%s\n", parse_cmd->arg[3], (current_status) ? "up":"down");
 			} else {
 				err_msg = "unexpected command";
 				goto fail;
@@ -175,7 +256,8 @@ controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
 					err_msg = "can not update valid of group";
 					goto fail;
 				}
-				// XXXX
+				snprintf(controller->result, controller->result_size,
+				    "OK group=%s valid=%s\n", parse_cmd->arg[3], (valid) ? "true":"false");
 			} else if (strcasecmp(parse_cmd->arg[2],"health")) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
@@ -193,7 +275,8 @@ controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
 					err_msg = "can not update valid of health";
 					goto fail;
 				}
-				// XXXX
+				snprintf(controller->result, controller->result_size,
+				    "OK address=%s valid=%s\n", parse_cmd->arg[3], (valid) ? "true":"false");
 			} else {
 				err_msg = "unexpected command";
 				goto fail;
@@ -210,40 +293,60 @@ controller_execute_command(parse_cmd_t *parse_cmd, controller_t *controller)
 	return;
 
 fail:
-	wlen = snprintf(controller->result, controller->result_size, "%s > ", err_msg);
+	wlen = snprintf(controller->result, controller->result_size, "NG %s >", err_msg);
 	controller->result_real_size += wlen;
 	for (i = 0; i < parse_cmd->arg_size; i++) {
+		need_size = controller->result_real_size + strlen(parse_cmd->arg[i]) + 3 /* space + newline + termination */;
+		if (need_size > controller->result_size) {
+			if (controller_glow_result_buffer(controller, need_size - controller->result_size)) {
+				LOG(LOG_LV_ERR, "failed in glow buffer of result");
+			}
+		}
 		wlen = snprintf(&controller->result[controller->result_real_size],
-		    controller->result_size - controller->result_real_size, "%s ", parse_cmd->arg[i]);
+		    controller->result_size - controller->result_real_size, " %s", parse_cmd->arg[i]);
 		controller->result_real_size += wlen;
 	}
-	controller->result_real_size += 1;
-	LOG(LOG_LV_ERR, "command error: %s", controller->result);
+	controller->result[controller->result_real_size] = '\0';
+	LOG(LOG_LV_ERR, "%s", controller->result);
+	controller->result[controller->result_real_size] = '\n';
+	controller->result[controller->result_real_size + 1] = '\0';
+	controller->result_real_size += 2;
 
 	return;
 }
 
-int
-controller_on_recv_line(char **result, size_t *result_size, char *line, void *on_recv_line_cb_arg)
+static int
+controller_on_recv_line(
+    char **result,
+    size_t *result_size,
+    char *line,
+    void *on_recv_line_cb_arg)
 {
+	controller_t *controller = on_recv_line_cb_arg;
 	parse_cmd_t parse_cmd;
-	controller_t *controller;
 
+	ASSERT(result != NULL);
+	ASSERT(result_size != NULL);
+	ASSERT(line != NULL);
 	ASSERT(controller != NULL);
 
 	if (parse_cmd_b(&parse_cmd, line)) {
 		LOG(LOG_LV_ERR, "failed in parse_command");
 		return 1;
 	}
-	controller_execute_command(&parse_cmd, controller);
+	controller_execute_command(controller, &parse_cmd);
 	*result = controller->result;
 	*result_size = controller->result_real_size;
+	controller->result_real_size = 0;
 
 	return 0;
 }
 
 int
-controller_create(controller_t **controller, struct event_base *event_base, watcher_t *watcher)
+controller_create(
+    controller_t **controller,
+    struct event_base *event_base,
+    watcher_t *watcher)
 {
 	controller_t *new = NULL;
 	char  *new_result = NULL;
@@ -286,7 +389,8 @@ fail:
 }
 
 int 
-controller_destroy(controller_t *controller)
+controller_destroy(
+    controller_t *controller)
 {
 	if (controller == NULL) {
 		errno = EINVAL;
@@ -304,7 +408,8 @@ controller_destroy(controller_t *controller)
 }
 
 int 
-controller_start(controller_t *controller)
+controller_start(
+    controller_t *controller)
 {
 	if (controller == NULL) {
 		errno = EINVAL;
@@ -320,7 +425,8 @@ controller_start(controller_t *controller)
 }
 
 int 
-controller_stop(controller_t *controller)
+controller_stop(
+    controller_t *controller)
 {
 	if (controller == NULL ||
 	    controller->tcp_server == NULL) {

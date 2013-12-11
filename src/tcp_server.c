@@ -26,7 +26,6 @@
 #ifndef WRITE_TIMEOUT
 #define WRITE_TIMEOUT 60
 #endif
-#define MAX_LINE_BUFFER 2048 
 
 #define READ_EVENT 0x01
 #define WRITE_EVENT 0x02
