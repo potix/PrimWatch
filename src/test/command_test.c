@@ -37,6 +37,14 @@ main(int argc, char*argv[])
 	ASSERT(strcmp(parse_cmd.args[2], "tttt") == 0);
 	ASSERT(parse_cmd.args[3] == NULL);
 
+	strlcpy(cmd, "test   -f   tttt", sizeof(cmd));
+	ASSERT(parse_cmd_b(&parse_cmd, cmd) == 0);
+	print_args(&parse_cmd);
+	ASSERT(strcmp(parse_cmd.args[0], "test") == 0);
+	ASSERT(strcmp(parse_cmd.args[1], "-f") == 0);
+	ASSERT(strcmp(parse_cmd.args[2], "tttt") == 0);
+	ASSERT(parse_cmd.args[3] == NULL);
+
 	strlcpy(cmd, "test \"-f tttt\"", sizeof(cmd));
 	ASSERT(parse_cmd_b(&parse_cmd, cmd) == 0);
 	print_args(&parse_cmd);

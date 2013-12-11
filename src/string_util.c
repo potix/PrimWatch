@@ -304,6 +304,9 @@ parse_cmd_b(
 	while (*ptr != '\0') {
 		if (!(squote || dquote) && *ptr == ' ' && *(ptr + 1) != '\0') {
 			*ptr = '\0';
+			if (parse_cmd->args[parse_cmd->arg_size - 1][0] == '\0') {
+				parse_cmd->arg_size--;
+			}
 			parse_cmd->args[parse_cmd->arg_size] = ptr + 1;
 			parse_cmd->args[parse_cmd->arg_size + 1] = NULL;
 			parse_cmd->arg_size++;
