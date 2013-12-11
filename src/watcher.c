@@ -1551,6 +1551,8 @@ watcher_get_group(
 	if (bhash_get(watcher->groups, (char **)&group_status, NULL, name, name_size)) {
 		return 1;
 	}
+	*current_status = group_status->current_status;
+	*valid = group_status->valid;
 
 	return 0;
 }
@@ -1573,6 +1575,8 @@ watcher_get_health(
 	if (bhash_get(watcher->health_check.elements, (char **)&health_status, NULL, name, name_size)) {
 		return 1;
 	}
+	*current_status = health_status->current_status;
+	*valid = health_status->valid;
 
 	return 0;
 }

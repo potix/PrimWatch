@@ -176,7 +176,7 @@ controller_execute_command(
 				goto fail;
 			}
 			wlen = snprintf(controller->result, controller->result_size, "OK group=%s, status=%s, valid=%s\n",
-			    parse_cmd->args[2], (current_status) ? "up":"down", (valid) ? "true":"false");
+			    parse_cmd->args[2], (current_status) ? "up" : "down", (valid) ? "true" : "false");
 			controller->result_real_size += wlen;
 		} else if (strcasecmp(parse_cmd->args[1], "health") == 0) {
 			if (parse_cmd->arg_size < 3) {
@@ -188,7 +188,7 @@ controller_execute_command(
 				goto fail;
 			}
 			wlen = snprintf(controller->result, controller->result_size, "OK address=%s, status=%s, valid=%s\n",
-			    parse_cmd->args[2], (current_status) ? "up":"down", (valid) ? "true":"false");
+			    parse_cmd->args[2], (current_status) ? "up" : "down", (valid) ? "true" : "false");
 			controller->result_real_size += wlen;
 		} else {
 			err_msg = "unexpected command";
