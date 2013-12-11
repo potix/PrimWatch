@@ -302,17 +302,19 @@ parse_cmd_b(
 	parse_cmd->arg_size = 1;
 	cmd_size = strlen(cmd) + 1;
 	while (*ptr != '\0') {
-		if (!(squote || dquote) && *ptr == ' ' && *(ptr + 1) != '\0') {
+		if (!(squote || dquote) && *ptr == ' ') {
 			*ptr = '\0';
-			if (parse_cmd->args[parse_cmd->arg_size - 1][0] == '\0') {
-				parse_cmd->arg_size--;
-			}
-			parse_cmd->args[parse_cmd->arg_size] = ptr + 1;
-			parse_cmd->args[parse_cmd->arg_size + 1] = NULL;
-			parse_cmd->arg_size++;
-			if (parse_cmd->arg_size >= NCARGS) {
-				errno = ENOBUFS;
-				return 1;
+			if (*(ptr + 1) != '\0') {
+				if (parse_cmd->args[parse_cmd->arg_size - 1][0] == '\0') {
+					parse_cmd->arg_size--;
+				}
+				parse_cmd->args[parse_cmd->arg_size] = ptr + 1;
+				parse_cmd->args[parse_cmd->arg_size + 1] = NULL;
+				parse_cmd->arg_size++;
+				if (parse_cmd->arg_size >= NCARGS) {
+					errno = ENOBUFS;
+					return 1;
+				}
 			}
 		} else if (!squote && *ptr == '"') {
 			if (dquote == 1) {

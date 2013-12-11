@@ -311,13 +311,12 @@ tcp_server_on_recv(
 	TAILQ_INSERT_TAIL(&tcp_client->response_head, tcp_client_response, next);
 
 	/* １行分取り出す */
-	*newline_ptr = '\0';
 	line_ptr = &tcp_client->recvbuffer[0];
-	line_len = newline_ptr + 1 - &tcp_client->recvbuffer[0];
 	if ((cr_ptr = strstr(line_ptr, "\r\n")) != NULL) {
 		*cr_ptr = '\0';
-		*(cr_ptr + 1) = '\0';
 	}
+	*newline_ptr = '\0';
+	line_len = newline_ptr + 1 - &tcp_client->recvbuffer[0];
 	
 	/* ラインparseコールバックの呼び出し */
 	tcp_client_response->write_size = 0;

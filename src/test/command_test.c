@@ -106,5 +106,25 @@ main(int argc, char*argv[])
 	ASSERT(strcmp(parse_cmd.args[2], "tttt") == 0);
 	ASSERT(parse_cmd.args[3] == NULL);
 
+	strlcpy(cmd, "set valid health 1.1.1.1 false", sizeof(cmd));
+	ASSERT(parse_cmd_b(&parse_cmd, cmd) == 0);
+	print_args(&parse_cmd);
+	ASSERT(strcmp(parse_cmd.args[0], "set") == 0);
+	ASSERT(strcmp(parse_cmd.args[1], "valid") == 0);
+	ASSERT(strcmp(parse_cmd.args[2], "health") == 0);
+	ASSERT(strcmp(parse_cmd.args[3], "1.1.1.1") == 0);
+	ASSERT(strcmp(parse_cmd.args[4], "false") == 0);
+	ASSERT(parse_cmd.args[5] == NULL);
+
+	strlcpy(cmd, "set valid health 1.1.1.1 false ", sizeof(cmd));
+	ASSERT(parse_cmd_b(&parse_cmd, cmd) == 0);
+	print_args(&parse_cmd);
+	ASSERT(strcmp(parse_cmd.args[0], "set") == 0);
+	ASSERT(strcmp(parse_cmd.args[1], "valid") == 0);
+	ASSERT(strcmp(parse_cmd.args[2], "health") == 0);
+	ASSERT(strcmp(parse_cmd.args[3], "1.1.1.1") == 0);
+	ASSERT(strcmp(parse_cmd.args[4], "false") == 0);
+	ASSERT(parse_cmd.args[5] == NULL);
+
 	return 0;
 }
