@@ -1594,7 +1594,7 @@ watcher_update_group_status(
 	if (bhash_get(watcher->groups, (char **)&group_status, NULL, name, name_size)) {
 		return 1;
 	}
-	group_status->current_status = 1;
+	group_status->current_status = current_status;
 
 	return 0;
 }
@@ -1616,7 +1616,7 @@ watcher_update_health_status(
 	if (bhash_get(watcher->health_check.elements, (char **)&health_status, NULL, name, name_size)) {
 		return 1;
 	}
-	health_status->current_status = 1;
+	health_status->current_status = current_status;
 
 	return 0;
 }
@@ -1638,7 +1638,7 @@ watcher_update_group_valid(
 	if (bhash_get(watcher->groups, (char **)&group_status, NULL, name, name_size)) {
 		return 1;
 	}
-	group_status->valid = 1;
+	group_status->valid = valid;
 
 	return 0;
 }
@@ -1660,7 +1660,7 @@ watcher_update_health_valid(
 	if (bhash_get(watcher->health_check.elements, (char **)&health_status, NULL, name, name_size)) {
 		return 1;
 	}
-	health_status->valid = 1;
+	health_status->valid = valid;
 
 	return 0;
 }
