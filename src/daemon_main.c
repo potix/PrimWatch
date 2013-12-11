@@ -332,8 +332,8 @@ main(int argc, char *argv[]) {
 		ret = EX_OSERR;
 		goto last;
 	}
-	unlink(pid_file_path);
 last:
+	unlink(pid_file_path);
 	logger_close();
 	logger_destroy();
 	primwatch_finalize(&primwatch);
