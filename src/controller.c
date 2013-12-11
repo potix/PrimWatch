@@ -386,6 +386,7 @@ controller_create(
 	new->result_size = DEFAULT_BUFFER_SIZE;
 	new->result_real_size = 0;
 	new->event_base = event_base;
+	*controller = new;
 
 	return 0;
 
