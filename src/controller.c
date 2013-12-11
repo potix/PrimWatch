@@ -161,13 +161,11 @@ controller_execute_command(
 				err_msg = "failed in gather status of groups";
 				goto fail;
 			}
-			controller->result_real_size += 1;
 		} else if (strcasecmp(parse_cmd->args[1], "healths") == 0) {
 			if (watcher_healths_status_foreach(controller->watcher, controller_healths_status_foreach_cb, controller)) {
 				err_msg = "failed in gather status of healths";
 				goto fail;
 			}
-			controller->result_real_size += 1;
 		} else if (strcasecmp(parse_cmd->args[1], "group") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
@@ -179,7 +177,7 @@ controller_execute_command(
 			}
 			wlen = snprintf(controller->result, controller->result_size, "OK group=%s, status=%s, valid=%s\n",
 			    parse_cmd->args[2], (current_status) ? "up":"down", (valid) ? "true":"false");
-			controller->result_real_size += wlen + 1;
+			controller->result_real_size += wlen;
 		} else if (strcasecmp(parse_cmd->args[1], "health") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
@@ -191,7 +189,7 @@ controller_execute_command(
 			}
 			wlen = snprintf(controller->result, controller->result_size, "OK address=%s, status=%s, valid=%s\n",
 			    parse_cmd->args[2], (current_status) ? "up":"down", (valid) ? "true":"false");
-			controller->result_real_size += wlen + 1;
+			controller->result_real_size += wlen;
 		} else {
 			err_msg = "unexpected command";
 			goto fail;
@@ -225,7 +223,7 @@ controller_execute_command(
 				}
 				wlen = snprintf(controller->result, controller->result_size,
 				    "OK group=%s status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
-				controller->result_real_size += wlen + 1;
+				controller->result_real_size += wlen;
 			} else if (strcasecmp(parse_cmd->args[2], "health") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
@@ -245,7 +243,7 @@ controller_execute_command(
 				}
 				wlen = snprintf(controller->result, controller->result_size,
 				    "OK address=%s status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
-				controller->result_real_size += wlen + 1;
+				controller->result_real_size += wlen;
 			} else {
 				err_msg = "unexpected command";
 				goto fail;
@@ -274,7 +272,7 @@ controller_execute_command(
 				}
 				wlen = snprintf(controller->result, controller->result_size,
 				    "OK group=%s valid=%s\n", parse_cmd->args[3], (valid) ? "true":"false");
-				controller->result_real_size += wlen + 1;
+				controller->result_real_size += wlen;
 			} else if (strcasecmp(parse_cmd->args[2], "health") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
@@ -294,7 +292,7 @@ controller_execute_command(
 				}
 				wlen = snprintf(controller->result, controller->result_size,
 				    "OK address=%s valid=%s\n", parse_cmd->args[3], (valid) ? "true":"false");
-				controller->result_real_size += wlen + 1;
+				controller->result_real_size += wlen;
 			} else {
 				err_msg = "unexpected command";
 				goto fail;
@@ -328,7 +326,7 @@ fail:
 	LOG(LOG_LV_ERR, "%s", controller->result);
 	controller->result[controller->result_real_size] = '\n';
 	controller->result[controller->result_real_size + 1] = '\0';
-	controller->result_real_size += 2;
+	controller->result_real_size += 1;
 
 	return;
 }
