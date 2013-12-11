@@ -14,9 +14,10 @@
 #include "common_define.h"
 #include "common_macro.h"
 #include "logger.h"
+#include "config_manager.h"
+#include "watcher.h"
 #include "controller.h"
-#include "tcp_sock.h"
-#include "config.h"
+#include "tcp_server.h"
 
 #define READ_EVENT 0x01
 #define WRITE_EVENT 0x02
@@ -63,11 +64,17 @@ struct tcp_server {
 	void *on_recv_line_cb_arg;
 };
 
+static void set_nonblocking(
+    int sd);
+static void tcp_server_client_finish(
+    tcp_client_t *tcp_client);
+static void tcp_server_reset_write_event(
+    tcp_listen_t *tcp_listen,
+    tcp_client_t *tcp_client);
 static void tcp_server_on_send(
     int fd,
     short event,
     void *arg);
-
 static void tcp_server_on_recv(
     int fd,
     short event,
@@ -81,10 +88,10 @@ set_nonblocking(
 
 	ASSERT(sd != -1);
 	if ((fd_flags = fcntl(sd, F_GETFL, 0)) < 0) {
-		logging(LOG_LV_ERR, "failed in get current fd flags %m");
+		LOG(LOG_LV_ERR, "failed in get current fd flags %m");
 	} else {
 		if (fcntl(sd, F_SETFL, fd_flags | O_NONBLOCK) < 0) {
-			logging(LOG_LV_ERR, "failed in set nonblocking flag %m");
+			LOG(LOG_LV_ERR, "failed in set nonblocking flag %m");
 		}
 	}
 }
@@ -106,11 +113,11 @@ tcp_server_client_finish(
 		tcp_client_response = tcp_client_response_next;				
 	}
 	if (event_pending(&tcp_client->read_event, EV_READ | EV_TIMEOUT, NULL)) {
-		logging(LOG_LV_INFO, "delete read event %m");
+		LOG(LOG_LV_INFO, "delete read event %m");
 		event_del(&tcp_client->read_event);
 	}
 	if (event_pending(&tcp_client->write_event, EV_WRITE | EV_TIMEOUT, NULL)) {
-		logging(LOG_LV_INFO, "delete write event %m");
+		LOG(LOG_LV_INFO, "delete write event %m");
 		event_del(&tcp_client->write_event);
 	}
 	close(tcp_client->sd);
@@ -130,12 +137,12 @@ tcp_server_reset_write_event(
 	write_timeout.tv_usec = 0;
 	event_set(&tcp_client->write_event, tcp_client->sd, EV_WRITE | EV_TIMEOUT, tcp_server_on_send, tcp_client);
 	if (event_base_set(tcp_listen->tcp_server->event_base, &tcp_client->write_event)){
-		logging(LOG_LV_ERR, "failed in set event base %m");
+		LOG(LOG_LV_ERR, "failed in set event base %m");
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
 	if (event_add(&tcp_client->write_event, &write_timeout)) {
-		logging(LOG_LV_ERR, "failed in add liten event %m");
+		LOG(LOG_LV_ERR, "failed in add liten event %m");
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
@@ -157,7 +164,7 @@ tcp_server_on_send(
 	ASSERT(arg != NULL);
 	tcp_listen = tcp_client->tcp_listen;
 	if (event == EV_TIMEOUT) {
-		logging(LOG_LV_INFO, "write timeout in %s", __func__);
+		LOG(LOG_LV_INFO, "write timeout in %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
@@ -180,7 +187,7 @@ tcp_server_on_send(
 	     &tcp_client_response->result[tcp_client_response->write_size],
 	     tcp_client_response->result_size - tcp_client_response->write_size);
 	if (write_size == 0) {
-		logging(LOG_LV_INFO, "closed by peer (%m) in %s", __func__);
+		LOG(LOG_LV_INFO, "closed by peer (%m) in %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
 	} else if (write_size < 0) {
@@ -188,7 +195,7 @@ tcp_server_on_send(
 			tcp_server_reset_write_event(tcp_listen, tcp_client);
 			return;
 		}
-		logging(LOG_LV_ERR, "failed in write (%m) in %s", __func__);
+		LOG(LOG_LV_ERR, "failed in write (%m) in %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
@@ -224,12 +231,12 @@ tcp_server_reset_read_event(
 	read_timeout.tv_usec = 0;
 	event_set(&tcp_client->read_event, tcp_client->sd, EV_READ | EV_TIMEOUT, tcp_server_on_recv, tcp_client);
 	if (event_base_set(tcp_listen->tcp_server->event_base, &tcp_client->read_event)){
-		 logging(LOG_LV_ERR, "failed in set event base %m");
+		 LOG(LOG_LV_ERR, "failed in set event base %m");
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
 	if (event_add(&tcp_client->read_event, &read_timeout)) {
-		logging(LOG_LV_ERR, "failed in add liten event %m");
+		LOG(LOG_LV_ERR, "failed in add liten event %m");
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
@@ -256,7 +263,7 @@ tcp_server_on_recv(
 	ASSERT(arg != NULL);
 	ASSERT((event == EV_READ || event == EV_TIMEOUT));
 	if (event == EV_TIMEOUT) {
-		logging(LOG_LV_INFO, "read timeout in %s", __func__);
+		LOG(LOG_LV_INFO, "read timeout in %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
@@ -268,7 +275,7 @@ tcp_server_on_recv(
 	     &tcp_client->recvbuffer[tcp_client->recvbuffer_len],
 	     sizeof(tcp_client->recvbuffer) - tcp_client->recvbuffer_len);
 	if (read_len == 0) {
-		logging(LOG_LV_INFO, "closed by peer (%m) in %s", __func__);
+		LOG(LOG_LV_INFO, "closed by peer (%m) in %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
 	} else if (read_len < 0) {
@@ -276,7 +283,7 @@ tcp_server_on_recv(
 			tcp_server_reset_read_event(tcp_listen, tcp_client);
 			return;	
 		}
-		logging(LOG_LV_ERR, "failed in read (%m) in %s", __func__);
+		LOG(LOG_LV_ERR, "failed in read (%m) in %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
@@ -284,7 +291,7 @@ tcp_server_on_recv(
 	/* リクエストがでかすぎるばあいは切断 */
 	tcp_client->recvbuffer_len += read_len;
 	if (tcp_client->recvbuffer_len > sizeof(tcp_client->recvbuffer) - 1) {
-		logging(LOG_LV_ERR, "too long request (%m) in %s", __func__);
+		LOG(LOG_LV_ERR, "too long request (%m) in %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
@@ -299,7 +306,7 @@ tcp_server_on_recv(
 	/* レスポンスデータ領域の作成 */
 	tcp_client_response = malloc(sizeof(tcp_client_response_t));
 	if (tcp_client_response == NULL) {
-		logging(LOG_LV_ERR, "failed in allocate (%m) %s", __func__);
+		LOG(LOG_LV_ERR, "failed in allocate (%m) %s", __func__);
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
@@ -319,7 +326,7 @@ tcp_server_on_recv(
 	tcp_client_response->result_size = 0;
 	if (tcp_listen->tcp_server->on_recv_line(&tmp_result,
 	     &tcp_client_response->result_size, line_ptr, tcp_listen->tcp_server->on_recv_line_cb_args)) {
-		logging(LOG_LV_ERR, "failed in execute callback of receieved line message (%m)");
+		LOG(LOG_LV_ERR, "failed in execute callback of receieved line message (%m)");
 	}
 	tcp_client_response->result = malloc(tcp_client_response->result_size);
 	if (tcp_client_response->result != NULL) {
@@ -334,7 +341,7 @@ tcp_server_on_recv(
 	if (tcp_client_response->result && !event_pending(&tcp_client->write_event, EV_WRITE, NULL)) {
 		event_set(&tcp_client->write_event, tcp_client->sd, EV_WRITE | EV_TIMEOUT, tcp_server_on_send, tcp_client);
 		if (event_base_set(tcp_listen->tcp_server->event_base, &tcp_client->write_event)){
-			logging(LOG_LV_ERR, "failed in set event base %m");
+			LOG(LOG_LV_ERR, "failed in set event base %m");
 			TAILQ_REMOVE(&tcp_client->response_head, tcp_client_response, next);
 			free(tcp_client_response->result);
 			free(tcp_client_response);
@@ -342,7 +349,7 @@ tcp_server_on_recv(
 			return;
 		}
 		if (event_add(&tcp_client->write_event, &write_timeout)) {
-			logging(LOG_LV_ERR, "failed in add liten event %m");
+			LOG(LOG_LV_ERR, "failed in add liten event %m");
 			TAILQ_REMOVE(&tcp_client->response_head, tcp_client_response, next);
 			free(tcp_client_response->result);
 			free(tcp_client_response);
@@ -374,7 +381,7 @@ tcp_server_on_connect(
 	ASSERT((event == EV_READ));
 	tcp_client = malloc(sizeof(tcp_client_t));
 	if (tcp_client == NULL) {
-		logging(LOG_LV_ERR, "failed in allocate client struct %m");	
+		LOG(LOG_LV_ERR, "failed in allocate client struct %m");	
 		return;
 	}
 	memset(tcp_client, 0, sizeof(tcp_client_t));
@@ -387,11 +394,11 @@ tcp_server_on_connect(
 	set_nonblocking(tcp_client->sd);
 	event_set(&tcp_client->read_event, tcp_client->sd, EV_READ | EV_TIMEOUT, tcp_server_on_recv, tcp_client);
 	if (event_base_set(tcp_listen->tcp_server->event_base, &tcp_client->read_event)){
-		 logging(LOG_LV_ERR, "failed in set event base %m");
+		 LOG(LOG_LV_ERR, "failed in set event base %m");
 		goto fail;
 	}
 	if (event_add(&tcp_client->read_event, &read_timeout)) {
-		logging(LOG_LV_ERR, "failed in add liten event %m");
+		LOG(LOG_LV_ERR, "failed in add liten event %m");
 		goto fail;
 	}
 	LIST_INSERT_HEAD(&tcp_listen->client_head, tcp_client, next);
@@ -447,39 +454,39 @@ tcp_server_start(
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;
         if (getaddrinfo(l_addr, port, &hints, &res0) != 0) {
-                logging(LOG_LV_ERR, "failed in getaddrinfo %m");
+                LOG(LOG_LV_ERR, "failed in getaddrinfo %m");
                 goto fail;
         }
 	for (res = res0;
 	     new->tcp_listen_count < sizeof(new->tcp_listen)/sizeof(new->tcp_listen[0]) && res;
 	     res = res->ai_next) {
 		if ((sd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0) {
-			logging(LOG_LV_ERR, "failed in socket %m");
+			LOG(LOG_LV_ERR, "failed in socket %m");
 			continue;
 		}
 		set_nonblocking(sd);
 		if (res->ai_family == AF_INET6) {
 			if (setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only))) {
-				logging(LOG_LV_ERR, "failed in setsockopt %m");
+				LOG(LOG_LV_ERR, "failed in setsockopt %m");
 				continue;
 			}
 		}
 		if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr, sizeof(reuse_addr))) {
-			logging(LOG_LV_ERR, "failed in setsockopt %m");
+			LOG(LOG_LV_ERR, "failed in setsockopt %m");
 			continue;
 		}
 		if (bind(sd, res->ai_addr, res->ai_addrlen) < 0) {
-			logging(LOG_LV_ERR, "failed in bind %m");
+			LOG(LOG_LV_ERR, "failed in bind %m");
 		       continue;
 		}
 		if (listen(sd, 0) < 0) {
-			logging(LOG_LV_ERR, "failed in listen %m");
+			LOG(LOG_LV_ERR, "failed in listen %m");
 			continue;
 		}
 		if (getnameinfo(res->ai_addr, res->ai_addrlen, hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST|NI_NUMERICSERV)) {
-			logging(LOG_LV_ERR, "failed in getnameinfo %m");
+			LOG(LOG_LV_ERR, "failed in getnameinfo %m");
 		} else {
-			logging(LOG_LV_INFO, "tcp server listen: address = %s, port = %s", hbuf, sbuf);
+			LOG(LOG_LV_INFO, "tcp server listen: address = %s, port = %s", hbuf, sbuf);
 		}
 		tcp_listen = &new->tcp_listen[new->tcp_listen_count];
 		new->tcp_listen_count++;
@@ -487,16 +494,16 @@ tcp_server_start(
 		tcp_listen->tcp_server = new;
 		event_set(&tcp_listen->read_event, sd, EV_READ | EV_PERSIST, tcp_server_on_connect, tcp_listen);
 		if (event_base_set(event_base, &tcp_listen->read_event)){
-			logging(LOG_LV_ERR, "failed in set event base %m");
+			LOG(LOG_LV_ERR, "failed in set event base %m");
 			goto fail;
 		}
 		if (event_add(&tcp_listen->read_event, NULL)) {
-			logging(LOG_LV_ERR, "failed in add liten event %m");
+			LOG(LOG_LV_ERR, "failed in add liten event %m");
 			goto fail;
 		}
 	}
 	if (new->tcp_listen_count == 0) {
-		logging(LOG_LV_ERR, "no listen socket");
+		LOG(LOG_LV_ERR, "no listen socket");
 		goto fail;
 	}
 	freeaddrinfo(res0);
