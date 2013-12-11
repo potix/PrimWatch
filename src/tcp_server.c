@@ -252,13 +252,12 @@ tcp_server_on_recv(
 {
 	tcp_client_t *tcp_client = arg;
 	tcp_listen_t *tcp_listen;
-	controller_t *controller;
 	tcp_client_response_t *tcp_client_response;
 	int read_len;
 	struct timeval write_timeout;
 	char *line_ptr, *newline_ptr, *cr_ptr;
 	int line_len;
-	const char *tmp_result;
+	char *tmp_result;
 
 	ASSERT(arg != NULL);
 	ASSERT((event == EV_READ || event == EV_TIMEOUT));
@@ -270,7 +269,6 @@ tcp_server_on_recv(
 	write_timeout.tv_sec = WRITE_TIMEOUT;
 	write_timeout.tv_usec = 0;
 	tcp_listen = tcp_client->tcp_listen;
-	controller = tcp_listen->tcp_server->controller;
 	read_len = read(tcp_client->sd,
 	     &tcp_client->recvbuffer[tcp_client->recvbuffer_len],
 	     sizeof(tcp_client->recvbuffer) - tcp_client->recvbuffer_len);
@@ -324,8 +322,8 @@ tcp_server_on_recv(
 	tcp_client_response->write_size = 0;
 	tcp_client_response->result = NULL;
 	tcp_client_response->result_size = 0;
-	if (tcp_listen->tcp_server->on_recv_line(&tmp_result,
-	     &tcp_client_response->result_size, line_ptr, tcp_listen->tcp_server->on_recv_line_cb_args)) {
+	if (tcp_listen->tcp_server->on_recv_line_cb(&tmp_result,
+	     &tcp_client_response->result_size, line_ptr, tcp_listen->tcp_server->on_recv_line_cb_arg)) {
 		LOG(LOG_LV_ERR, "failed in execute callback of receieved line message (%m)");
 	}
 	tcp_client_response->result = malloc(tcp_client_response->result_size);
@@ -412,7 +410,6 @@ fail:
 int
 tcp_server_start(
     tcp_server_t **tcp_server,
-    controller_t *controller,
     struct event_base *event_base,
     const char *addr,
     const char *port,
@@ -475,6 +472,10 @@ tcp_server_start(
 			LOG(LOG_LV_ERR, "failed in setsockopt %m");
 			continue;
 		}
+		if (setsockopt(sd, SOL_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay))) {
+			LOG(LOG_LV_ERR, "failed in setsockopt %m");
+			continue;
+		}
 		if (bind(sd, res->ai_addr, res->ai_addrlen) < 0) {
 			LOG(LOG_LV_ERR, "failed in bind %m");
 		       continue;
@@ -507,7 +508,6 @@ tcp_server_start(
 		goto fail;
 	}
 	freeaddrinfo(res0);
-	new->controller = controller;
 	new->event_base = event_base;
 	new->on_recv_line_cb = on_recv_line_cb;
 	new->on_recv_line_cb_arg = on_recv_line_cb_arg;
