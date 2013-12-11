@@ -177,8 +177,9 @@ controller_execute_command(
 				err_msg = "failed in get status of group";
 				goto fail;
 			}
-			snprintf(controller->result, controller->result_size, "OK group=%s, status=%s, valid=%s\n",
+			wlen = snprintf(controller->result, controller->result_size, "OK group=%s, status=%s, valid=%s\n",
 			    parse_cmd->args[2], (current_status) ? "up":"down", (valid) ? "true":"false");
+			controller->result_real_size += wlen + 1;
 		} else if (strcasecmp(parse_cmd->args[1], "health") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
@@ -188,8 +189,9 @@ controller_execute_command(
 				err_msg = "failed in get status of health";
 				goto fail;
 			}
-			snprintf(controller->result, controller->result_size, "OK address=%s, status=%s, valid=%s\n",
+			wlen = snprintf(controller->result, controller->result_size, "OK address=%s, status=%s, valid=%s\n",
 			    parse_cmd->args[2], (current_status) ? "up":"down", (valid) ? "true":"false");
+			controller->result_real_size += wlen + 1;
 		} else {
 			err_msg = "unexpected command";
 			goto fail;
@@ -221,8 +223,9 @@ controller_execute_command(
 					err_msg = "can not update staus of group";
 					goto fail;
 				}
-				snprintf(controller->result, controller->result_size,
+				wlen = snprintf(controller->result, controller->result_size,
 				    "OK group=%s status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
+				controller->result_real_size += wlen + 1;
 			} else if (strcasecmp(parse_cmd->args[2], "health") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
@@ -240,8 +243,9 @@ controller_execute_command(
 					err_msg = "can not update staus of health";
 					goto fail;
 				}
-				snprintf(controller->result, controller->result_size,
+				wlen = snprintf(controller->result, controller->result_size,
 				    "OK address=%s status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
+				controller->result_real_size += wlen + 1;
 			} else {
 				err_msg = "unexpected command";
 				goto fail;
@@ -268,8 +272,9 @@ controller_execute_command(
 					err_msg = "can not update valid of group";
 					goto fail;
 				}
-				snprintf(controller->result, controller->result_size,
+				wlen = snprintf(controller->result, controller->result_size,
 				    "OK group=%s valid=%s\n", parse_cmd->args[3], (valid) ? "true":"false");
+				controller->result_real_size += wlen + 1;
 			} else if (strcasecmp(parse_cmd->args[2], "health") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
@@ -287,8 +292,9 @@ controller_execute_command(
 					err_msg = "can not update valid of health";
 					goto fail;
 				}
-				snprintf(controller->result, controller->result_size,
+				wlen = snprintf(controller->result, controller->result_size,
 				    "OK address=%s valid=%s\n", parse_cmd->args[3], (valid) ? "true":"false");
+				controller->result_real_size += wlen + 1;
 			} else {
 				err_msg = "unexpected command";
 				goto fail;
