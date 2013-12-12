@@ -217,7 +217,6 @@ watcher_forward_record_foreach_cb(
 	ASSERT(arg->group_foreach_cb_arg != NULL);
 	ASSERT(arg->group_foreach_cb_arg->config != NULL);
 	ASSERT(arg->group_foreach_cb_arg->status != NULL);
-	ASSERT(arg->group_foreach_cb_arg->health_check != NULL);
 	ASSERT(arg->group_foreach_cb_arg->default_record_status != NULL);
 	ASSERT(arg->ipv4hostname != NULL);
 	ASSERT(arg->ipv6hostname != NULL);
@@ -337,7 +336,6 @@ watcher_reverse_record_foreach_cb(
 	ASSERT(arg->group_foreach_cb_arg != NULL);
 	ASSERT(arg->group_foreach_cb_arg->config != NULL);
 	ASSERT(arg->group_foreach_cb_arg->status != NULL);
-	ASSERT(arg->group_foreach_cb_arg->health_check != NULL);
 	ASSERT(arg->group_foreach_cb_arg->default_record_status != NULL);
 	ASSERT(arg->ipv4address != NULL);
 	ASSERT(arg->ipv6address != NULL);
@@ -462,7 +460,6 @@ watcher_group_foreach_cb(
 	ASSERT(arg != NULL);
 	ASSERT(arg->config != NULL);
 	ASSERT(arg->status != NULL);
-	ASSERT(arg->health_check != NULL);
 	ASSERT(arg->default_record_status != NULL);
 	config = arg->config;
 	status = arg->status;
