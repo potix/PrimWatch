@@ -262,9 +262,11 @@ watcher_forward_record_foreach_cb(
 		goto last;
 	}
 	host_size = strlen(host) + 1;
-	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
-		LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
-		goto last;
+	if (health_check) {
+		if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
+			LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
+			goto last;
+		}
 	}
 	if (health_check_element == NULL) {
 		if (strcasecmp(default_record_status, "up") != 0) {
