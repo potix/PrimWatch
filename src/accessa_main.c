@@ -17,6 +17,7 @@
 #if defined(PRIMDNS)
 #include "dns/primdns.h"
 #elif defined(POWERDNS)
+#include "lookup.h"
 #include "dns/powerdns.h"
 #endif
 
@@ -169,7 +170,7 @@ main(int argc, char *argv[]) {
 #if defined(PRIMDNS)
 	primdns_main(argc, argv, &accessa);
 #elif defined(POWERDNS)
-	powerdns_loop(&accessa);
+	powerdns_loop(&accessa, NULL);
 #endif
 last:
 	accessa_finalize(&accessa);
