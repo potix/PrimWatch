@@ -323,7 +323,7 @@ watcher_reverse_record_foreach_cb(
 	record_buffer_t *entry;
 	const char *idx, *addr, *host;
 	size_t addr_size, host_size;
-	watcher_status_element_t *health_check_element;
+	watcher_status_element_t *health_check_element = NULL;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
 	int force_down = 0;
@@ -383,9 +383,11 @@ watcher_reverse_record_foreach_cb(
 		goto last;
 	}
 	host_size = strlen(host) + 1;
-	if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
-		LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
-		goto last;
+	if (health_check) {
+		if (bhash_get(health_check, (char **)&health_check_element, NULL, addr, addr_size)) {
+			LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
+			goto last;
+		}
 	}
 	if (health_check_element == NULL) {
 		if (strcasecmp(default_record_status, "up") != 0) {
@@ -493,11 +495,11 @@ watcher_group_foreach_cb(
 		goto last;
 	}
 	// コールバック引数を作る
-	forward_record_foreach_cb_arg.group_foreach_cb_arg = group_foreach_cb_arg;
+	forward_record_foreach_cb_arg.group_foreach_cb_arg = arg;
 	forward_record_foreach_cb_arg.ipv4hostname = ipv4hostname;
 	forward_record_foreach_cb_arg.ipv6hostname = ipv6hostname;
 	forward_record_foreach_cb_arg.preempt = preempt;
-	reverse_record_foreach_cb_arg.group_foreach_cb_arg = group_foreach_cb_arg;
+	reverse_record_foreach_cb_arg.group_foreach_cb_arg = arg;
 	reverse_record_foreach_cb_arg.ipv4address = ipv4address;
 	reverse_record_foreach_cb_arg.ipv6address = ipv6address;
 	reverse_record_foreach_cb_arg.preempt = preempt;
@@ -748,9 +750,6 @@ watcher_status_make(
 
 	if (status == NULL ||
 	    config_manager == NULL ||
-            domain_map == NULL ||
-	    remote_address_map == NULL ||
-	    health_check == NULL ||
 	    new_groups == NULL) {
 		errno = EINVAL;
 		return 1;
@@ -804,37 +803,41 @@ watcher_status_make(
 			goto fail;
 		}
 	}
-	if (bhash_get_bhash_data(
-	    domain_map,
-	    &bhash_data,
-	    &bhash_data_size)) {
-		LOG(LOG_LV_ERR, "failed in get data of domain map");
-		goto fail;
+	if (domain_map) {
+		if (bhash_get_bhash_data(
+		    domain_map,
+		    &bhash_data,
+		    &bhash_data_size)) {
+			LOG(LOG_LV_ERR, "failed in get data of domain map");
+			goto fail;
+		}
+		if (bson_append_binary(
+		    status,
+		    "domainMap",
+		    BSON_BIN_BINARY,
+		    bhash_data,
+		    bhash_data_size) != BSON_OK) {
+			LOG(LOG_LV_ERR, "failed in append data of domain map to new status");
+			goto fail;
+		}
 	}
-	if (bson_append_binary(
-	    status,
-	    "domainMap",
-	    BSON_BIN_BINARY,
-	    bhash_data,
-	    bhash_data_size) != BSON_OK) {
-		LOG(LOG_LV_ERR, "failed in append data of domain map to new status");
-		goto fail;
-	}
-	if (bhash_get_bhash_data(
-	    remote_address_map,
-	    &bhash_data,
-	    &bhash_data_size)) {
-		LOG(LOG_LV_ERR, "failed in get data of remote address map");
-		goto fail;
-	}
-	if (bson_append_binary(
-	    status,
-	    "remoteAddressMap",
-	    BSON_BIN_BINARY,
-	    bhash_data,
-	    bhash_data_size) != BSON_OK) {
-		LOG(LOG_LV_ERR, "failed in append data of remote address map to new status");
-		goto fail;
+	if (remote_address_map) {
+		if (bhash_get_bhash_data(
+		    remote_address_map,
+		    &bhash_data,
+		    &bhash_data_size)) {
+			LOG(LOG_LV_ERR, "failed in get data of remote address map");
+			goto fail;
+		}
+		if (bson_append_binary(
+		    status,
+		    "remoteAddressMap",
+		    BSON_BIN_BINARY,
+		    bhash_data,
+		    bhash_data_size) != BSON_OK) {
+			LOG(LOG_LV_ERR, "failed in append data of remote address map to new status");
+			goto fail;
+		}
 	}
 	if (bson_helper_bson_get_string(
 	    config,
