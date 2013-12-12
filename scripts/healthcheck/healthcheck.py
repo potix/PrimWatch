@@ -341,6 +341,7 @@ class HealthCheckTarget(object):
         self.default_timeout = default_timeout
         self.default_retry = default_retry
         self.address = config.get('address')
+        self.force_down = config.get('force_down')
         self.providers = get_components()
         self._tasks = None
         self._start_time = 0
@@ -370,6 +371,8 @@ class HealthCheckTarget(object):
         return self._tasks
 
     def is_alive(self):
+	if self.force_down:
+            return False
         return False not in [t.is_alive() for t in self._tasks]
 
     def is_done(self):
