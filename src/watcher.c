@@ -203,7 +203,7 @@ watcher_forward_record_foreach_cb(
 	record_buffer_t *entry;
 	const char *idx, *addr, *host;
 	size_t addr_size, host_size;
-	watcher_status_element_t *health_check_element;
+	watcher_status_element_t *health_check_element = NULL;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
 	int force_down = 0;
@@ -511,14 +511,12 @@ watcher_group_foreach_cb(
 	// この際health checkの値も考慮する
 	snprintf(p, sizeof(p),  "%s.%s", name, "forwardRecords");
 	if (bson_helper_itr_foreach(itr, p, watcher_forward_record_foreach_cb, &forward_record_foreach_cb_arg)) {
-		LOG(LOG_LV_ERR, "failed in foreach of forward records (group %s)", name);
-		goto last;
+		// not found forward records
 	}
 	// コンフィグの逆引きレコード情報を読み込む
 	snprintf(p, sizeof(p),  "%s.%s", name, "reverseRecords");
 	if (bson_helper_itr_foreach(itr, p, watcher_reverse_record_foreach_cb, &reverse_record_foreach_cb_arg)) {
-		LOG(LOG_LV_ERR, "failed in foreach of reverse records (group %s)", name);
-		goto last;
+		// not found reverse records
 	}
 	// レコードカウントの取得
 	if (bhash_get_entry_count(ipv4hostname, &ipv4hostname_record_member_count)) {
