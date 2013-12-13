@@ -441,7 +441,7 @@ watcher_group_foreach_cb(
 	forward_record_foreach_cb_arg_t forward_record_foreach_cb_arg;
 	reverse_record_foreach_cb_arg_t reverse_record_foreach_cb_arg;
 	bson *config;
-	bson *status;
+	bson *status = NULL;
 	const char *name;
 	size_t name_size;
 	int64_t l;
@@ -457,7 +457,7 @@ watcher_group_foreach_cb(
 	int ipv4hostname_record_member_count = 0, ipv6hostname_record_member_count = 0;
 	watcher_status_element_t new_group_status, *old_group_status = NULL;
 	int force_down = 0;
-	int error = BSON_HELPER_FOREACH_ERROR;
+	int result = BSON_HELPER_FOREACH_ERROR;
 
 	ASSERT(arg != NULL);
 	ASSERT(arg->config != NULL);
@@ -473,7 +473,12 @@ watcher_group_foreach_cb(
 		// pass
 	}
 	if (force_down) {
-		error = BSON_HELPER_FOREACH_SUCCESS;
+		result = BSON_HELPER_FOREACH_SUCCESS;
+		goto last;
+	}
+	// preemptの設定は先に読む
+	if (bson_helper_itr_get_bool(itr, &preempt, "recordPreempt", config, "defaultRecordPreempt")) {
+		LOG(LOG_LV_ERR, "failed in get record preempt (group %s)", name);
 		goto last;
 	}
 	// 一時的にbitmap領域を作成
@@ -583,7 +588,7 @@ watcher_group_foreach_cb(
 	// groupがdownまたはvalid出なければ終了
 	if (new_group_status.current_status == 0 ||
 	    !new_group_status.valid) {
-		error = BSON_HELPER_FOREACH_SUCCESS;
+		result = BSON_HELPER_FOREACH_SUCCESS;
 		goto last;
 	}
 	// bsonにデータを追加開始
@@ -593,10 +598,6 @@ watcher_group_foreach_cb(
         }
 	group_object_start = 1;
 	// bsonにconfigパラメータを追加
-	if (bson_helper_itr_get_bool(itr, &preempt, "recordPreempt", config, "defaultRecordPreempt")) {
-		LOG(LOG_LV_ERR, "failed in get record preempt (group %s)", name);
-		goto last;
-	}
 	for (i = 0; i < sizeof(group_copy_params)/sizeof(group_copy_params[0]); i++) {
 		snprintf(p, sizeof(p),  "%s.%s", name, group_copy_params[i].path);
 		switch (group_copy_params[i].bson_type) {
@@ -683,29 +684,7 @@ watcher_group_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in append count of record member (group %s)", name);
 		goto last;
 	}
-	// 一時的に作ったbitmap領域を削除
-	if (bhash_destroy(ipv4address)) {
-		LOG(LOG_LV_ERR, "failed in destroy address hash (group %s)", name);
-		goto last;
-	}
-	if (bhash_destroy(ipv4hostname)) {
-		LOG(LOG_LV_ERR, "failed in destroy hostname hash (group %s)", name);
-		goto last;
-	}
-	if (bhash_destroy(ipv6address)) {
-		LOG(LOG_LV_ERR, "failed in destroy address hash (group %s)", name);
-		goto last;
-	}
-	if (bhash_destroy(ipv6hostname)) {
-		LOG(LOG_LV_ERR, "failed in destroy hostname hash (group %s)", name);
-		goto last;
-	}
-        if (bson_append_finish_object(status) != BSON_OK) {
-		LOG(LOG_LV_ERR, "failed in group entry object (group %s)", name);
-                goto last;
-        }
-
-	return BSON_HELPER_FOREACH_SUCCESS;
+	result = BSON_HELPER_FOREACH_SUCCESS;
 
 last:
 	if (ipv4address) {
@@ -724,7 +703,7 @@ last:
 		bson_append_finish_object(status);
 	}
 
-	return error;
+	return result;
 }
 
 static int
