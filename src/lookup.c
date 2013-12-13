@@ -932,6 +932,15 @@ lookup_record_roundrobin_cb(
 		}
 		*need_free_accessa_status = 1;
 		*need_rewrite_accessa_status = 1;
+		if (lookup_accessa_status_find(
+		    &accessa_status_group,
+		    NULL,
+		    new_accessa_status,
+		    lookup_record_roundrobin_cb_arg->name,
+		    NULL)) {
+			LOG(LOG_LV_ERR, "failed in refind from status of accessa");
+			return 1;
+		}
 	} else {
 		old_accessa_status = (accessa_status_t *)buffer_data;
 		// statusを取り出す。
