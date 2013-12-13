@@ -187,6 +187,7 @@ bhash_create(
 	if (new == NULL) {
 		goto fail;
 	}
+	memset(new, 0, sizeof(bhash_t));
 	new_bhash_data_size = sizeof(bhash_data_t) + (hash_size * sizeof(bhash_hash_table_entry_t)) + DEFAULT_BUFFER_SIZE;
 	new_bhash_data = malloc(new_bhash_data_size);
 	if (new_bhash_data == NULL) {
@@ -208,7 +209,6 @@ bhash_create(
 	new->free_cb = free_cb;
 	new->free_cb_arg = free_cb_arg;
 	new->bhash_data = new_bhash_data;
-	new->wrap = 0;
 	*bhash = new;
 	
 	return 0;

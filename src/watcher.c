@@ -1018,7 +1018,7 @@ watcher_set_polling_common(
 	evtimer_set(&target->event, watcher_polling_common, target);
 	event_priority_set(&target->event, DEFAULT_EVENT_PRIORITY + 10);
 	event_base_set(watcher->event_base, &target->event);
-	evtimer_add(&target->event,& target->polling_interval);
+	evtimer_add(&target->event, &target->polling_interval);
 
 	return 0;
 }
@@ -1360,6 +1360,7 @@ watcher_create(
 	if (new == NULL) {
 		goto fail;
 	}
+	memset(new, 0, sizeof(watcher_t));
         if (shared_buffer_create(&new_shared_buffer)) {
                 goto fail;
         }
@@ -1372,27 +1373,11 @@ watcher_create(
         }
 	new->shared_buffer = new_shared_buffer;
 	new->domain_map.type = TARGET_TYPE_DOMAIN_MAP;
-	new->domain_map.elements = NULL;
-	new->domain_map.tmp_elements = NULL;
 	new->domain_map.backptr = new;
-	new->domain_map.remain_buffer[0] = '\0';
-	new->domain_map.remain_buffer_len = 0;
-	new->domain_map.reading = 0;
 	new->remote_address_map.type = TARGET_TYPE_REMOTE_ADDRESS_MAP;
-	new->remote_address_map.elements = NULL;
-	new->remote_address_map.tmp_elements = NULL;
 	new->remote_address_map.backptr = new;
-	new->remote_address_map.remain_buffer[0] = '\0';
-	new->remote_address_map.remain_buffer_len = 0;
-	new->remote_address_map.reading = 0;
 	new->health_check.type = TARGET_TYPE_HEALTH_CHECK;
-	new->health_check.elements = NULL;
-	new->health_check.tmp_elements = NULL;
 	new->health_check.backptr = new;
-	new->health_check.remain_buffer[0] = '\0';
-	new->health_check.remain_buffer_len = 0;
-	new->health_check.reading = 0;
-	new->groups = NULL;
 	new->executor = new_executor;
 	new->event_base = event_base;
 	new->config_manager = config_manager;

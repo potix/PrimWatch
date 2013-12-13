@@ -490,7 +490,7 @@ json_parser_state_create(
     const unsigned char *map_key,
     size_t map_key_len)
 {
-	json_parser_state_t *new_state;
+	json_parser_state_t *new_state = NULL;
 	char *s = NULL;
 
 	ASSERT(state != NULL);
@@ -724,6 +724,7 @@ json_parser_string(
 	char *s = NULL;
 	char idx_str[32];
 	char path[MAX_JSON_PATH_LEN];
+	int result = 0;
 
 	ASSERT(json_parser != NULL);
 	ASSERT(json_parser->bson != NULL);
@@ -731,45 +732,45 @@ json_parser_string(
 	json_parser_get_path(json_parser, path, sizeof(path));
 	latest_state = json_parser_get_state(json_parser, 0);
 	if (latest_state == NULL) {
-		return 0;
+		goto last;
 	}
 	if ((s = malloc(len + 1)) == NULL) {
-		return 0;
+		goto last;
 	}
 	memcpy(s, val, len);
 	s[len] = '\0';
 	switch (latest_state->parse_type) {
 	case PARSE_TYPE_MAP_KEY:
 		if (json_parser_validate_string(json_parser, path, latest_state->map_key, (const char *)s, len)) {
-			goto fail;
+			goto last;
 		}
 		if (bson_append_string(json_parser->bson, latest_state->map_key, s) != BSON_OK) {
-			goto fail;
+			goto last;
 		} 
 		latest_state = json_parser_pop_state(json_parser);
 		json_parser_state_destroy(latest_state);
-		return 1;
+		result = 1;
+		goto last;
 	case PARSE_TYPE_LIST_START:
 		snprintf(idx_str, sizeof(idx_str), "%lld", latest_state->array_index);
 		if (json_parser_validate_string(json_parser, path, idx_str, (const char *)val, len)) {
-			goto fail;
+			goto last;
 		}
 		if (bson_append_string(json_parser->bson, idx_str, s) != BSON_OK) {
-			goto fail;
+			goto last;
 		}
-		latest_state->array_index += 1;	
-		return 1;
+		result = 1;
+		goto last;
 	default:
 		ABORT("unexpected parse type");
-		goto fail;
+		goto last;
 	}
 
-fail:
+last:
 
 	free(s);
 
-	return 0;
-
+	return result;
 }
 
 static int
@@ -867,15 +868,17 @@ json_parser_end_map(void *ctx)
 	case PARSE_TYPE_MAP_KEY:
 		prev_state = json_parser_pop_state(json_parser);
 		json_parser_state_destroy(prev_state);
+		json_parser_state_destroy(state);
 		return 1;
 	case PARSE_TYPE_LIST_START:
 		prev_state->array_index += 1;
+		json_parser_state_destroy(state);
 		return 1;
 	default:
 		ABORT("unexpected parse type");
+		json_parser_state_destroy(state);
 		return 0;
 	}
-	json_parser_state_destroy(state);
 }
 
 static int
@@ -943,15 +946,17 @@ json_parser_end_array(void *ctx)
 	case PARSE_TYPE_MAP_KEY:
 		prev_state = json_parser_pop_state(json_parser);
 		json_parser_state_destroy(prev_state);
+		json_parser_state_destroy(state);
 		return 1;
 	case PARSE_TYPE_LIST_START:
 		prev_state->array_index += 1;
+		json_parser_state_destroy(state);
 		return 1;
 	default:
 		ABORT("unexpected parse type");
+		json_parser_state_destroy(state);
 		return 0;
 	}
-	json_parser_state_destroy(state);
 }
 
 int
