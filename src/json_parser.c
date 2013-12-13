@@ -852,6 +852,7 @@ json_parser_end_map(void *ctx)
 {
 	json_parser_t *json_parser = ctx;
 	json_parser_state_t *prev_state, *state;
+	int result = 0;
 
 	ASSERT(json_parser != NULL);
 	ASSERT(json_parser->bson != NULL);
@@ -862,23 +863,26 @@ json_parser_end_map(void *ctx)
 	prev_state = json_parser_get_state(json_parser, 0);
 	if (prev_state == NULL) {
 		// end
+		json_parser_state_destroy(state);
 		return 1;
 	}
 	switch(prev_state->parse_type) {
 	case PARSE_TYPE_MAP_KEY:
 		prev_state = json_parser_pop_state(json_parser);
 		json_parser_state_destroy(prev_state);
-		json_parser_state_destroy(state);
-		return 1;
+		result = 1;
+		break;
 	case PARSE_TYPE_LIST_START:
 		prev_state->array_index += 1;
-		json_parser_state_destroy(state);
-		return 1;
+		result = 1;
+		break;
 	default:
 		ABORT("unexpected parse type");
-		json_parser_state_destroy(state);
-		return 0;
+		break;
 	}
+	json_parser_state_destroy(state);
+
+	return result;
 }
 
 static int
@@ -931,6 +935,7 @@ json_parser_end_array(void *ctx)
 {
 	json_parser_t *json_parser = ctx;
 	json_parser_state_t *prev_state, *state;
+	int result = 0;
 
 	ASSERT(json_parser != NULL);
 	ASSERT(json_parser->bson != NULL);
@@ -946,17 +951,19 @@ json_parser_end_array(void *ctx)
 	case PARSE_TYPE_MAP_KEY:
 		prev_state = json_parser_pop_state(json_parser);
 		json_parser_state_destroy(prev_state);
-		json_parser_state_destroy(state);
-		return 1;
+		result = 1;
+		break;
 	case PARSE_TYPE_LIST_START:
 		prev_state->array_index += 1;
-		json_parser_state_destroy(state);
-		return 1;
+		result = 1;
+		break;
 	default:
 		ABORT("unexpected parse type");
-		json_parser_state_destroy(state);
-		return 0;
+		break;
 	}
+	json_parser_state_destroy(state);
+
+	return result;
 }
 
 int

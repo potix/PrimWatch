@@ -134,6 +134,7 @@ executor_create(
 	if (new == NULL) {
 		goto fail;
 	}
+	memset(new, 0, sizeof(executor_t));
 	LIST_INIT(&new->process_head);
 	new->event_base = event_base;
 	*executor = new;

@@ -379,16 +379,15 @@ controller_create(
 		LOG(LOG_LV_ERR, "failed in allocate controller");
 		goto fail;
 	}
+	memset(new, 0, sizeof(controller_t));
 	new_result = malloc(DEFAULT_BUFFER_SIZE);
 	if (new_result == NULL) {
 		LOG(LOG_LV_ERR, "failed in allocate result buffer");
 		goto fail;
 	}
 	new->watcher = watcher;
-	new->tcp_server = NULL;
 	new->result = new_result;
 	new->result_size = DEFAULT_BUFFER_SIZE;
-	new->result_real_size = 0;
 	new->event_base = event_base;
 	*controller = new;
 
