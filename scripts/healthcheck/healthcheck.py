@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/python2.7
 # -*- coding: utf-8 -*-
 
 import json
@@ -173,7 +173,7 @@ Example:
             elapsed = (time.time() - start) * 1000
             self.log.debug('Successfully to connect %s:%s. time: %lf ms', self.address, port, elapsed)
             return True
-        except Exception, e:
+        except Exception as e:
             self.log.info('Failed to connect TCP %s:%s.', self.address, port)
         return False
 
@@ -251,7 +251,7 @@ Example:
             self.log.debug('ICMP sent %s. id: %d, ttl: %lf ms, time: %lf ms' % (self.address, sid, ttl, elapsed))
             return True
 
-        except Exception, e:
+        except Exception as e:
             self.log.info('Failed to send ICMP %s, %s', self.address, e)
         return False
 
@@ -294,11 +294,11 @@ Example:
             elapsed = (time.time() - start) * 1000
             self.log.debug('Sent a http request %s. Response: %s, time: %lf ms', url, r.code, elapsed)
             return r.code
-        except HTTPError, e:
+        except HTTPError as e:
             code = e.code
             self.log.warn('Failed to open %s. code: %s', url, code)
             return
-        except URLError, e:
+        except URLError as e:
             self.log.warn('Failed to open %s. reason: %s', url, e.reason)
         return code
 
@@ -371,7 +371,7 @@ class HealthCheckTarget(object):
         return self._tasks
 
     def is_alive(self):
-	if self.force_down:
+        if self.force_down:
             return False
         return False not in [t.is_alive() for t in self._tasks]
 
@@ -439,7 +439,7 @@ class HealthCheckService(object):
                 result = target.is_alive() and 'up' or 'down'
                 self.logger.info("%s(%s) is %s", target.name, target.address, result)
                 self._lock.acquire()
-                print '%s %s' % (target.address, result)
+                print('%s %s' % (target.address, result))
                 self._lock.release()
             self._queue.task_done()
 
@@ -494,9 +494,9 @@ def main():
                   default=False, help='show watch types and exit')
     opts, args = op.parse_args()
     if opts.show_types:
-        print 'Supported watch types:'
+        print('Supported watch types:')
         for k, c in get_components():
-            print '%s\n%s' % ('{0:-^72}\n'.format(' %s ' % k), c.__doc__)
+            print('%s\n%s' % ('{0:-^72}\n'.format(' %s ' % k), c.__doc__))
         sys.exit(0)
     config = Config()
     if opts.config:
