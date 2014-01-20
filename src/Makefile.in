@@ -33,12 +33,12 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = primwatchd$(EXEEXT) primwatch_primdns$(EXEEXT) \
-	primwatch_powedns$(EXEEXT)
+	primwatch_powerdns$(EXEEXT)
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS \
-	compile depcomp install-sh missing
+	TODO compile depcomp install-sh missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -51,23 +51,23 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_primwatch_powedns_OBJECTS =  \
-	primwatch_powedns-accessa_main.$(OBJEXT) \
-	primwatch_powedns-lookup.$(OBJEXT) \
-	primwatch_powedns-bhash.$(OBJEXT) \
-	primwatch_powedns-shared_buffer.$(OBJEXT) \
-	primwatch_powedns-bson_helper.$(OBJEXT) \
-	primwatch_powedns-bson.$(OBJEXT) \
-	primwatch_powedns-encoding.$(OBJEXT) \
-	primwatch_powedns-numbers.$(OBJEXT) \
-	primwatch_powedns-logger.$(OBJEXT) \
-	primwatch_powedns-powerdns.$(OBJEXT) \
-	primwatch_powedns-address_util.$(OBJEXT) \
-	primwatch_powedns-string_util.$(OBJEXT)
-primwatch_powedns_OBJECTS = $(am_primwatch_powedns_OBJECTS)
-primwatch_powedns_LDADD = $(LDADD)
-primwatch_powedns_LINK = $(CCLD) $(primwatch_powedns_CFLAGS) $(CFLAGS) \
-	$(AM_LDFLAGS) $(LDFLAGS) -o $@
+am_primwatch_powerdns_OBJECTS =  \
+	primwatch_powerdns-accessa_main.$(OBJEXT) \
+	primwatch_powerdns-lookup.$(OBJEXT) \
+	primwatch_powerdns-bhash.$(OBJEXT) \
+	primwatch_powerdns-shared_buffer.$(OBJEXT) \
+	primwatch_powerdns-bson_helper.$(OBJEXT) \
+	primwatch_powerdns-bson.$(OBJEXT) \
+	primwatch_powerdns-encoding.$(OBJEXT) \
+	primwatch_powerdns-numbers.$(OBJEXT) \
+	primwatch_powerdns-logger.$(OBJEXT) \
+	primwatch_powerdns-powerdns.$(OBJEXT) \
+	primwatch_powerdns-address_util.$(OBJEXT) \
+	primwatch_powerdns-string_util.$(OBJEXT)
+primwatch_powerdns_OBJECTS = $(am_primwatch_powerdns_OBJECTS)
+primwatch_powerdns_LDADD = $(LDADD)
+primwatch_powerdns_LINK = $(CCLD) $(primwatch_powerdns_CFLAGS) \
+	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_primwatch_primdns_OBJECTS =  \
 	primwatch_primdns-accessa_main.$(OBJEXT) \
 	primwatch_primdns-lookup.$(OBJEXT) \
@@ -108,9 +108,9 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(primwatch_powedns_SOURCES) $(primwatch_primdns_SOURCES) \
+SOURCES = $(primwatch_powerdns_SOURCES) $(primwatch_primdns_SOURCES) \
 	$(primwatchd_SOURCES)
-DIST_SOURCES = $(primwatch_powedns_SOURCES) \
+DIST_SOURCES = $(primwatch_powerdns_SOURCES) \
 	$(primwatch_primdns_SOURCES) $(primwatchd_SOURCES)
 ETAGS = etags
 CTAGS = ctags
@@ -216,8 +216,8 @@ primwatchd_CFLAGS = -Wall -Ibson -std=gnu99 -DYAJL_MAJOR=$(YAJL_MAJOR)
 primwatchd_LDADD = -lyajl -levent
 primwatch_primdns_SOURCES = accessa_main.c lookup.c bhash.c  shared_buffer.c bson_helper.c bson/bson.c bson/encoding.c bson/numbers.c logger.c dns/primdns.c address_util.c string_util.c common_macro.h common_defile.h lookup.h bhash.h shared_buffer.h bson_helper.h bson/bson.h bson/encoding.h logger.h dns/primdns.h address_util.h string_util.h record.h
 primwatch_primdns_CFLAGS = -Wall -Ibson -Idns -std=gnu99 -DPRIMDNS 
-primwatch_powedns_SOURCES = accessa_main.c lookup.c bhash.c  shared_buffer.c bson_helper.c bson/bson.c bson/encoding.c bson/numbers.c logger.c dns/powerdns.c address_util.c string_util.c common_macro.h common_defile.h lookup.h bhash.h shared_buffer.h bson_helper.h bson/bson.h bson/encoding.h logger.h dns/powerdns.h address_util.h string_util.h record.h
-primwatch_powedns_CFLAGS = -Wall -Ibson -Idns -std=gnu99 -DPOWERDNS
+primwatch_powerdns_SOURCES = accessa_main.c lookup.c bhash.c  shared_buffer.c bson_helper.c bson/bson.c bson/encoding.c bson/numbers.c logger.c dns/powerdns.c address_util.c string_util.c common_macro.h common_defile.h lookup.h bhash.h shared_buffer.h bson_helper.h bson/bson.h bson/encoding.h logger.h dns/powerdns.h address_util.h string_util.h record.h
+primwatch_powerdns_CFLAGS = -Wall -Ibson -Idns -std=gnu99 -DPOWERDNS
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -311,9 +311,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-primwatch_powedns$(EXEEXT): $(primwatch_powedns_OBJECTS) $(primwatch_powedns_DEPENDENCIES) 
-	@rm -f primwatch_powedns$(EXEEXT)
-	$(primwatch_powedns_LINK) $(primwatch_powedns_OBJECTS) $(primwatch_powedns_LDADD) $(LIBS)
+primwatch_powerdns$(EXEEXT): $(primwatch_powerdns_OBJECTS) $(primwatch_powerdns_DEPENDENCIES) 
+	@rm -f primwatch_powerdns$(EXEEXT)
+	$(primwatch_powerdns_LINK) $(primwatch_powerdns_OBJECTS) $(primwatch_powerdns_LDADD) $(LIBS)
 primwatch_primdns$(EXEEXT): $(primwatch_primdns_OBJECTS) $(primwatch_primdns_DEPENDENCIES) 
 	@rm -f primwatch_primdns$(EXEEXT)
 	$(primwatch_primdns_LINK) $(primwatch_primdns_OBJECTS) $(primwatch_primdns_LDADD) $(LIBS)
@@ -327,18 +327,18 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-accessa_main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-address_util.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-bhash.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-bson.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-bson_helper.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-encoding.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-logger.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-lookup.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-numbers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-powerdns.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-shared_buffer.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powedns-string_util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-accessa_main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-address_util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-bhash.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-bson.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-bson_helper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-encoding.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-logger.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-lookup.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-numbers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-powerdns.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-shared_buffer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_powerdns-string_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_primdns-accessa_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_primdns-address_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/primwatch_primdns-bhash.Po@am__quote@
@@ -382,173 +382,173 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
 
-primwatch_powedns-accessa_main.o: accessa_main.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-accessa_main.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-accessa_main.Tpo -c -o primwatch_powedns-accessa_main.o `test -f 'accessa_main.c' || echo '$(srcdir)/'`accessa_main.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-accessa_main.Tpo $(DEPDIR)/primwatch_powedns-accessa_main.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='accessa_main.c' object='primwatch_powedns-accessa_main.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-accessa_main.o: accessa_main.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-accessa_main.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-accessa_main.Tpo -c -o primwatch_powerdns-accessa_main.o `test -f 'accessa_main.c' || echo '$(srcdir)/'`accessa_main.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-accessa_main.Tpo $(DEPDIR)/primwatch_powerdns-accessa_main.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='accessa_main.c' object='primwatch_powerdns-accessa_main.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-accessa_main.o `test -f 'accessa_main.c' || echo '$(srcdir)/'`accessa_main.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-accessa_main.o `test -f 'accessa_main.c' || echo '$(srcdir)/'`accessa_main.c
 
-primwatch_powedns-accessa_main.obj: accessa_main.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-accessa_main.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-accessa_main.Tpo -c -o primwatch_powedns-accessa_main.obj `if test -f 'accessa_main.c'; then $(CYGPATH_W) 'accessa_main.c'; else $(CYGPATH_W) '$(srcdir)/accessa_main.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-accessa_main.Tpo $(DEPDIR)/primwatch_powedns-accessa_main.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='accessa_main.c' object='primwatch_powedns-accessa_main.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-accessa_main.obj: accessa_main.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-accessa_main.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-accessa_main.Tpo -c -o primwatch_powerdns-accessa_main.obj `if test -f 'accessa_main.c'; then $(CYGPATH_W) 'accessa_main.c'; else $(CYGPATH_W) '$(srcdir)/accessa_main.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-accessa_main.Tpo $(DEPDIR)/primwatch_powerdns-accessa_main.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='accessa_main.c' object='primwatch_powerdns-accessa_main.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-accessa_main.obj `if test -f 'accessa_main.c'; then $(CYGPATH_W) 'accessa_main.c'; else $(CYGPATH_W) '$(srcdir)/accessa_main.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-accessa_main.obj `if test -f 'accessa_main.c'; then $(CYGPATH_W) 'accessa_main.c'; else $(CYGPATH_W) '$(srcdir)/accessa_main.c'; fi`
 
-primwatch_powedns-lookup.o: lookup.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-lookup.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-lookup.Tpo -c -o primwatch_powedns-lookup.o `test -f 'lookup.c' || echo '$(srcdir)/'`lookup.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-lookup.Tpo $(DEPDIR)/primwatch_powedns-lookup.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lookup.c' object='primwatch_powedns-lookup.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-lookup.o: lookup.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-lookup.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-lookup.Tpo -c -o primwatch_powerdns-lookup.o `test -f 'lookup.c' || echo '$(srcdir)/'`lookup.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-lookup.Tpo $(DEPDIR)/primwatch_powerdns-lookup.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lookup.c' object='primwatch_powerdns-lookup.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-lookup.o `test -f 'lookup.c' || echo '$(srcdir)/'`lookup.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-lookup.o `test -f 'lookup.c' || echo '$(srcdir)/'`lookup.c
 
-primwatch_powedns-lookup.obj: lookup.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-lookup.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-lookup.Tpo -c -o primwatch_powedns-lookup.obj `if test -f 'lookup.c'; then $(CYGPATH_W) 'lookup.c'; else $(CYGPATH_W) '$(srcdir)/lookup.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-lookup.Tpo $(DEPDIR)/primwatch_powedns-lookup.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lookup.c' object='primwatch_powedns-lookup.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-lookup.obj: lookup.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-lookup.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-lookup.Tpo -c -o primwatch_powerdns-lookup.obj `if test -f 'lookup.c'; then $(CYGPATH_W) 'lookup.c'; else $(CYGPATH_W) '$(srcdir)/lookup.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-lookup.Tpo $(DEPDIR)/primwatch_powerdns-lookup.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lookup.c' object='primwatch_powerdns-lookup.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-lookup.obj `if test -f 'lookup.c'; then $(CYGPATH_W) 'lookup.c'; else $(CYGPATH_W) '$(srcdir)/lookup.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-lookup.obj `if test -f 'lookup.c'; then $(CYGPATH_W) 'lookup.c'; else $(CYGPATH_W) '$(srcdir)/lookup.c'; fi`
 
-primwatch_powedns-bhash.o: bhash.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-bhash.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-bhash.Tpo -c -o primwatch_powedns-bhash.o `test -f 'bhash.c' || echo '$(srcdir)/'`bhash.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-bhash.Tpo $(DEPDIR)/primwatch_powedns-bhash.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bhash.c' object='primwatch_powedns-bhash.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-bhash.o: bhash.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-bhash.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-bhash.Tpo -c -o primwatch_powerdns-bhash.o `test -f 'bhash.c' || echo '$(srcdir)/'`bhash.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-bhash.Tpo $(DEPDIR)/primwatch_powerdns-bhash.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bhash.c' object='primwatch_powerdns-bhash.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-bhash.o `test -f 'bhash.c' || echo '$(srcdir)/'`bhash.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-bhash.o `test -f 'bhash.c' || echo '$(srcdir)/'`bhash.c
 
-primwatch_powedns-bhash.obj: bhash.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-bhash.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-bhash.Tpo -c -o primwatch_powedns-bhash.obj `if test -f 'bhash.c'; then $(CYGPATH_W) 'bhash.c'; else $(CYGPATH_W) '$(srcdir)/bhash.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-bhash.Tpo $(DEPDIR)/primwatch_powedns-bhash.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bhash.c' object='primwatch_powedns-bhash.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-bhash.obj: bhash.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-bhash.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-bhash.Tpo -c -o primwatch_powerdns-bhash.obj `if test -f 'bhash.c'; then $(CYGPATH_W) 'bhash.c'; else $(CYGPATH_W) '$(srcdir)/bhash.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-bhash.Tpo $(DEPDIR)/primwatch_powerdns-bhash.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bhash.c' object='primwatch_powerdns-bhash.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-bhash.obj `if test -f 'bhash.c'; then $(CYGPATH_W) 'bhash.c'; else $(CYGPATH_W) '$(srcdir)/bhash.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-bhash.obj `if test -f 'bhash.c'; then $(CYGPATH_W) 'bhash.c'; else $(CYGPATH_W) '$(srcdir)/bhash.c'; fi`
 
-primwatch_powedns-shared_buffer.o: shared_buffer.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-shared_buffer.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-shared_buffer.Tpo -c -o primwatch_powedns-shared_buffer.o `test -f 'shared_buffer.c' || echo '$(srcdir)/'`shared_buffer.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-shared_buffer.Tpo $(DEPDIR)/primwatch_powedns-shared_buffer.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='shared_buffer.c' object='primwatch_powedns-shared_buffer.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-shared_buffer.o: shared_buffer.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-shared_buffer.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-shared_buffer.Tpo -c -o primwatch_powerdns-shared_buffer.o `test -f 'shared_buffer.c' || echo '$(srcdir)/'`shared_buffer.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-shared_buffer.Tpo $(DEPDIR)/primwatch_powerdns-shared_buffer.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='shared_buffer.c' object='primwatch_powerdns-shared_buffer.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-shared_buffer.o `test -f 'shared_buffer.c' || echo '$(srcdir)/'`shared_buffer.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-shared_buffer.o `test -f 'shared_buffer.c' || echo '$(srcdir)/'`shared_buffer.c
 
-primwatch_powedns-shared_buffer.obj: shared_buffer.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-shared_buffer.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-shared_buffer.Tpo -c -o primwatch_powedns-shared_buffer.obj `if test -f 'shared_buffer.c'; then $(CYGPATH_W) 'shared_buffer.c'; else $(CYGPATH_W) '$(srcdir)/shared_buffer.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-shared_buffer.Tpo $(DEPDIR)/primwatch_powedns-shared_buffer.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='shared_buffer.c' object='primwatch_powedns-shared_buffer.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-shared_buffer.obj: shared_buffer.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-shared_buffer.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-shared_buffer.Tpo -c -o primwatch_powerdns-shared_buffer.obj `if test -f 'shared_buffer.c'; then $(CYGPATH_W) 'shared_buffer.c'; else $(CYGPATH_W) '$(srcdir)/shared_buffer.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-shared_buffer.Tpo $(DEPDIR)/primwatch_powerdns-shared_buffer.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='shared_buffer.c' object='primwatch_powerdns-shared_buffer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-shared_buffer.obj `if test -f 'shared_buffer.c'; then $(CYGPATH_W) 'shared_buffer.c'; else $(CYGPATH_W) '$(srcdir)/shared_buffer.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-shared_buffer.obj `if test -f 'shared_buffer.c'; then $(CYGPATH_W) 'shared_buffer.c'; else $(CYGPATH_W) '$(srcdir)/shared_buffer.c'; fi`
 
-primwatch_powedns-bson_helper.o: bson_helper.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-bson_helper.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-bson_helper.Tpo -c -o primwatch_powedns-bson_helper.o `test -f 'bson_helper.c' || echo '$(srcdir)/'`bson_helper.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-bson_helper.Tpo $(DEPDIR)/primwatch_powedns-bson_helper.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson_helper.c' object='primwatch_powedns-bson_helper.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-bson_helper.o: bson_helper.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-bson_helper.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-bson_helper.Tpo -c -o primwatch_powerdns-bson_helper.o `test -f 'bson_helper.c' || echo '$(srcdir)/'`bson_helper.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-bson_helper.Tpo $(DEPDIR)/primwatch_powerdns-bson_helper.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson_helper.c' object='primwatch_powerdns-bson_helper.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-bson_helper.o `test -f 'bson_helper.c' || echo '$(srcdir)/'`bson_helper.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-bson_helper.o `test -f 'bson_helper.c' || echo '$(srcdir)/'`bson_helper.c
 
-primwatch_powedns-bson_helper.obj: bson_helper.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-bson_helper.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-bson_helper.Tpo -c -o primwatch_powedns-bson_helper.obj `if test -f 'bson_helper.c'; then $(CYGPATH_W) 'bson_helper.c'; else $(CYGPATH_W) '$(srcdir)/bson_helper.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-bson_helper.Tpo $(DEPDIR)/primwatch_powedns-bson_helper.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson_helper.c' object='primwatch_powedns-bson_helper.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-bson_helper.obj: bson_helper.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-bson_helper.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-bson_helper.Tpo -c -o primwatch_powerdns-bson_helper.obj `if test -f 'bson_helper.c'; then $(CYGPATH_W) 'bson_helper.c'; else $(CYGPATH_W) '$(srcdir)/bson_helper.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-bson_helper.Tpo $(DEPDIR)/primwatch_powerdns-bson_helper.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson_helper.c' object='primwatch_powerdns-bson_helper.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-bson_helper.obj `if test -f 'bson_helper.c'; then $(CYGPATH_W) 'bson_helper.c'; else $(CYGPATH_W) '$(srcdir)/bson_helper.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-bson_helper.obj `if test -f 'bson_helper.c'; then $(CYGPATH_W) 'bson_helper.c'; else $(CYGPATH_W) '$(srcdir)/bson_helper.c'; fi`
 
-primwatch_powedns-bson.o: bson/bson.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-bson.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-bson.Tpo -c -o primwatch_powedns-bson.o `test -f 'bson/bson.c' || echo '$(srcdir)/'`bson/bson.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-bson.Tpo $(DEPDIR)/primwatch_powedns-bson.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/bson.c' object='primwatch_powedns-bson.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-bson.o: bson/bson.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-bson.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-bson.Tpo -c -o primwatch_powerdns-bson.o `test -f 'bson/bson.c' || echo '$(srcdir)/'`bson/bson.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-bson.Tpo $(DEPDIR)/primwatch_powerdns-bson.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/bson.c' object='primwatch_powerdns-bson.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-bson.o `test -f 'bson/bson.c' || echo '$(srcdir)/'`bson/bson.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-bson.o `test -f 'bson/bson.c' || echo '$(srcdir)/'`bson/bson.c
 
-primwatch_powedns-bson.obj: bson/bson.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-bson.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-bson.Tpo -c -o primwatch_powedns-bson.obj `if test -f 'bson/bson.c'; then $(CYGPATH_W) 'bson/bson.c'; else $(CYGPATH_W) '$(srcdir)/bson/bson.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-bson.Tpo $(DEPDIR)/primwatch_powedns-bson.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/bson.c' object='primwatch_powedns-bson.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-bson.obj: bson/bson.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-bson.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-bson.Tpo -c -o primwatch_powerdns-bson.obj `if test -f 'bson/bson.c'; then $(CYGPATH_W) 'bson/bson.c'; else $(CYGPATH_W) '$(srcdir)/bson/bson.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-bson.Tpo $(DEPDIR)/primwatch_powerdns-bson.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/bson.c' object='primwatch_powerdns-bson.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-bson.obj `if test -f 'bson/bson.c'; then $(CYGPATH_W) 'bson/bson.c'; else $(CYGPATH_W) '$(srcdir)/bson/bson.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-bson.obj `if test -f 'bson/bson.c'; then $(CYGPATH_W) 'bson/bson.c'; else $(CYGPATH_W) '$(srcdir)/bson/bson.c'; fi`
 
-primwatch_powedns-encoding.o: bson/encoding.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-encoding.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-encoding.Tpo -c -o primwatch_powedns-encoding.o `test -f 'bson/encoding.c' || echo '$(srcdir)/'`bson/encoding.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-encoding.Tpo $(DEPDIR)/primwatch_powedns-encoding.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/encoding.c' object='primwatch_powedns-encoding.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-encoding.o: bson/encoding.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-encoding.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-encoding.Tpo -c -o primwatch_powerdns-encoding.o `test -f 'bson/encoding.c' || echo '$(srcdir)/'`bson/encoding.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-encoding.Tpo $(DEPDIR)/primwatch_powerdns-encoding.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/encoding.c' object='primwatch_powerdns-encoding.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-encoding.o `test -f 'bson/encoding.c' || echo '$(srcdir)/'`bson/encoding.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-encoding.o `test -f 'bson/encoding.c' || echo '$(srcdir)/'`bson/encoding.c
 
-primwatch_powedns-encoding.obj: bson/encoding.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-encoding.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-encoding.Tpo -c -o primwatch_powedns-encoding.obj `if test -f 'bson/encoding.c'; then $(CYGPATH_W) 'bson/encoding.c'; else $(CYGPATH_W) '$(srcdir)/bson/encoding.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-encoding.Tpo $(DEPDIR)/primwatch_powedns-encoding.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/encoding.c' object='primwatch_powedns-encoding.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-encoding.obj: bson/encoding.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-encoding.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-encoding.Tpo -c -o primwatch_powerdns-encoding.obj `if test -f 'bson/encoding.c'; then $(CYGPATH_W) 'bson/encoding.c'; else $(CYGPATH_W) '$(srcdir)/bson/encoding.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-encoding.Tpo $(DEPDIR)/primwatch_powerdns-encoding.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/encoding.c' object='primwatch_powerdns-encoding.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-encoding.obj `if test -f 'bson/encoding.c'; then $(CYGPATH_W) 'bson/encoding.c'; else $(CYGPATH_W) '$(srcdir)/bson/encoding.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-encoding.obj `if test -f 'bson/encoding.c'; then $(CYGPATH_W) 'bson/encoding.c'; else $(CYGPATH_W) '$(srcdir)/bson/encoding.c'; fi`
 
-primwatch_powedns-numbers.o: bson/numbers.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-numbers.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-numbers.Tpo -c -o primwatch_powedns-numbers.o `test -f 'bson/numbers.c' || echo '$(srcdir)/'`bson/numbers.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-numbers.Tpo $(DEPDIR)/primwatch_powedns-numbers.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/numbers.c' object='primwatch_powedns-numbers.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-numbers.o: bson/numbers.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-numbers.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-numbers.Tpo -c -o primwatch_powerdns-numbers.o `test -f 'bson/numbers.c' || echo '$(srcdir)/'`bson/numbers.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-numbers.Tpo $(DEPDIR)/primwatch_powerdns-numbers.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/numbers.c' object='primwatch_powerdns-numbers.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-numbers.o `test -f 'bson/numbers.c' || echo '$(srcdir)/'`bson/numbers.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-numbers.o `test -f 'bson/numbers.c' || echo '$(srcdir)/'`bson/numbers.c
 
-primwatch_powedns-numbers.obj: bson/numbers.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-numbers.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-numbers.Tpo -c -o primwatch_powedns-numbers.obj `if test -f 'bson/numbers.c'; then $(CYGPATH_W) 'bson/numbers.c'; else $(CYGPATH_W) '$(srcdir)/bson/numbers.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-numbers.Tpo $(DEPDIR)/primwatch_powedns-numbers.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/numbers.c' object='primwatch_powedns-numbers.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-numbers.obj: bson/numbers.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-numbers.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-numbers.Tpo -c -o primwatch_powerdns-numbers.obj `if test -f 'bson/numbers.c'; then $(CYGPATH_W) 'bson/numbers.c'; else $(CYGPATH_W) '$(srcdir)/bson/numbers.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-numbers.Tpo $(DEPDIR)/primwatch_powerdns-numbers.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bson/numbers.c' object='primwatch_powerdns-numbers.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-numbers.obj `if test -f 'bson/numbers.c'; then $(CYGPATH_W) 'bson/numbers.c'; else $(CYGPATH_W) '$(srcdir)/bson/numbers.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-numbers.obj `if test -f 'bson/numbers.c'; then $(CYGPATH_W) 'bson/numbers.c'; else $(CYGPATH_W) '$(srcdir)/bson/numbers.c'; fi`
 
-primwatch_powedns-logger.o: logger.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-logger.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-logger.Tpo -c -o primwatch_powedns-logger.o `test -f 'logger.c' || echo '$(srcdir)/'`logger.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-logger.Tpo $(DEPDIR)/primwatch_powedns-logger.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='logger.c' object='primwatch_powedns-logger.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-logger.o: logger.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-logger.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-logger.Tpo -c -o primwatch_powerdns-logger.o `test -f 'logger.c' || echo '$(srcdir)/'`logger.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-logger.Tpo $(DEPDIR)/primwatch_powerdns-logger.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='logger.c' object='primwatch_powerdns-logger.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-logger.o `test -f 'logger.c' || echo '$(srcdir)/'`logger.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-logger.o `test -f 'logger.c' || echo '$(srcdir)/'`logger.c
 
-primwatch_powedns-logger.obj: logger.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-logger.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-logger.Tpo -c -o primwatch_powedns-logger.obj `if test -f 'logger.c'; then $(CYGPATH_W) 'logger.c'; else $(CYGPATH_W) '$(srcdir)/logger.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-logger.Tpo $(DEPDIR)/primwatch_powedns-logger.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='logger.c' object='primwatch_powedns-logger.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-logger.obj: logger.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-logger.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-logger.Tpo -c -o primwatch_powerdns-logger.obj `if test -f 'logger.c'; then $(CYGPATH_W) 'logger.c'; else $(CYGPATH_W) '$(srcdir)/logger.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-logger.Tpo $(DEPDIR)/primwatch_powerdns-logger.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='logger.c' object='primwatch_powerdns-logger.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-logger.obj `if test -f 'logger.c'; then $(CYGPATH_W) 'logger.c'; else $(CYGPATH_W) '$(srcdir)/logger.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-logger.obj `if test -f 'logger.c'; then $(CYGPATH_W) 'logger.c'; else $(CYGPATH_W) '$(srcdir)/logger.c'; fi`
 
-primwatch_powedns-powerdns.o: dns/powerdns.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-powerdns.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-powerdns.Tpo -c -o primwatch_powedns-powerdns.o `test -f 'dns/powerdns.c' || echo '$(srcdir)/'`dns/powerdns.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-powerdns.Tpo $(DEPDIR)/primwatch_powedns-powerdns.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dns/powerdns.c' object='primwatch_powedns-powerdns.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-powerdns.o: dns/powerdns.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-powerdns.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-powerdns.Tpo -c -o primwatch_powerdns-powerdns.o `test -f 'dns/powerdns.c' || echo '$(srcdir)/'`dns/powerdns.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-powerdns.Tpo $(DEPDIR)/primwatch_powerdns-powerdns.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dns/powerdns.c' object='primwatch_powerdns-powerdns.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-powerdns.o `test -f 'dns/powerdns.c' || echo '$(srcdir)/'`dns/powerdns.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-powerdns.o `test -f 'dns/powerdns.c' || echo '$(srcdir)/'`dns/powerdns.c
 
-primwatch_powedns-powerdns.obj: dns/powerdns.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-powerdns.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-powerdns.Tpo -c -o primwatch_powedns-powerdns.obj `if test -f 'dns/powerdns.c'; then $(CYGPATH_W) 'dns/powerdns.c'; else $(CYGPATH_W) '$(srcdir)/dns/powerdns.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-powerdns.Tpo $(DEPDIR)/primwatch_powedns-powerdns.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dns/powerdns.c' object='primwatch_powedns-powerdns.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-powerdns.obj: dns/powerdns.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-powerdns.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-powerdns.Tpo -c -o primwatch_powerdns-powerdns.obj `if test -f 'dns/powerdns.c'; then $(CYGPATH_W) 'dns/powerdns.c'; else $(CYGPATH_W) '$(srcdir)/dns/powerdns.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-powerdns.Tpo $(DEPDIR)/primwatch_powerdns-powerdns.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dns/powerdns.c' object='primwatch_powerdns-powerdns.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-powerdns.obj `if test -f 'dns/powerdns.c'; then $(CYGPATH_W) 'dns/powerdns.c'; else $(CYGPATH_W) '$(srcdir)/dns/powerdns.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-powerdns.obj `if test -f 'dns/powerdns.c'; then $(CYGPATH_W) 'dns/powerdns.c'; else $(CYGPATH_W) '$(srcdir)/dns/powerdns.c'; fi`
 
-primwatch_powedns-address_util.o: address_util.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-address_util.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-address_util.Tpo -c -o primwatch_powedns-address_util.o `test -f 'address_util.c' || echo '$(srcdir)/'`address_util.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-address_util.Tpo $(DEPDIR)/primwatch_powedns-address_util.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='address_util.c' object='primwatch_powedns-address_util.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-address_util.o: address_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-address_util.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-address_util.Tpo -c -o primwatch_powerdns-address_util.o `test -f 'address_util.c' || echo '$(srcdir)/'`address_util.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-address_util.Tpo $(DEPDIR)/primwatch_powerdns-address_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='address_util.c' object='primwatch_powerdns-address_util.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-address_util.o `test -f 'address_util.c' || echo '$(srcdir)/'`address_util.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-address_util.o `test -f 'address_util.c' || echo '$(srcdir)/'`address_util.c
 
-primwatch_powedns-address_util.obj: address_util.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-address_util.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-address_util.Tpo -c -o primwatch_powedns-address_util.obj `if test -f 'address_util.c'; then $(CYGPATH_W) 'address_util.c'; else $(CYGPATH_W) '$(srcdir)/address_util.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-address_util.Tpo $(DEPDIR)/primwatch_powedns-address_util.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='address_util.c' object='primwatch_powedns-address_util.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-address_util.obj: address_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-address_util.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-address_util.Tpo -c -o primwatch_powerdns-address_util.obj `if test -f 'address_util.c'; then $(CYGPATH_W) 'address_util.c'; else $(CYGPATH_W) '$(srcdir)/address_util.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-address_util.Tpo $(DEPDIR)/primwatch_powerdns-address_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='address_util.c' object='primwatch_powerdns-address_util.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-address_util.obj `if test -f 'address_util.c'; then $(CYGPATH_W) 'address_util.c'; else $(CYGPATH_W) '$(srcdir)/address_util.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-address_util.obj `if test -f 'address_util.c'; then $(CYGPATH_W) 'address_util.c'; else $(CYGPATH_W) '$(srcdir)/address_util.c'; fi`
 
-primwatch_powedns-string_util.o: string_util.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-string_util.o -MD -MP -MF $(DEPDIR)/primwatch_powedns-string_util.Tpo -c -o primwatch_powedns-string_util.o `test -f 'string_util.c' || echo '$(srcdir)/'`string_util.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-string_util.Tpo $(DEPDIR)/primwatch_powedns-string_util.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='string_util.c' object='primwatch_powedns-string_util.o' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-string_util.o: string_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-string_util.o -MD -MP -MF $(DEPDIR)/primwatch_powerdns-string_util.Tpo -c -o primwatch_powerdns-string_util.o `test -f 'string_util.c' || echo '$(srcdir)/'`string_util.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-string_util.Tpo $(DEPDIR)/primwatch_powerdns-string_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='string_util.c' object='primwatch_powerdns-string_util.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-string_util.o `test -f 'string_util.c' || echo '$(srcdir)/'`string_util.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-string_util.o `test -f 'string_util.c' || echo '$(srcdir)/'`string_util.c
 
-primwatch_powedns-string_util.obj: string_util.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -MT primwatch_powedns-string_util.obj -MD -MP -MF $(DEPDIR)/primwatch_powedns-string_util.Tpo -c -o primwatch_powedns-string_util.obj `if test -f 'string_util.c'; then $(CYGPATH_W) 'string_util.c'; else $(CYGPATH_W) '$(srcdir)/string_util.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powedns-string_util.Tpo $(DEPDIR)/primwatch_powedns-string_util.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='string_util.c' object='primwatch_powedns-string_util.obj' libtool=no @AMDEPBACKSLASH@
+primwatch_powerdns-string_util.obj: string_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -MT primwatch_powerdns-string_util.obj -MD -MP -MF $(DEPDIR)/primwatch_powerdns-string_util.Tpo -c -o primwatch_powerdns-string_util.obj `if test -f 'string_util.c'; then $(CYGPATH_W) 'string_util.c'; else $(CYGPATH_W) '$(srcdir)/string_util.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/primwatch_powerdns-string_util.Tpo $(DEPDIR)/primwatch_powerdns-string_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='string_util.c' object='primwatch_powerdns-string_util.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powedns_CFLAGS) $(CFLAGS) -c -o primwatch_powedns-string_util.obj `if test -f 'string_util.c'; then $(CYGPATH_W) 'string_util.c'; else $(CYGPATH_W) '$(srcdir)/string_util.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_powerdns_CFLAGS) $(CFLAGS) -c -o primwatch_powerdns-string_util.obj `if test -f 'string_util.c'; then $(CYGPATH_W) 'string_util.c'; else $(CYGPATH_W) '$(srcdir)/string_util.c'; fi`
 
 primwatch_primdns-accessa_main.o: accessa_main.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(primwatch_primdns_CFLAGS) $(CFLAGS) -MT primwatch_primdns-accessa_main.o -MD -MP -MF $(DEPDIR)/primwatch_primdns-accessa_main.Tpo -c -o primwatch_primdns-accessa_main.o `test -f 'accessa_main.c' || echo '$(srcdir)/'`accessa_main.c
