@@ -194,10 +194,6 @@ revaddrstr_to_addrmask_b(
 			if (revfmt_type) {
 				*revfmt_type = REVFMT_TYPE_IP6_ARPA;
 			}
-		} else if (strstr(ptr, ".int") != NULL) {
-			if (revfmt_type) {
-				*revfmt_type = REVFMT_TYPE_IP6_INT;
-			}
 		} else {
 			LOG(LOG_LV_ERR, "invalid formart (%s)\n", revaddr_str);
 			return 1;
@@ -328,9 +324,6 @@ addrmask_to_revaddrstr(
 		switch (revfmt_type) {
 		case REVFMT_TYPE_IP6_ARPA:
 			suffix = "ip6.arpa";
-			break;
-		case REVFMT_TYPE_IP6_INT:
-			suffix = "ip6.int";
 			break;
 		default:
 			errno = EINVAL;

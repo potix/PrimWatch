@@ -1432,7 +1432,8 @@ lookup_setup_input(
     const char *id,
     const char *remote_address,
     const char *local_address,
-    const char *edns_address)
+    const char *edns_address,
+    int all);
 {
 	if (lookup == NULL) {
 		errno = EINVAL;
@@ -1445,13 +1446,236 @@ lookup_setup_input(
 	lookup->input.remote_address = remote_address;
 	lookup->input.local_address = local_address;
 	lookup->input.edns_address = edns_address;
+	lookup->input.all = all;
+
+	return 0;
+}
+
+static void
+lookup_any_record_foreach(
+    void *foreach_cb_arg,
+    int idx,
+    const char *key,
+    size_t key_size,
+    char *value,
+    size_t value_size)
+{
+	lookup_any_record_foreach_arg_t *lookup_any_record_foreach_arg = foreach_cb_arg;
+	lookup_any_group_foreach_arg_t *lookup_any_group_foreach_arg;
+	lookup_t *lookup;
+	record_buffer_t *record_buffer;
+        char *tmp_name_ptr, tmp_name[NI_MAXHOST];
+	char *match = NULL;
+
+        char *tmp_name_ptr, tmp_name[NI_MAXHOST];
+        char tmp_addr[(INET6_ADDRSTRLEN * 2) + 64];
+	size_t tmp_name_size;
+	int match = 0;
+	int64_t record_members_count, record_select_algorithm;
+	int record_rr_idx;
+	
+	ASSERT(lookup_any_record_foreach_arg != NULL);
+	ASSERT(lookup_any_record_foreach_arg->lookup_any_group_foreach_arg != NULL);
+	ASSERT(lookup_any_record_foreach_arg->lookup_any_group_foreach_arg->lookup != NULL);
+	ASSERT(idx >= 0);
+	ASSERT(key != NULL);
+	ASSERT(key_size > 0);
+	ASSERT(value != NULL);
+	ASSERT(value_size > 0);
+
+	lookup_any_group_foreach_arg =lookup_any_record_foreach_arg->lookup_any_group_foreach_arg;
+	lookup = lookup_any_group_foreach_arg->lookup;
+	record_buffer = (record_buffer_t *)value;
+
+	switch (lookup->params->lookup_type) {
+	case LOOKUP_TYPE_NATIVE_A:
+	case LOOKUP_TYPE_NATIVE_AAAA:
+		// ドメインが一致するものを探す
+		strlcpy(tmp_name, key, sizeof(tmp_name));
+		tmp_name_ptr = tmp_name;
+		while (1) {
+			tmp_name_size = strlen(tmp_name_ptr) + 1;
+			if (key_size == tmp_name_size
+			     && strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
+				lookup_any_group_foreach_arg->output_foreach_cb(
+				    NULL,
+				    key,
+				    lookup->input.class, 
+				    lookup_any_group_foreach_arg->lookup_type,
+				    record_buffer->ttl,
+				    lookup->input.id,
+				    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+				break;
+			}
+			// ここで、レベルを上げながらチェック
+			if (decrement_domain_b(&tmp_name_ptr)) {
+				break;
+			}
+		}
+		break;
+	case LOOKUP_TYPE_NATIVE_PTR:
+		// ドメインが一致するものを探す
+		strlcpy(tmp_name, value, sizeof(tmp_name));
+		tmp_name_ptr = tmp_name;
+		while (1) {
+			tmp_name_size = strlen(tmp_name_ptr) + 1;
+			if (key_size == tmp_name_size
+			     && strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
+				if (addrmask_to_revaddrstr(
+				    tmp_addr,
+				    sizeof(tmp_addr),
+				    key,
+				    lookup_any_record_foreach_arg->revfmt_type)) {
+					continue;
+				}
+				lookup_any_group_foreach_arg->output_foreach_cb(
+				    NULL,
+				    tmp_addr,
+				    lookup->input.class,
+				    lookup_any_group_foreach_arg->lookup_type,
+				    record_buffer->ttl,
+				    lookup->input.id,
+				    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+				break;
+			}
+			// ここで、レベルを上げながらチェック
+			if (decrement_domain_b(&tmp_name_ptr)) {
+				break;
+			}
+		}
+		break;
+	default:
+		/* NOTREACHED */
+		ABORT("unexpected type of lookup");
+	}
+}
+
+static int
+lookup_any_group_foreach(
+	void *foreach_arg,
+	const char *path,
+	bson_iterator *itr)
+{
+	const char *name;
+	bhash_t target;
+	lookup_any_record_foreach_arg_t lookup_any_record_foreach_arg = {
+		.lookup_any_group_foreach_arg = foreach_arg,
+	};
+
+	ASSERT(foreach_arg != NULL);
+	ASSERT(path != NULL);
+	ASSERT(itr != NULL);
+	name = bson_iterator_key(group_itr);
+	// ipv4の正引きをチェック
+	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_A;
+	snprintf(path, sizeof(path), "%s.ipv4Hostnames", name);
+	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+		return 1;
+	}
+	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create of bhash");
+		return 1;
+	}
+	if (bhash_foreach(target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+		LOG(LOG_LV_ERR, "failed in foreach of bhash");
+		return 1;
+	}
+	// ipv6の正引きをチェック
+	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_AAAA;
+	snprintf(path, sizeof(path), "%s.ipv6Hostnames", name);
+	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+		return 1;
+	}
+	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create of bhash");
+		return 1;
+	}
+	if (bhash_foreach(target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+		LOG(LOG_LV_ERR, "failed in foreach of bhash");
+		return 1;
+	}
+	// ipv4の逆引きをチェック
+	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
+	lookup_any_record_foreach_arg.revfmt_type = REVFMT_TYPE_INADDR_ARPA;
+	snprintf(path, sizeof(path), "%s.ipv4Addresses", name);
+	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+		return 1;
+	}
+	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create of bhash");
+		return 1;
+	}
+	if (bhash_foreach(target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+		LOG(LOG_LV_ERR, "failed in foreach of bhash");
+		return 1;
+	}
+	// ipv6の逆引きをチェック
+	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
+	lookup_any_record_foreach_arg.revfmt_type = REVFMT_TYPE_IP6_ARPA;
+	snprintf(path, sizeof(path), "%s.ipv6Addresses", name);
+	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+		return 1;
+	}
+	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create of bhash");
+		return 1;
+	}
+	if (bhash_foreach(target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+		LOG(LOG_LV_ERR, "failed in foreach of bhash");
+		return 1;
+	}
+
+	return BSON_HELPER_FOREACH_SUCCESS;
+}
+
+static int
+lookup_any_group(
+    lookup_t *lookup,
+    void (*output_foreach_cb)(
+        void *output_foreach_cb_arg,
+        const char *name,
+        const char *class,
+        const char *type,
+        unsigned long long ttl,
+        const char *id,
+        const char *content),
+    void *output_foreach_cb_arg)
+{
+	lookup_any_group_foreach_arg_t lookup_any_group_foreach_arg = {
+		.lookup = lookup,
+		.output_foreach_cb = output_foreach_cb,
+		.output_foreach_cb_arg = output_foreach_cb_arg,
+	};
+	ASSERT(lookup != NULL);
+	// bsonの中をすべてなめる
+	if (bson_helper_bson_foreach(
+	    &lookup->params->status,
+	    "groups",
+	    lookup_any_group_foreach,
+	    &lookup_any_group_foreach_arg)) {
+		LOG(LOG_LV_ERR, "failed in get iterator of groups");
+		return 1;
+	}
 
 	return 0;
 }
 
 int
 lookup_native(
-    lookup_t *lookup)
+    lookup_t *lookup,
+    void (*output_foreach_cb)(
+        void *output_foreach_cb_arg,
+        const char *name,
+        const char *class,
+        const char *type,
+        unsigned long long ttl,
+        const char *id,
+        const char *content),
+    void *output_foreach_cb_arg)
 {
 	int64_t group_select_order;
 	const char *group = NULL;
@@ -1485,9 +1709,11 @@ lookup_native(
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_A;
 	} else if (strcasecmp(lookup->input.type, "AAAA") == 0) {
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_AAAA;
-	} else if (strcmp(lookup->input.type, "PTR") == 0){
+	} else if (strcasecmp(lookup->input.type, "PTR") == 0){
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_PTR;
-	} else if (strcmp(lookup->input.type, "NS") == 0){
+	} else if (strcasecmp(lookup->input.type, "ANY") == 0){
+		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_ANY;
+	} else if (strcasecmp(lookup->input.type, "NS") == 0){
 		/* XXX ns record */
 		LOG(LOG_LV_DEBUG, "ns record is unsupported");
 		return 1;
@@ -1513,95 +1739,64 @@ lookup_native(
 			return 1;
 		}
 	}
-	// 最初にgroupを決定する
-	if (group_select_order == 0) { 
-		// domainMapをチェック
-	  	if (lookup_domain_map(lookup, &group, &group_itr)) {
-			LOG(LOG_LV_ERR, "failed in get value of group select order");
-			return 1;
-		}
-		if (!group) {
-			// remoteAddressMapをチェック
-			if (lookup_remote_address_map(lookup, &group, &group_itr)) {
-				LOG(LOG_LV_ERR, "failed in lookup of remote address");
-				return 1;
-			}
-		}
-	} else {
-		// remoteAddrssMapをチェック
-		if (lookup_remote_address_map(lookup, &group, &group_itr)) {
-			LOG(LOG_LV_ERR, "failed in lookup of remote address");
-			return 1;
-		}
-		if (!group) {
+	if (lookup->params->lookup_type != LOOKUP_TYPE_NATIVE_ANY) {
+		// 最初にgroupを決定する
+		if (group_select_order == 0) { 
 			// domainMapをチェック
 			if (lookup_domain_map(lookup, &group, &group_itr)) {
 				LOG(LOG_LV_ERR, "failed in get value of group select order");
 				return 1;
 			}
+			if (!group) {
+				// remoteAddressMapをチェック
+				if (lookup_remote_address_map(lookup, &group, &group_itr)) {
+					LOG(LOG_LV_ERR, "failed in lookup of remote address");
+					return 1;
+				}
+			}
+		} else {
+			// remoteAddrssMapをチェック
+			if (lookup_remote_address_map(lookup, &group, &group_itr)) {
+				LOG(LOG_LV_ERR, "failed in lookup of remote address");
+				return 1;
+			}
+			if (!group) {
+				// domainMapをチェック
+				if (lookup_domain_map(lookup, &group, &group_itr)) {
+					LOG(LOG_LV_ERR, "failed in get value of group select order");
+					return 1;
+				}
+			}
 		}
-	}
-	if (group) {
-		// groupが見つかったので、レコードを探す
-		if (lookup_record(lookup, &group_itr)) {
-			LOG(LOG_LV_ERR, "failed in lookup record");
-			return 1;
+		if (group) {
+			// groupが見つかったので、レコードを探す
+			if (lookup_record(lookup, &group_itr)) {
+				LOG(LOG_LV_ERR, "failed in lookup record");
+				return 1;
+			}
+		} else {
+			// groupが見つかってないので、アルゴリズムからグループを決定する
+			if (lookup_group(lookup)) {
+				LOG(LOG_LV_ERR, "failed in lookup group");
+				return 1;
+			}
+		}
+		for (i = 0; i < lookup->output.entry_count; i++) {
+			output_foreach_cb(
+			    output_foreach_cb_arg,
+			    lookup->output.entry[i].name,
+			    lookup->output.entry[i].class,
+			    lookup->output.entry[i].type,
+			    lookup->output.entry[i].ttl,
+			    lookup->output.entry[i].id,
+			    lookup->output.entry[i].content);
 		}
 	} else {
-		// groupが見つかってないので、アルゴリズムからグループを決定する
-		if (lookup_group(lookup)) {
-			LOG(LOG_LV_ERR, "failed in lookup group");
+		// 結果出力もやってしまう。
+		if (lookup_any_group(lookup, output_foreach_cb, output_foreach_cb_arg)) {
+			LOG(LOG_LV_ERR, "failed in lookup group all");
 			return 1;
 		}
-	}
-
-	return 0;
-}
-
-int
-lookup_get_output_len(
-    lookup_t *lookup,
-    int *output_len)
-{
-	if (lookup == NULL ||
-	    output_len == NULL) {
-		errno = EINVAL;
-		return 1;
-	}
-	*output_len = lookup->output.entry_count;
-
-	return 0;
-}
-
-int
-lookup_output_foreach(
-    lookup_t *lookup,
-    void (*output_foreach_cb)(
-        void *output_foreach_cb_arg,
-        const char *name,
-        const char *class,
-        const char *type,
-        unsigned long long ttl,
-        const char *id,
-        const char *content),
-    void *output_foreach_cb_arg)
-{
-	int i;
-
-	if (lookup == NULL ||
-	    output_foreach_cb == NULL) {
-		errno = EINVAL;
-		return 1;
-	}
-	for (i = 0; i < lookup->output.entry_count; i++) {
-		output_foreach_cb(
-		    output_foreach_cb_arg,
-		    lookup->output.entry[i].name,
-		    lookup->output.entry[i].class,
-		    lookup->output.entry[i].type,
-		    lookup->output.entry[i].ttl,
-		    lookup->output.entry[i].id,
-		    lookup->output.entry[i].content);
 	}
 
 	return 0;

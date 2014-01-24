@@ -45,26 +45,16 @@ primdns_main(
 		goto fail;
 	}
 	lookup_init = 1;
-	if (lookup_setup_input(&lookup, argv[1], argv[2], argv[3], NULL, NULL, NULL, NULL)) {
+	if (lookup_setup_input(&lookup, argv[1], argv[2], argv[3], NULL, NULL, NULL, NULL, 0)) {
 		LOG(LOG_LV_ERR, "failed in setup input");
 		// log
 		goto fail;
 	}
-	if (lookup_native(&lookup)) {
+	if (lookup_native(&lookup, primdns_output_foreach, NULL)) {
 		LOG(LOG_LV_ERR, "failed in native lookup");
 		goto fail;
 	}
-	if (lookup_get_output_len(&lookup, &output_len)) {
-		LOG(LOG_LV_WARNING, "no output entry");
-		// log
-		goto fail;
-	}
 	printf("%s\n", NOERROR);
-	if (lookup_output_foreach(&lookup, primdns_output_foreach, NULL)) {
-		LOG(LOG_LV_ERR, "failed in lookup foreach");
-		// log
-		goto fail;
-	}
 	if (lookup_finalize(&lookup)) {
 		LOG(LOG_LV_ERR, "failed in finalize of lookup");
 		// log

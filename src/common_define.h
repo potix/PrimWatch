@@ -38,4 +38,6 @@
 #define SERVER_PORT "50000"
 #endif
 
+#define MAJOR_VERSION 0
+#define MINOR_VERSION 1
 #endif

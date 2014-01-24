@@ -1,24 +1,80 @@
+#include <sys/queue.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-
+#include "accessa.h"
 #include "lookup.h"
-#include "powerdns.h"
+#include "shared_buffer.h"
+#include "logger.h"
+#include "dns/powerdns.h"
 
-typedef enum request_type request_type_t;
-
-enum request_type {
-        REQ_TYPE_NATIVE = 1,
-        REQ_TYPE_AXFR,
-        REQ_TYPE_PING
-};
-
-int
-powerdns_loop(
-    accessa_t *accessa,
-    int (*lookup_cb)(accessa_t *accessa,
-        lookup_input_t *lookup_input,
-        lookup_output_t *lookup_output)) 
+void
+powerdns_output_foreach(
+    void *output_forech_arg,
+    const char *name,
+    const char *class,
+    const char *type,
+    unsigned long long ttl,
+    const char *id,
+    const char *content)
 {
-	return 0;
+	fprintf(stdout, "DATA\t%s\t%s\t%s\t%llu\t%s\t%s\n", name, class, type, ttl, id, content); 
 }
 
+int
+powerdns_main(
+    const char *qname,
+    const char *qclass
+    const char *qtype,
+    const char *id,
+    const char *remote_ip_address,
+    int all,
+    accessa_t *accessa)
+{
+	int lookup_init = 0;
+	lookup_t lookup;
+	int output_len;
 
+	if (lookup_initialize(&lookup, accessa)) {
+		LOG(LOG_LV_ERR, "failed in initialize of lookup");
+		// log
+		goto fail;
+	}
+	lookup_init = 1;
+	if (lookup_setup_input(&lookup, qname, qclass, qtype, id, remote_ip_address, NULL, NULL, all)) {
+		LOG(LOG_LV_ERR, "failed in setup input");
+		// log
+		goto fail;
+	}
+	if (strcasecmp(qtype, "AXFR") == 0) {
+		if (lookup_native_axfr(&lookup, powerdns_output_foreach, NULL)) {
+			LOG(LOG_LV_ERR, "failed in native lookup");
+			goto fail;
+		}
+	} else {
+		if (lookup_native(&lookup, powerdns_output_foreach, NULL)) {
+			LOG(LOG_LV_ERR, "failed in native lookup");
+			goto fail;
+		}
+	}
+	fprintf(stdout, "END\n");
+	if (lookup_finalize(&lookup)) {
+		LOG(LOG_LV_ERR, "failed in finalize of lookup");
+		// log
+		goto fail;
+	}
+
+	return 0;
+
+fail:
+	if (lookup_init) {
+		if (lookup_finalize(&lookup)) {
+			// log
+			goto fail;
+		}
+	}
+	fprintf(stdout, "FAIL\n");
+
+	return 1;
+
+}

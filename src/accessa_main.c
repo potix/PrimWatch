@@ -1,4 +1,6 @@
 #include <sys/types.h>
+#include <net/if.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +32,8 @@
 #ifndef ACCESSA_DEBUG
 #define ACCESSA_DEBUG 0
 #endif
+
+#define MAX_PIPE_LINE_BUFF (512 + NI_MAXHOST + (INET6_ADDRSTRLEN + IF_NAMESIZE + 2) * 3)
 
 static int
 accessa_initialize(
@@ -108,8 +112,9 @@ accessa_finalize(
 	}
 }
 
-int
-main(int argc, char *argv[]) {
+#if defined(PRIMDNS)
+static int
+accessa_primdns(int argc, char *argv[]) {
 	int ret = EX_OK;
 	bson status;
 	accessa_t accessa;
@@ -121,13 +126,16 @@ main(int argc, char *argv[]) {
 	
 	if (logger_create()) {
 		fprintf(stderr, "failed in create logger");
-		ret = EX_OSERR;
+		return EX_OSERR;
 	}
 	if (logger_set_foreground(ACCESSA_DEBUG)) {
+		logger_destroy();
 		fprintf(stderr, "failed in set foreground");
-		ret = EX_OSERR;
+		return EX_OSERR;
 	}
 	if (accessa_initialize(&accessa)) {
+		logger_destroy();
+		LOG(LOG_LV_WARNING, "failed in initialize accessa");
 		return EX_OSERR;
 	}
 	if (shared_buffer_read(accessa.daemon_buffer, &sb_data, NULL)) {
@@ -167,15 +175,160 @@ main(int argc, char *argv[]) {
 		ret = EX_OSERR;
 		goto last;
 	}
-#if defined(PRIMDNS)
 	primdns_main(argc, argv, &accessa);
-#elif defined(POWERDNS)
-	powerdns_loop(&accessa, NULL);
-#endif
 last:
 	accessa_finalize(&accessa);
 	logger_close();
 	logger_destroy();
 
 	return ret;
+}
+#elif defined(POWERDNS)
+static int
+accessa_powerdns(void) {
+	int ret = EX_OK;
+	bson status;
+	accessa_t accessa;
+	const char *log_type;
+	const char *log_facility;
+	const char *log_path;
+	int64_t verbose_level;
+	char *sb_data;
+	char *line_ptr, line_buff[MAX_PIPE_LINE_BUFF], *nl_ptr;
+	int abi_version;
+	char *question, *qname, *qclass, *qtype, *id, *remote_ip_address;
+	int all = 0;
+
+	if (logger_create()) {
+		fprintf(stdout, "FAIL\n");
+		fprintf(stderr, "failed in create logger\n");
+		return EX_OSERR;
+	}
+	if (logger_set_foreground(ACCESSA_DEBUG)) {
+		fprintf(stdout, "FAIL\n");
+		fprintf(stderr, "failed in set foreground fot logger\n");
+		return EX_OSERR;
+	}
+
+	// handshake
+	if (fgets(line_buff, sizeof(line_buff), stdin) == NULL) {
+		fprintf(stdout, "FAIL\n");
+		LOG(LOG_LV_ERR, "can not get handshake message");
+		return EX_DATAERR;
+	}
+	if (strncmp(line_buff, "HELO\t", sizeof("HELO\t") - 1)) {
+		fprintf(stdout, "FAIL\n");
+		LOG(LOG_LV_ERR, "invalid handshake message");
+		return EX_DATAERR;
+	}
+	abi_version = line_buff[5] - 0x30;
+	if (abi_version != 1 && abi_version != 2 && abi_version != 3) {
+		fprintf(stdout, "FAIL\n");
+		LOG(LOG_LV_ERR, "unsupported abi version (%d)", abi_version);
+		return EX_DATAERR;
+	}
+	fprintf(stdout, "OK\n");
+
+	while (1) { 
+		// parse query;
+		if (fgets(line_buff, sizeof(line_buff), stdin) == NULL) {
+			break;
+		}
+		if ((nl_ptr = strchr(line_buff, '\n')) == NULL) {
+			fprintf(stdout, "FAIL\n");
+			LOG(LOG_LV_ERR, "failed in parse question (%s)", line_buff);
+		}
+		*nl_ptr = '\0';
+		line_ptr = line_buff;
+		if ((question = strsep(&line_ptr, "\t")) == NULL) {
+			fprintf(stdout, "FAIL\n");
+			LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+		}
+		if (strcmp(question, "Q") == 0) {
+			if ((qclass = strsep(&line_ptr, "\t")) == NULL) {
+				fprintf(stdout, "FAIL\n");
+				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+			}
+			if ((qtype = strsep(&line_ptr, "\t")) == NULL) {
+				fprintf(stdout, "FAIL\n");
+				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+			}
+			if ((id = strsep(&line_ptr, "\t")) == NULL) {
+				fprintf(stdout, "FAIL\n");
+				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+			}
+			if (abi_version == 1) {
+				remote_ip_address = line_ptr;
+			} else {
+				if ((remote_ip_address= strsep(&line_ptr, "\t")) == NULL) {
+					fprintf(stdout, "FAIL\n");
+					LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+				}
+			}
+		} else if (strcmp(question, "AXFR") == 0) {
+			id = line_ptr;
+			all = 1;
+		} else if (strcmp(question, "PING") == 0) {
+			fprintf(stdout, "END\n");
+		}
+
+		if (accessa_initialize(&accessa)) {
+			return EX_OSERR;
+		}
+		if (shared_buffer_read(accessa.daemon_buffer, &sb_data, NULL)) {
+			LOG(LOG_LV_WARNING, "failed in read daemon buffer");
+			goto last;
+		}
+		if (sb_data == NULL) {
+			LOG(LOG_LV_WARNING, "daemon buffer is empty");
+			goto last;
+		}
+		if (bson_init_finished_data(&status, sb_data, 0) != BSON_OK) {
+			LOG(LOG_LV_WARNING, "failed in ");
+			goto last;
+		}
+		if (bson_helper_bson_get_string(&status, &log_type , "logType", NULL)) {
+			LOG(LOG_LV_ERR, "failed in get log type from status");
+			ret = EX_DATAERR;
+			goto last;
+		}
+		if (bson_helper_bson_get_string(&status, &log_facility , "logFacility", NULL)) {
+			LOG(LOG_LV_ERR, "failed in get log facility from status");
+			ret = EX_DATAERR;
+			goto last;
+		}
+		if (bson_helper_bson_get_string(&status, &log_path , "logPath", NULL)) {
+			LOG(LOG_LV_ERR, "failed in get log path from status");
+			ret = EX_DATAERR;
+			goto last;
+		}
+		if (bson_helper_bson_get_long(&status, &verbose_level , "verboseLevel", NULL)) {
+			LOG(LOG_LV_ERR, "failed in get verbose level from status");
+			ret = EX_DATAERR;
+			goto last;
+		}
+		if (logger_open((log_level_t)verbose_level, log_type, PROGIDENT, LOG_PID, log_facility, log_path)) {
+			LOG(LOG_LV_ERR, "failed in open log");
+			ret = EX_OSERR;
+			goto last;
+		}
+		powerdns_main(qname, qclass, qtype, id, remote_ip_address, all, &accessa);
+last:
+		accessa_finalize(&accessa);
+		logger_close();
+	}
+
+	logger_destroy();
+
+	return ret;
+}
+#endif
+
+int
+main(int argc, char *argv[]) {
+#if defined(PRIMDNS)
+	return accessa_primdns(argc, argv);
+#elif defined(POWERDNS)
+	return accessa_powerdns();
+#endif
 }

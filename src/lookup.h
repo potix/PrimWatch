@@ -17,6 +17,7 @@ enum lookup_type {
         LOOKUP_TYPE_NATIVE_A = 1,
         LOOKUP_TYPE_NATIVE_AAAA,
         LOOKUP_TYPE_NATIVE_PTR,
+        LOOKUP_TYPE_NATIVE_ANY,
 };
 
 struct lookup_input {
@@ -27,6 +28,7 @@ struct lookup_input {
 	const char *remote_address;
 	const char *local_address;
 	const char *edns_address;
+	int all;
 };
 
 struct lookup_output_entry {
@@ -64,12 +66,11 @@ int lookup_setup_input(
     const char *id,
     const char *remote_address,
     const char *local_address,
-    const char *edns_address);
+    const char *edns_address,
+    int all);
     
-int lookup_native(
-    lookup_t *lookup);
-
-int lookup_output_foreach(
+int
+lookup_native(
     lookup_t *lookup,
     void (*output_foreach_cb)(
         void *output_foreach_cb_arg,
@@ -80,10 +81,6 @@ int lookup_output_foreach(
         const char *id,
         const char *content),
     void *output_foreach_cb_arg);
-
-int lookup_get_output_len(
-    lookup_t *lookup,
-    int *output_len);
 
 int lookup_finalize(
     lookup_t *lookup);

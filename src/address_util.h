@@ -13,7 +13,6 @@ typedef struct v4v6_addr_mask v4v6_addr_mask_t;
 enum revfmt_type {
 	REVFMT_TYPE_INADDR_ARPA = 1,
 	REVFMT_TYPE_IP6_ARPA,
-	REVFMT_TYPE_IP6_INT
 }; 
 
 union v4v6_in_addr {

@@ -1,10 +1,13 @@
 #ifndef POWERDNS_H
 #define POWERDNS_H
 
-int powerdns_loop(
-    accessa_t *accessa,
-    int (*lookup_cb)(accessa_t *accessa,
-        lookup_input_t *lookup_input,
-        lookup_output_t *lookup_output));
+int
+powerdns_main(
+    const char *qname,
+    const char *qclass
+    const char *qtype,
+    const char *id,
+    const char *remote_ip_address,
+    accessa_t *accessa);
 
 #endif
