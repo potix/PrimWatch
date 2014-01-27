@@ -32,7 +32,6 @@ primdns_main(
 {
 	int lookup_init = 0;
 	lookup_t lookup;
-	int output_len;
 
 	if (argc < 4) {
 		LOG(LOG_LV_ERR, "too few arguments");
@@ -45,7 +44,7 @@ primdns_main(
 		goto fail;
 	}
 	lookup_init = 1;
-	if (lookup_setup_input(&lookup, argv[1], argv[2], argv[3], NULL, NULL, NULL, NULL, 0)) {
+	if (lookup_setup_input(&lookup, argv[1], argv[2], argv[3], NULL, NULL, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in setup input");
 		// log
 		goto fail;

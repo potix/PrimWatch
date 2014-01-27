@@ -19,7 +19,6 @@
 #if defined(PRIMDNS)
 #include "dns/primdns.h"
 #elif defined(POWERDNS)
-#include "lookup.h"
 #include "dns/powerdns.h"
 #endif
 
@@ -176,9 +175,9 @@ accessa_primdns(int argc, char *argv[]) {
 		goto last;
 	}
 	primdns_main(argc, argv, &accessa);
+	logger_close();
 last:
 	accessa_finalize(&accessa);
-	logger_close();
 	logger_destroy();
 
 	return ret;
@@ -197,7 +196,6 @@ accessa_powerdns(void) {
 	char *line_ptr, line_buff[MAX_PIPE_LINE_BUFF], *nl_ptr;
 	int abi_version;
 	char *question, *qname, *qclass, *qtype, *id, *remote_ip_address;
-	int all = 0;
 
 	if (logger_create()) {
 		fprintf(stdout, "FAIL\n");
@@ -230,6 +228,11 @@ accessa_powerdns(void) {
 	fprintf(stdout, "OK\n");
 
 	while (1) { 
+		qname = NULL;
+		qclass = NULL;
+		qtype = NULL;
+		remote_ip_address = NULL;
+
 		// parse query;
 		if (fgets(line_buff, sizeof(line_buff), stdin) == NULL) {
 			break;
@@ -237,25 +240,35 @@ accessa_powerdns(void) {
 		if ((nl_ptr = strchr(line_buff, '\n')) == NULL) {
 			fprintf(stdout, "FAIL\n");
 			LOG(LOG_LV_ERR, "failed in parse question (%s)", line_buff);
+			continue;
 		}
 		*nl_ptr = '\0';
 		line_ptr = line_buff;
 		if ((question = strsep(&line_ptr, "\t")) == NULL) {
 			fprintf(stdout, "FAIL\n");
 			LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+			continue;
 		}
 		if (strcmp(question, "Q") == 0) {
+			if ((qname = strsep(&line_ptr, "\t")) == NULL) {
+				fprintf(stdout, "FAIL\n");
+				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+				continue;
+			}
 			if ((qclass = strsep(&line_ptr, "\t")) == NULL) {
 				fprintf(stdout, "FAIL\n");
 				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+				continue;
 			}
 			if ((qtype = strsep(&line_ptr, "\t")) == NULL) {
 				fprintf(stdout, "FAIL\n");
 				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+				continue;
 			}
 			if ((id = strsep(&line_ptr, "\t")) == NULL) {
 				fprintf(stdout, "FAIL\n");
 				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+				continue;
 			}
 			if (abi_version == 1) {
 				remote_ip_address = line_ptr;
@@ -263,15 +276,19 @@ accessa_powerdns(void) {
 				if ((remote_ip_address= strsep(&line_ptr, "\t")) == NULL) {
 					fprintf(stdout, "FAIL\n");
 					LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
+					continue;
 				}
 			}
 		} else if (strcmp(question, "AXFR") == 0) {
 			id = line_ptr;
-			all = 1;
 		} else if (strcmp(question, "PING") == 0) {
 			fprintf(stdout, "END\n");
+			continue;
+		} else {
+			fprintf(stdout, "FAIL\n");
+			LOG(LOG_LV_ERR, "unsupported question (%s)", line_buff);
+			continue;
 		}
-
 		if (accessa_initialize(&accessa)) {
 			return EX_OSERR;
 		}
@@ -312,10 +329,10 @@ accessa_powerdns(void) {
 			ret = EX_OSERR;
 			goto last;
 		}
-		powerdns_main(qname, qclass, qtype, id, remote_ip_address, all, &accessa);
+		powerdns_main(question, qname, qclass, qtype, id, remote_ip_address, &accessa);
+		logger_close();
 last:
 		accessa_finalize(&accessa);
-		logger_close();
 	}
 
 	logger_destroy();

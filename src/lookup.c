@@ -31,6 +31,8 @@ typedef struct lookup_record_match_foreach_arg lookup_record_match_foreach_arg_t
 typedef struct lookup_record_roundrobin_cb_arg lookup_record_roundrobin_cb_arg_t;
 typedef struct lookup_group_priority_foreach_arg lookup_group_priority_foreach_arg_t;
 typedef struct lookup_group_roundrobin_cb_arg lookup_group_roundrobin_cb_arg_t;
+typedef struct lookup_any_group_foreach_arg lookup_any_group_foreach_arg_t;
+typedef struct lookup_any_record_foreach_arg lookup_any_record_foreach_arg_t;
 
 struct lookup_params {
         char *shared_buffer_data;
@@ -67,6 +69,24 @@ struct lookup_group_roundrobin_cb_arg {
 	int64_t group_members_count;
 };
 
+struct lookup_any_group_foreach_arg {
+	lookup_t *lookup;
+        void (*output_foreach_cb)(
+            void *output_foreach_cb_arg,
+            const char *name,
+            const char *class,
+            const char *type,
+            unsigned long long ttl,
+            const char *id,
+            const char *content);
+	void *output_foreach_cb_arg;
+};
+
+struct lookup_any_record_foreach_arg {
+	lookup_any_group_foreach_arg_t *lookup_any_group_foreach_arg;
+	lookup_type_t lookup_type;
+	revfmt_type_t revfmt_type;
+};
 
 static int
 output_entry_cmp(const void *p1, const void *p2)
@@ -1432,8 +1452,7 @@ lookup_setup_input(
     const char *id,
     const char *remote_address,
     const char *local_address,
-    const char *edns_address,
-    int all);
+    const char *edns_address)
 {
 	if (lookup == NULL) {
 		errno = EINVAL;
@@ -1446,7 +1465,6 @@ lookup_setup_input(
 	lookup->input.remote_address = remote_address;
 	lookup->input.local_address = local_address;
 	lookup->input.edns_address = edns_address;
-	lookup->input.all = all;
 
 	return 0;
 }
@@ -1465,15 +1483,9 @@ lookup_any_record_foreach(
 	lookup_t *lookup;
 	record_buffer_t *record_buffer;
         char *tmp_name_ptr, tmp_name[NI_MAXHOST];
-	char *match = NULL;
+	int tmp_name_size;
+        char tmp_addr[INET6_ADDRSTRLEN];
 
-        char *tmp_name_ptr, tmp_name[NI_MAXHOST];
-        char tmp_addr[(INET6_ADDRSTRLEN * 2) + 64];
-	size_t tmp_name_size;
-	int match = 0;
-	int64_t record_members_count, record_select_algorithm;
-	int record_rr_idx;
-	
 	ASSERT(lookup_any_record_foreach_arg != NULL);
 	ASSERT(lookup_any_record_foreach_arg->lookup_any_group_foreach_arg != NULL);
 	ASSERT(lookup_any_record_foreach_arg->lookup_any_group_foreach_arg->lookup != NULL);
@@ -1487,7 +1499,7 @@ lookup_any_record_foreach(
 	lookup = lookup_any_group_foreach_arg->lookup;
 	record_buffer = (record_buffer_t *)value;
 
-	switch (lookup->params->lookup_type) {
+	switch (lookup_any_record_foreach_arg->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
 	case LOOKUP_TYPE_NATIVE_AAAA:
 		// ドメインが一致するものを探す
@@ -1500,8 +1512,8 @@ lookup_any_record_foreach(
 				lookup_any_group_foreach_arg->output_foreach_cb(
 				    NULL,
 				    key,
-				    lookup->input.class, 
-				    lookup_any_group_foreach_arg->lookup_type,
+				    lookup->input.class,
+				    (lookup_any_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
 				    record_buffer->ttl,
 				    lookup->input.id,
 				    ((char *)record_buffer) + offsetof(record_buffer_t, value));
@@ -1524,7 +1536,7 @@ lookup_any_record_foreach(
 				if (addrmask_to_revaddrstr(
 				    tmp_addr,
 				    sizeof(tmp_addr),
-				    key,
+				    (v4v6_addr_mask_t *)key,
 				    lookup_any_record_foreach_arg->revfmt_type)) {
 					continue;
 				}
@@ -1532,7 +1544,7 @@ lookup_any_record_foreach(
 				    NULL,
 				    tmp_addr,
 				    lookup->input.class,
-				    lookup_any_group_foreach_arg->lookup_type,
+				    "PTR",
 				    record_buffer->ttl,
 				    lookup->input.id,
 				    ((char *)record_buffer) + offsetof(record_buffer_t, value));
@@ -1558,6 +1570,9 @@ lookup_any_group_foreach(
 {
 	const char *name;
 	bhash_t target;
+	char p[MAX_BSON_PATH_LEN];
+	const char *bin_data;
+	size_t bin_data_size;
 	lookup_any_record_foreach_arg_t lookup_any_record_foreach_arg = {
 		.lookup_any_group_foreach_arg = foreach_arg,
 	};
@@ -1565,66 +1580,66 @@ lookup_any_group_foreach(
 	ASSERT(foreach_arg != NULL);
 	ASSERT(path != NULL);
 	ASSERT(itr != NULL);
-	name = bson_iterator_key(group_itr);
-	// ipv4の正引きをチェック
+	name = bson_iterator_key(itr);
+	// ipv4の正引きをチック
 	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_A;
-	snprintf(path, sizeof(path), "%s.ipv4Hostnames", name);
-	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
-		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+	snprintf(p, sizeof(p), "%s.ipv4Hostnames", name);
+	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
 		return 1;
 	}
 	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
-	if (bhash_foreach(target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+	if (bhash_foreach(&target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
 	// ipv6の正引きをチェック
 	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_AAAA;
-	snprintf(path, sizeof(path), "%s.ipv6Hostnames", name);
-	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
-		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+	snprintf(p, sizeof(p), "%s.ipv6Hostnames", name);
+	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
 		return 1;
 	}
 	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
-	if (bhash_foreach(target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+	if (bhash_foreach(&target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
 	// ipv4の逆引きをチェック
 	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
 	lookup_any_record_foreach_arg.revfmt_type = REVFMT_TYPE_INADDR_ARPA;
-	snprintf(path, sizeof(path), "%s.ipv4Addresses", name);
-	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
-		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+	snprintf(p, sizeof(p), "%s.ipv4Addresses", name);
+	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
 		return 1;
 	}
 	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
-	if (bhash_foreach(target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+	if (bhash_foreach(&target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
 	// ipv6の逆引きをチェック
 	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
 	lookup_any_record_foreach_arg.revfmt_type = REVFMT_TYPE_IP6_ARPA;
-	snprintf(path, sizeof(path), "%s.ipv6Addresses", name);
-	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
-		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
+	snprintf(p, sizeof(p), "%s.ipv6Addresses", name);
+	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
 		return 1;
 	}
 	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
-	if (bhash_foreach(target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+	if (bhash_foreach(&target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
@@ -1681,6 +1696,7 @@ lookup_native(
 	const char *group = NULL;
 	bson_iterator group_itr;
 	lookup_params_t lookup_params;
+	int i;
 
 	if (lookup == NULL) {
 		errno = EINVAL;

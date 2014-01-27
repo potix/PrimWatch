@@ -28,7 +28,6 @@ struct lookup_input {
 	const char *remote_address;
 	const char *local_address;
 	const char *edns_address;
-	int all;
 };
 
 struct lookup_output_entry {
@@ -66,8 +65,7 @@ int lookup_setup_input(
     const char *id,
     const char *remote_address,
     const char *local_address,
-    const char *edns_address,
-    int all);
+    const char *edns_address);
     
 int
 lookup_native(
