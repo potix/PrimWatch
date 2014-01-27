@@ -31,8 +31,8 @@ typedef struct lookup_record_match_foreach_arg lookup_record_match_foreach_arg_t
 typedef struct lookup_record_roundrobin_cb_arg lookup_record_roundrobin_cb_arg_t;
 typedef struct lookup_group_priority_foreach_arg lookup_group_priority_foreach_arg_t;
 typedef struct lookup_group_roundrobin_cb_arg lookup_group_roundrobin_cb_arg_t;
-typedef struct lookup_any_group_foreach_arg lookup_any_group_foreach_arg_t;
-typedef struct lookup_any_record_foreach_arg lookup_any_record_foreach_arg_t;
+typedef struct lookup_all_group_foreach_arg lookup_all_group_foreach_arg_t;
+typedef struct lookup_all_record_foreach_arg lookup_all_record_foreach_arg_t;
 
 struct lookup_params {
         char *shared_buffer_data;
@@ -69,7 +69,7 @@ struct lookup_group_roundrobin_cb_arg {
 	int64_t group_members_count;
 };
 
-struct lookup_any_group_foreach_arg {
+struct lookup_all_group_foreach_arg {
 	lookup_t *lookup;
         void (*output_foreach_cb)(
             void *output_foreach_cb_arg,
@@ -80,10 +80,11 @@ struct lookup_any_group_foreach_arg {
             const char *id,
             const char *content);
 	void *output_foreach_cb_arg;
+	int axfr;
 };
 
-struct lookup_any_record_foreach_arg {
-	lookup_any_group_foreach_arg_t *lookup_any_group_foreach_arg;
+struct lookup_all_record_foreach_arg {
+	lookup_all_group_foreach_arg_t *lookup_all_group_foreach_arg;
 	lookup_type_t lookup_type;
 	revfmt_type_t revfmt_type;
 };
@@ -1470,7 +1471,7 @@ lookup_setup_input(
 }
 
 static void
-lookup_any_record_foreach(
+lookup_all_record_foreach(
     void *foreach_cb_arg,
     int idx,
     const char *key,
@@ -1478,28 +1479,28 @@ lookup_any_record_foreach(
     char *value,
     size_t value_size)
 {
-	lookup_any_record_foreach_arg_t *lookup_any_record_foreach_arg = foreach_cb_arg;
-	lookup_any_group_foreach_arg_t *lookup_any_group_foreach_arg;
+	lookup_all_record_foreach_arg_t *lookup_all_record_foreach_arg = foreach_cb_arg;
+	lookup_all_group_foreach_arg_t *lookup_all_group_foreach_arg;
 	lookup_t *lookup;
 	record_buffer_t *record_buffer;
         char *tmp_name_ptr, tmp_name[NI_MAXHOST];
 	int tmp_name_size;
         char tmp_addr[INET6_ADDRSTRLEN];
 
-	ASSERT(lookup_any_record_foreach_arg != NULL);
-	ASSERT(lookup_any_record_foreach_arg->lookup_any_group_foreach_arg != NULL);
-	ASSERT(lookup_any_record_foreach_arg->lookup_any_group_foreach_arg->lookup != NULL);
+	ASSERT(lookup_all_record_foreach_arg != NULL);
+	ASSERT(lookup_all_record_foreach_arg->lookup_all_group_foreach_arg != NULL);
+	ASSERT(lookup_all_record_foreach_arg->lookup_all_group_foreach_arg->lookup != NULL);
 	ASSERT(idx >= 0);
 	ASSERT(key != NULL);
 	ASSERT(key_size > 0);
 	ASSERT(value != NULL);
 	ASSERT(value_size > 0);
 
-	lookup_any_group_foreach_arg =lookup_any_record_foreach_arg->lookup_any_group_foreach_arg;
-	lookup = lookup_any_group_foreach_arg->lookup;
+	lookup_all_group_foreach_arg = lookup_all_record_foreach_arg->lookup_all_group_foreach_arg;
+	lookup = lookup_all_group_foreach_arg->lookup;
 	record_buffer = (record_buffer_t *)value;
 
-	switch (lookup_any_record_foreach_arg->lookup_type) {
+	switch (lookup_all_record_foreach_arg->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
 	case LOOKUP_TYPE_NATIVE_AAAA:
 		// ドメインが一致するものを探す
@@ -1507,13 +1508,14 @@ lookup_any_record_foreach(
 		tmp_name_ptr = tmp_name;
 		while (1) {
 			tmp_name_size = strlen(tmp_name_ptr) + 1;
-			if (key_size == tmp_name_size
-			     && strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
-				lookup_any_group_foreach_arg->output_foreach_cb(
+			if (lookup_all_group_foreach_arg->axfr == 1 ||
+			    (key_size == tmp_name_size &&
+			     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0)) {
+				lookup_all_group_foreach_arg->output_foreach_cb(
 				    NULL,
 				    key,
 				    lookup->input.class,
-				    (lookup_any_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
+				    (lookup_all_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
 				    record_buffer->ttl,
 				    lookup->input.id,
 				    ((char *)record_buffer) + offsetof(record_buffer_t, value));
@@ -1531,16 +1533,17 @@ lookup_any_record_foreach(
 		tmp_name_ptr = tmp_name;
 		while (1) {
 			tmp_name_size = strlen(tmp_name_ptr) + 1;
-			if (key_size == tmp_name_size
-			     && strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
+			if (lookup_all_group_foreach_arg->axfr == 1 ||
+			    (key_size == tmp_name_size &&
+			     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0)) {
 				if (addrmask_to_revaddrstr(
 				    tmp_addr,
 				    sizeof(tmp_addr),
 				    (v4v6_addr_mask_t *)key,
-				    lookup_any_record_foreach_arg->revfmt_type)) {
+				    lookup_all_record_foreach_arg->revfmt_type)) {
 					continue;
 				}
-				lookup_any_group_foreach_arg->output_foreach_cb(
+				lookup_all_group_foreach_arg->output_foreach_cb(
 				    NULL,
 				    tmp_addr,
 				    lookup->input.class,
@@ -1563,7 +1566,7 @@ lookup_any_record_foreach(
 }
 
 static int
-lookup_any_group_foreach(
+lookup_all_group_foreach(
 	void *foreach_arg,
 	const char *path,
 	bson_iterator *itr)
@@ -1573,8 +1576,8 @@ lookup_any_group_foreach(
 	char p[MAX_BSON_PATH_LEN];
 	const char *bin_data;
 	size_t bin_data_size;
-	lookup_any_record_foreach_arg_t lookup_any_record_foreach_arg = {
-		.lookup_any_group_foreach_arg = foreach_arg,
+	lookup_all_record_foreach_arg_t lookup_all_record_foreach_arg = {
+		.lookup_all_group_foreach_arg = foreach_arg,
 	};
 
 	ASSERT(foreach_arg != NULL);
@@ -1582,7 +1585,7 @@ lookup_any_group_foreach(
 	ASSERT(itr != NULL);
 	name = bson_iterator_key(itr);
 	// ipv4の正引きをチック
-	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_A;
+	lookup_all_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_A;
 	snprintf(p, sizeof(p), "%s.ipv4Hostnames", name);
 	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
@@ -1592,12 +1595,12 @@ lookup_any_group_foreach(
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
-	if (bhash_foreach(&target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+	if (bhash_foreach(&target, lookup_all_record_foreach, &lookup_all_record_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
 	// ipv6の正引きをチェック
-	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_AAAA;
+	lookup_all_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_AAAA;
 	snprintf(p, sizeof(p), "%s.ipv6Hostnames", name);
 	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
@@ -1607,13 +1610,13 @@ lookup_any_group_foreach(
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
-	if (bhash_foreach(&target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+	if (bhash_foreach(&target, lookup_all_record_foreach, &lookup_all_record_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
 	// ipv4の逆引きをチェック
-	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
-	lookup_any_record_foreach_arg.revfmt_type = REVFMT_TYPE_INADDR_ARPA;
+	lookup_all_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
+	lookup_all_record_foreach_arg.revfmt_type = REVFMT_TYPE_INADDR_ARPA;
 	snprintf(p, sizeof(p), "%s.ipv4Addresses", name);
 	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
@@ -1623,13 +1626,13 @@ lookup_any_group_foreach(
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
-	if (bhash_foreach(&target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+	if (bhash_foreach(&target, lookup_all_record_foreach, &lookup_all_record_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
 	// ipv6の逆引きをチェック
-	lookup_any_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
-	lookup_any_record_foreach_arg.revfmt_type = REVFMT_TYPE_IP6_ARPA;
+	lookup_all_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
+	lookup_all_record_foreach_arg.revfmt_type = REVFMT_TYPE_IP6_ARPA;
 	snprintf(p, sizeof(p), "%s.ipv6Addresses", name);
 	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
@@ -1639,7 +1642,7 @@ lookup_any_group_foreach(
 		LOG(LOG_LV_ERR, "failed in create of bhash");
 		return 1;
 	}
-	if (bhash_foreach(&target, lookup_any_record_foreach, &lookup_any_record_foreach_arg))  {
+	if (bhash_foreach(&target, lookup_all_record_foreach, &lookup_all_record_foreach_arg))  {
 		LOG(LOG_LV_ERR, "failed in foreach of bhash");
 		return 1;
 	}
@@ -1648,7 +1651,7 @@ lookup_any_group_foreach(
 }
 
 static int
-lookup_any_group(
+lookup_all_group(
     lookup_t *lookup,
     void (*output_foreach_cb)(
         void *output_foreach_cb_arg,
@@ -1658,20 +1661,22 @@ lookup_any_group(
         unsigned long long ttl,
         const char *id,
         const char *content),
-    void *output_foreach_cb_arg)
+    void *output_foreach_cb_arg,
+    int axfr)
 {
-	lookup_any_group_foreach_arg_t lookup_any_group_foreach_arg = {
+	lookup_all_group_foreach_arg_t lookup_all_group_foreach_arg = {
 		.lookup = lookup,
 		.output_foreach_cb = output_foreach_cb,
 		.output_foreach_cb_arg = output_foreach_cb_arg,
+		.axfr = axfr,
 	};
 	ASSERT(lookup != NULL);
 	// bsonの中をすべてなめる
 	if (bson_helper_bson_foreach(
 	    &lookup->params->status,
 	    "groups",
-	    lookup_any_group_foreach,
-	    &lookup_any_group_foreach_arg)) {
+	    lookup_all_group_foreach,
+	    &lookup_all_group_foreach_arg)) {
 		LOG(LOG_LV_ERR, "failed in get iterator of groups");
 		return 1;
 	}
@@ -1809,10 +1814,32 @@ lookup_native(
 		}
 	} else {
 		// 結果出力もやってしまう。
-		if (lookup_any_group(lookup, output_foreach_cb, output_foreach_cb_arg)) {
-			LOG(LOG_LV_ERR, "failed in lookup group all");
+		if (lookup_all_group(lookup, output_foreach_cb, output_foreach_cb_arg, 0)) {
+			LOG(LOG_LV_ERR, "failed in lookup all group");
 			return 1;
 		}
+	}
+
+	return 0;
+}
+
+int
+lookup_native_axfr(
+    lookup_t *lookup,
+    void (*output_foreach_cb)(
+        void *output_foreach_cb_arg,
+        const char *name,
+        const char *class,
+        const char *type,
+        unsigned long long ttl,
+        const char *id,
+        const char *content),
+    void *output_foreach_cb_arg)
+{
+	// 結果出力もやってしまう。
+	if (lookup_all_group(lookup, output_foreach_cb, output_foreach_cb_arg, 1)) {
+		LOG(LOG_LV_ERR, "failed in lookup all group");
+		return 1;
 	}
 
 	return 0;
