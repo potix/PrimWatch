@@ -32,6 +32,7 @@
 #define ACCESSA_DEBUG 0
 #endif
 
+#define HANDSHAKE_REQUEST_PREFIX "HELO\t"
 #define MAX_PIPE_LINE_BUFF (512 + NI_MAXHOST + (INET6_ADDRSTRLEN + IF_NAMESIZE + 2) * 3)
 
 static int
@@ -214,9 +215,10 @@ accessa_powerdns(void) {
 		LOG(LOG_LV_ERR, "can not get handshake message");
 		return EX_DATAERR;
 	}
-	if (strncmp(line_buff, "HELO\t", sizeof("HELO\t") - 1)) {
+	
+	if (strncmp(line_buff, HANDSHAKE_REQUEST_PREFIX, sizeof(HANDSHAKE_REQUEST_PREFIX) - 1) != 0) {
 		fprintf(stdout, "FAIL\n");
-		LOG(LOG_LV_ERR, "invalid handshake message");
+		LOG(LOG_LV_ERR, "invalid handshake message (%s : %s)", line_buff ,HANDSHAKE_REQUEST_PREFIX);
 		return EX_DATAERR;
 	}
 	abi_version = line_buff[5] - 0x30;

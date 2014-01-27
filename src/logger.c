@@ -345,7 +345,7 @@ logging_base(
 		return 0;
 	}
 	vsnprintf(logmesg, sizeof(logmesg), fmt, ap);
-	strftime(logtime, sizeof(logtime), "%Y/%m/%d %H:%M:%S", tm);
+	strftime(logtime, sizeof(logtime), "LOG\t%Y/%m/%d %H:%M:%S", tm);
 	snprintf(
 	    loghead,
 	    sizeof(loghead),
