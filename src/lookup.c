@@ -131,6 +131,7 @@ lookup_accessa_status_find(
 	blist_t group_blist;
 	blist_t record_blist;
 	char *ptr;
+	int entry_count;
 
 	ASSERT(accessa_status_group != NULL);
 	ASSERT(accessa_status != NULL);
@@ -149,6 +150,14 @@ lookup_accessa_status_find(
 	    accessa_status->groups_data_size)) {
 		LOG(LOG_LV_ERR, "failed in create blist of status of group of accessa");
 		return 1;
+	}
+	if (bhash_get_entry_count(&group_blist, &entry_count)) {
+		LOG(LOG_LV_ERR, "failed in get entry count from blist of status of group of accessa");
+		return 1;
+	}
+	if (entry_count == 0) {
+		// グループのステータスがない場合
+		return 0;
 	}
 	if (blist_get(
 	    &group_blist,
@@ -1292,6 +1301,8 @@ lookup_group_roundrobin_cb(
 	lookup_group_roundrobin_cb_arg_t *lookup_group_roundrobin_cb_arg = handler_cb_arg;
 	char *buffer_data = NULL;
 	accessa_status_t *new_accessa_status = NULL;
+	accessa_status_t *old_accessa_status = NULL;
+	const char *name;
 
 	ASSERT(lookup != NULL);
 	ASSERT(handler_cb_arg != NULL);
@@ -1303,31 +1314,44 @@ lookup_group_roundrobin_cb(
 		return 1;
 	}
 	if (buffer_data == NULL) {
+		// indexからgroupを選択する
+		if (bson_helper_bson_get_itr_by_idx(
+		    lookup_group_roundrobin_cb_arg->group_itr,
+		    &lookup->params->status,
+		    "groups",
+		    0)) {
+			LOG(LOG_LV_ERR, "failed in get iterator of groups");
+			return 1;
+		}
+		// group名を取得
+		name = bson_iterator_key(lookup_group_roundrobin_cb_arg->group_itr);
 		// データが無ければ新たに作る
-		if (lookup_accessa_status_create(&new_accessa_status, NULL, NULL)) {
-			LOG(LOG_LV_ERR, "dailes in create status of addessa");
+		if (lookup_accessa_status_create(&new_accessa_status, name, NULL)) {
+			LOG(LOG_LV_ERR, "failed in create status of accessa");
 			return 1;
 		}
 		*need_free_accessa_status = 1;
 		*need_rewrite_accessa_status = 1;
+		*accessa_status = new_accessa_status;
 	} else {
-		new_accessa_status = (accessa_status_t *)buffer_data; 
-		new_accessa_status->group_rr_idx
-		     = (new_accessa_status->group_rr_idx + 1) % lookup_group_roundrobin_cb_arg->group_members_count;
+		old_accessa_status = (accessa_status_t *)buffer_data; 
+		old_accessa_status->group_rr_idx
+		     = (old_accessa_status->group_rr_idx + 1) % lookup_group_roundrobin_cb_arg->group_members_count;
 		// 値が変わったのでdirtyをセットしておいて後から更新されるようにする
 		if (shared_buffer_set_dirty(lookup->accessa->accessa_buffer)) {
 			LOG(LOG_LV_ERR, "failed in set dirty");
 			return 1;
 		}
-	}
-	*accessa_status = new_accessa_status;
-	if (bson_helper_bson_get_itr_by_idx(
-	    lookup_group_roundrobin_cb_arg->group_itr,
-	    &lookup->params->status,
-	    "groups",
-	    new_accessa_status->group_rr_idx)) {
-		LOG(LOG_LV_ERR, "failed in get iterator of groups");
-		return 1;
+		// indexからgroupを選択する
+		if (bson_helper_bson_get_itr_by_idx(
+		    lookup_group_roundrobin_cb_arg->group_itr,
+		    &lookup->params->status,
+		    "groups",
+		    old_accessa_status->group_rr_idx)) {
+			LOG(LOG_LV_ERR, "failed in get iterator of groups");
+			return 1;
+		}
+		*accessa_status = old_accessa_status;
 	}
 
 	return 0;
