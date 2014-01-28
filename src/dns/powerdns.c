@@ -19,6 +19,7 @@ powerdns_output_foreach(
     const char *content)
 {
 	fprintf(stdout, "DATA\t%s\t%s\t%s\t%llu\t%s\t%s\n", name, class, type, ttl, id, content); 
+	fflush(stdout);
 }
 
 int
@@ -62,6 +63,7 @@ powerdns_main(
 		goto fail;
 	}
 	fprintf(stdout, "END\n");
+	fflush(stdout);
 
 	return 0;
 
@@ -73,6 +75,7 @@ fail:
 		}
 	}
 	fprintf(stdout, "FAIL\n");
+	fflush(stdout);
 
 	return 1;
 

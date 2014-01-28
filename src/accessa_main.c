@@ -201,11 +201,13 @@ accessa_powerdns(void) {
 	if (logger_create()) {
 		fprintf(stderr, "failed in create logger\n");
 		fprintf(stdout, "FAIL\n");
+		fflush(stdout);
 		return EX_OSERR;
 	}
 	if (logger_set_foreground(ACCESSA_DEBUG)) {
 		fprintf(stderr, "failed in set foreground fot logger\n");
 		fprintf(stdout, "FAIL\n");
+		fflush(stdout);
 		return EX_OSERR;
 	}
 
@@ -213,35 +215,42 @@ accessa_powerdns(void) {
 	if (fgets(line_buff, sizeof(line_buff), stdin) == NULL) {
 		LOG(LOG_LV_ERR, "can not get handshake message");
 		fprintf(stdout, "FAIL\n");
+		fflush(stdout);
 		return EX_DATAERR;
 	}
-	
 	if (strncmp(line_buff, HANDSHAKE_REQUEST_PREFIX, sizeof(HANDSHAKE_REQUEST_PREFIX) - 1) != 0) {
 		LOG(LOG_LV_ERR, "invalid handshake message (%s : %s)", line_buff ,HANDSHAKE_REQUEST_PREFIX);
 		fprintf(stdout, "FAIL\n");
+		fflush(stdout);
 		return EX_DATAERR;
 	}
 	abi_version = line_buff[5] - 0x30;
-	if (abi_version != 1 && abi_version != 2 && abi_version != 3) {
+	if (abi_version != 1 && abi_version != 2) {
 		LOG(LOG_LV_ERR, "unsupported abi version (%d)", abi_version);
 		fprintf(stdout, "FAIL\n");
+		fflush(stdout);
 		return EX_DATAERR;
 	}
-	fprintf(stdout, "OK\n");
+	fprintf(stdout, "OK\tPrimwatch pipe backend\n");
+	fflush(stdout);
 
-	while (1) { 
+	while (ret == EX_OK) { 
 		qname = NULL;
 		qclass = NULL;
 		qtype = NULL;
 		remote_ip_address = NULL;
 
+		LOG(LOG_LV_INFO, "try recieved query");
 		// parse query;
 		if (fgets(line_buff, sizeof(line_buff), stdin) == NULL) {
+			LOG(LOG_LV_INFO, "EOF");
 			break;
 		}
+		LOG(LOG_LV_INFO, "recieved query %s", line_buff);
 		if ((nl_ptr = strchr(line_buff, '\n')) == NULL) {
 			LOG(LOG_LV_ERR, "failed in parse question (%s)", line_buff);
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			continue;
 		}
 		*nl_ptr = '\0';
@@ -249,27 +258,32 @@ accessa_powerdns(void) {
 		if ((question = strsep(&line_ptr, "\t")) == NULL) {
 			LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			continue;
 		}
 		if (strcmp(question, "Q") == 0) {
 			if ((qname = strsep(&line_ptr, "\t")) == NULL) {
 				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
 				fprintf(stdout, "FAIL\n");
+				fflush(stdout);
 				continue;
 			}
 			if ((qclass = strsep(&line_ptr, "\t")) == NULL) {
 				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
 				fprintf(stdout, "FAIL\n");
+				fflush(stdout);
 				continue;
 			}
 			if ((qtype = strsep(&line_ptr, "\t")) == NULL) {
 				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
 				fprintf(stdout, "FAIL\n");
+				fflush(stdout);
 				continue;
 			}
 			if ((id = strsep(&line_ptr, "\t")) == NULL) {
 				LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
 				fprintf(stdout, "FAIL\n");
+				fflush(stdout);
 				continue;
 			}
 			if (abi_version == 1) {
@@ -278,6 +292,7 @@ accessa_powerdns(void) {
 				if ((remote_ip_address= strsep(&line_ptr, "\t")) == NULL) {
 					LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
 					fprintf(stdout, "FAIL\n");
+					fflush(stdout);
 					continue;
 				}
 			}
@@ -285,59 +300,70 @@ accessa_powerdns(void) {
 			id = line_ptr;
 		} else if (strcmp(question, "PING") == 0) {
 			fprintf(stdout, "END\n");
+			fflush(stdout);
 			continue;
 		} else {
 			LOG(LOG_LV_ERR, "unsupported question (%s)", line_buff);
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			continue;
 		}
 		if (accessa_initialize(&accessa)) {
 			LOG(LOG_LV_ERR, "failed in initialize accessa");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			return EX_OSERR;
 		}
 		if (shared_buffer_read(accessa.daemon_buffer, &sb_data, NULL)) {
 			LOG(LOG_LV_WARNING, "failed in read daemon buffer");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			goto last;
 		}
 		if (sb_data == NULL) {
 			LOG(LOG_LV_WARNING, "daemon buffer is empty");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			goto last;
 		}
 		if (bson_init_finished_data(&status, sb_data, 0) != BSON_OK) {
 			LOG(LOG_LV_WARNING, "failed in finish bson data of status");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			goto last;
 		}
 		if (bson_helper_bson_get_string(&status, &log_type , "logType", NULL)) {
 			LOG(LOG_LV_ERR, "failed in get log type from status");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			ret = EX_DATAERR;
 			goto last;
 		}
 		if (bson_helper_bson_get_string(&status, &log_facility , "logFacility", NULL)) {
 			LOG(LOG_LV_ERR, "failed in get log facility from status");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			ret = EX_DATAERR;
 			goto last;
 		}
 		if (bson_helper_bson_get_string(&status, &log_path , "logPath", NULL)) {
 			LOG(LOG_LV_ERR, "failed in get log path from status");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			ret = EX_DATAERR;
 			goto last;
 		}
 		if (bson_helper_bson_get_long(&status, &verbose_level , "verboseLevel", NULL)) {
 			LOG(LOG_LV_ERR, "failed in get verbose level from status");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			ret = EX_DATAERR;
 			goto last;
 		}
 		if (logger_open((log_level_t)verbose_level, log_type, PROGIDENT, LOG_PID, log_facility, log_path)) {
 			LOG(LOG_LV_ERR, "failed in open log");
 			fprintf(stdout, "FAIL\n");
+			fflush(stdout);
 			ret = EX_OSERR;
 			goto last;
 		}

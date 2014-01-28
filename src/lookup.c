@@ -1793,10 +1793,14 @@ lookup_native(
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_PTR;
 	} else if (strcasecmp(lookup->input.type, "ANY") == 0){
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_ANY;
+	} else if (strcasecmp(lookup->input.type, "SOA") == 0){
+		/* XXX soa record */
+		LOG(LOG_LV_INFO, "soa record is unsupported");
+		return 0;
 	} else if (strcasecmp(lookup->input.type, "NS") == 0){
 		/* XXX ns record */
-		LOG(LOG_LV_DEBUG, "ns record is unsupported");
-		return 1;
+		LOG(LOG_LV_INFO, "ns record is unsupported");
+		return 0;
 	} else {
 		/* log */
 		LOG(LOG_LV_ERR, "unexpected type (%s)", lookup->input.type);
