@@ -1728,7 +1728,6 @@ lookup_all_group(
 
 	ASSERT(lookup != NULL);
 	ASSERT(output_foreach_cb != NULL);
-	ASSERT(output_foreach_cb_arg != NULL);
 
 	// bsonの中をすべてなめる
 	if (bson_helper_bson_foreach(
@@ -1763,8 +1762,7 @@ lookup_native(
 	int i;
 
 	if (lookup == NULL ||
-	    output_foreach_cb == NULL ||
-	    output_foreach_cb_arg == NULL) {
+	    output_foreach_cb == NULL) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -1900,8 +1898,7 @@ lookup_native_axfr(
         lookup_params_t lookup_params;
 
         if (lookup == NULL ||
-	    output_foreach_cb == NULL ||
-	    output_foreach_cb_arg) {
+	    output_foreach_cb == NULL) {
                 errno = EINVAL;
                 return 1;
         }
