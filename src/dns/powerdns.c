@@ -56,12 +56,12 @@ powerdns_main(
 			goto fail;
 		}
 	}
-	fprintf(stdout, "END\n");
 	if (lookup_finalize(&lookup)) {
 		LOG(LOG_LV_ERR, "failed in finalize of lookup");
 		// log
 		goto fail;
 	}
+	fprintf(stdout, "END\n");
 
 	return 0;
 

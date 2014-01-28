@@ -1509,6 +1509,7 @@ lookup_all_record_foreach(
 	record_buffer_t *record_buffer;
         char *tmp_name_ptr, tmp_name[NI_MAXHOST];
 	int tmp_name_size;
+	int input_size;
         char tmp_addr[INET6_ADDRSTRLEN];
 
 	ASSERT(lookup_all_record_foreach_arg != NULL);
@@ -1527,59 +1528,89 @@ lookup_all_record_foreach(
 	switch (lookup_all_record_foreach_arg->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
 	case LOOKUP_TYPE_NATIVE_AAAA:
-		// ドメインが一致するものを探す
-		strlcpy(tmp_name, key, sizeof(tmp_name));
-		tmp_name_ptr = tmp_name;
-		while (1) {
-			tmp_name_size = strlen(tmp_name_ptr) + 1;
-			if (lookup_all_group_foreach_arg->axfr == 1 ||
-			    (key_size == tmp_name_size &&
-			     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0)) {
-				lookup_all_group_foreach_arg->output_foreach_cb(
-				    NULL,
-				    key,
-				    lookup->input.class,
-				    (lookup_all_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
-				    record_buffer->ttl,
-				    lookup->input.id,
-				    ((char *)record_buffer) + offsetof(record_buffer_t, value));
-				break;
-			}
-			// ここで、レベルを上げながらチェック
-			if (decrement_domain_b(&tmp_name_ptr)) {
-				break;
+		if (lookup_all_group_foreach_arg->axfr == 1) {
+			lookup_all_group_foreach_arg->output_foreach_cb(
+			    NULL,
+			    key,
+			    "IN",
+			    (lookup_all_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
+			    record_buffer->ttl,
+			    lookup->input.id,
+			    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+		} else {
+			// ドメインが一致するものを探す
+			input_size = strlen(lookup->input.name) + 1;
+			strlcpy(tmp_name, key, sizeof(tmp_name));
+			tmp_name_ptr = tmp_name;
+			while (1) {
+				tmp_name_size = strlen(tmp_name_ptr) + 1;
+				if (input_size == tmp_name_size &&
+				     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
+					lookup_all_group_foreach_arg->output_foreach_cb(
+					    NULL,
+					    key,
+					    lookup->input.class,
+					    (lookup_all_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
+					    record_buffer->ttl,
+					    lookup->input.id,
+					    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+					break;
+				}
+				// ここで、レベルを上げながらチェック
+				if (decrement_domain_b(&tmp_name_ptr)) {
+					break;
+				}
 			}
 		}
 		break;
 	case LOOKUP_TYPE_NATIVE_PTR:
-		// ドメインが一致するものを探す
-		strlcpy(tmp_name, value, sizeof(tmp_name));
-		tmp_name_ptr = tmp_name;
-		while (1) {
-			tmp_name_size = strlen(tmp_name_ptr) + 1;
-			if (lookup_all_group_foreach_arg->axfr == 1 ||
-			    (key_size == tmp_name_size &&
-			     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0)) {
-				if (addrmask_to_revaddrstr(
-				    tmp_addr,
-				    sizeof(tmp_addr),
-				    (v4v6_addr_mask_t *)key,
-				    lookup_all_record_foreach_arg->revfmt_type)) {
-					continue;
-				}
-				lookup_all_group_foreach_arg->output_foreach_cb(
-				    NULL,
-				    tmp_addr,
-				    lookup->input.class,
-				    "PTR",
-				    record_buffer->ttl,
-				    lookup->input.id,
-				    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+		if (lookup_all_group_foreach_arg->axfr == 1) {
+			if (addrmask_to_revaddrstr(
+			    tmp_addr,
+			    sizeof(tmp_addr),
+			    (v4v6_addr_mask_t *)key,
+			    lookup_all_record_foreach_arg->revfmt_type)) {
 				break;
 			}
-			// ここで、レベルを上げながらチェック
-			if (decrement_domain_b(&tmp_name_ptr)) {
-				break;
+			lookup_all_group_foreach_arg->output_foreach_cb(
+			    NULL,
+			    tmp_addr,
+			    "IN",
+			    "PTR",
+			    record_buffer->ttl,
+			    lookup->input.id,
+			    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+		} else {
+			// ドメインが一致するものを探す
+			input_size = strlen(lookup->input.name) + 1;
+			strlcpy(tmp_name, ((char *)record_buffer) + offsetof(record_buffer_t, value), sizeof(tmp_name));
+			tmp_name_ptr = tmp_name;
+			while (1) {
+				tmp_name_size = strlen(tmp_name_ptr) + 1;
+				if (lookup_all_group_foreach_arg->axfr == 1 ||
+				    (input_size == tmp_name_size &&
+				     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0)) {
+					if (addrmask_to_revaddrstr(
+					    tmp_addr,
+					    sizeof(tmp_addr),
+					    (v4v6_addr_mask_t *)key,
+					    lookup_all_record_foreach_arg->revfmt_type)) {
+						continue;
+					}
+					lookup_all_group_foreach_arg->output_foreach_cb(
+					    NULL,
+					    tmp_addr,
+					    lookup->input.class,
+					    "PTR",
+					    record_buffer->ttl,
+					    lookup->input.id,
+					    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+					break;
+				}
+				// ここで、レベルを上げながらチェック
+				if (decrement_domain_b(&tmp_name_ptr)) {
+					break;
+				}
 			}
 		}
 		break;
@@ -1694,7 +1725,11 @@ lookup_all_group(
 		.output_foreach_cb_arg = output_foreach_cb_arg,
 		.axfr = axfr,
 	};
+
 	ASSERT(lookup != NULL);
+	ASSERT(output_foreach_cb != NULL);
+	ASSERT(output_foreach_cb_arg != NULL);
+
 	// bsonの中をすべてなめる
 	if (bson_helper_bson_foreach(
 	    &lookup->params->status,
@@ -1727,7 +1762,9 @@ lookup_native(
 	lookup_params_t lookup_params;
 	int i;
 
-	if (lookup == NULL) {
+	if (lookup == NULL ||
+	    output_foreach_cb == NULL ||
+	    output_foreach_cb_arg == NULL) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -1860,6 +1897,27 @@ lookup_native_axfr(
         const char *content),
     void *output_foreach_cb_arg)
 {
+        lookup_params_t lookup_params;
+
+        if (lookup == NULL ||
+	    output_foreach_cb == NULL ||
+	    output_foreach_cb_arg) {
+                errno = EINVAL;
+                return 1;
+        }
+        lookup->params = &lookup_params;
+        if (shared_buffer_read(lookup->accessa->daemon_buffer, &lookup->params->shared_buffer_data, NULL)) {
+                LOG(LOG_LV_ERR, "failed in read shared_buffer");
+                return 1;
+        }
+        if (lookup->params->shared_buffer_data == NULL) {
+                LOG(LOG_LV_WARNING, "not status data of daemon");
+                return 0;
+        }
+        if (bson_init_finished_data(&lookup->params->status, lookup->params->shared_buffer_data, 0) != BSON_OK) {
+                LOG(LOG_LV_ERR, "failed in initialize of bson");
+                return 1;
+        }
 	// 結果出力もやってしまう。
 	if (lookup_all_group(lookup, output_foreach_cb, output_foreach_cb_arg, 1)) {
 		LOG(LOG_LV_ERR, "failed in lookup all group");
