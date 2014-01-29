@@ -225,7 +225,7 @@ accessa_powerdns(void) {
 		return EX_DATAERR;
 	}
 	abi_version = line_buff[5] - 0x30;
-	if (abi_version != 1 && abi_version != 2) {
+	if (abi_version != 1 && abi_version != 2 && abi_version != 3) {
 		LOG(LOG_LV_ERR, "unsupported abi version (%d)", abi_version);
 		fprintf(stdout, "FAIL\n");
 		fflush(stdout);
@@ -240,13 +240,11 @@ accessa_powerdns(void) {
 		qtype = NULL;
 		remote_ip_address = NULL;
 
-		LOG(LOG_LV_INFO, "try recieved query");
 		// parse query;
 		if (fgets(line_buff, sizeof(line_buff), stdin) == NULL) {
 			LOG(LOG_LV_INFO, "EOF");
 			break;
 		}
-		LOG(LOG_LV_INFO, "recieved query %s", line_buff);
 		if ((nl_ptr = strchr(line_buff, '\n')) == NULL) {
 			LOG(LOG_LV_ERR, "failed in parse question (%s)", line_buff);
 			fprintf(stdout, "FAIL\n");
@@ -254,6 +252,8 @@ accessa_powerdns(void) {
 			continue;
 		}
 		*nl_ptr = '\0';
+		fprintf(stdout, "LOG\treceived query = %s, abi version %d\n", line_buff, abi_version);
+		fflush(stdout);
 		line_ptr = line_buff;
 		if ((question = strsep(&line_ptr, "\t")) == NULL) {
 			LOG(LOG_LV_ERR, "failed in parse question (%s, %s)", line_buff, line_ptr);
@@ -367,7 +367,7 @@ accessa_powerdns(void) {
 			ret = EX_OSERR;
 			goto last;
 		}
-		powerdns_main(question, qname, qclass, qtype, id, remote_ip_address, &accessa);
+		powerdns_main(question, qname, qclass, qtype, id, remote_ip_address, abi_version, &accessa);
 		logger_close();
 last:
 		accessa_finalize(&accessa);

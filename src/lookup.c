@@ -1530,7 +1530,7 @@ lookup_all_record_foreach(
 	case LOOKUP_TYPE_NATIVE_AAAA:
 		if (lookup_all_group_foreach_arg->axfr == 1) {
 			lookup_all_group_foreach_arg->output_foreach_cb(
-			    NULL,
+			    lookup_all_group_foreach_arg->output_foreach_cb_arg,
 			    key,
 			    "IN",
 			    (lookup_all_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
@@ -1547,7 +1547,7 @@ lookup_all_record_foreach(
 				if (input_size == tmp_name_size &&
 				     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
 					lookup_all_group_foreach_arg->output_foreach_cb(
-					    NULL,
+					    lookup_all_group_foreach_arg->output_foreach_cb_arg,
 					    key,
 					    lookup->input.class,
 					    (lookup_all_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
@@ -1573,7 +1573,7 @@ lookup_all_record_foreach(
 				break;
 			}
 			lookup_all_group_foreach_arg->output_foreach_cb(
-			    NULL,
+			    lookup_all_group_foreach_arg->output_foreach_cb_arg,
 			    tmp_addr,
 			    "IN",
 			    "PTR",
@@ -1598,7 +1598,7 @@ lookup_all_record_foreach(
 						continue;
 					}
 					lookup_all_group_foreach_arg->output_foreach_cb(
-					    NULL,
+					    lookup_all_group_foreach_arg->output_foreach_cb_arg,
 					    tmp_addr,
 					    lookup->input.class,
 					    "PTR",

@@ -9,6 +9,7 @@ powerdns_main(
     const char *qtype,
     const char *id,
     const char *remote_ip_address,
+    int abi_version,
     accessa_t *accessa);
 
 #endif

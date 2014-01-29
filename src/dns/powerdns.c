@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "common_macro.h"
 #include "accessa.h"
 #include "lookup.h"
 #include "shared_buffer.h"
@@ -18,7 +19,15 @@ powerdns_output_foreach(
     const char *id,
     const char *content)
 {
-	fprintf(stdout, "DATA\t%s\t%s\t%s\t%llu\t%s\t%s\n", name, class, type, ttl, id, content); 
+	int *abi_version = output_forech_arg;
+
+	ASSERT(abi_version != NULL);
+
+	if (*abi_version == 3) {
+		fprintf(stdout, "DATA\t0\t1\t%s\t%s\t%s\t%llu\t%s\t%s\n", name, class, type, ttl, id, content); 
+	} else {
+		fprintf(stdout, "DATA\t%s\t%s\t%s\t%llu\t%s\t%s\n", name, class, type, ttl, id, content); 
+	}
 	fflush(stdout);
 }
 
@@ -30,6 +39,7 @@ powerdns_main(
     const char *qtype,
     const char *id,
     const char *remote_ip_address,
+    int abi_version,
     accessa_t *accessa)
 {
 	int lookup_init = 0;
@@ -47,12 +57,12 @@ powerdns_main(
 		goto fail;
 	}
 	if (strcasecmp(qestion, "AXFR") == 0) {
-		if (lookup_native_axfr(&lookup, powerdns_output_foreach, NULL)) {
+		if (lookup_native_axfr(&lookup, powerdns_output_foreach, &abi_version)) {
 			LOG(LOG_LV_ERR, "failed in native lookup");
 			goto fail;
 		}
 	} else {
-		if (lookup_native(&lookup, powerdns_output_foreach, NULL)) {
+		if (lookup_native(&lookup, powerdns_output_foreach, &abi_version)) {
 			LOG(LOG_LV_ERR, "failed in native lookup");
 			goto fail;
 		}
