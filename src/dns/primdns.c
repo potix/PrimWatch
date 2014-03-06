@@ -11,6 +11,12 @@
 #define NOERROR  "0"
 #define NXDOMAIN "3"
 
+struct output_buffer {
+	char buf[65535];
+	int len;
+};
+typedef struct output_buffer output_buffer_t;
+
 void
 primdns_output_foreach(
     void *output_forech_arg,
@@ -21,7 +27,8 @@ primdns_output_foreach(
     const char *id,
     const char *content)
 {
-	printf("%s %llu %s %s %s\n", name, ttl, class, type, content); 
+	output_buffer_t *output_buffer = output_forech_arg;
+	output_buffer->len += snprintf(&output_buffer->buf[output_buffer->len], sizeof(output_buffer->buf) - output_buffer->len, "%s %llu %s %s %s\n", name, ttl, class, type, content); 
 }
 
 int
@@ -32,6 +39,7 @@ primdns_main(
 {
 	int lookup_init = 0;
 	lookup_t lookup;
+	output_buffer_t output_buffer = { .len= 0 };
 
 	if (argc < 4) {
 		LOG(LOG_LV_ERR, "too few arguments");
@@ -49,11 +57,12 @@ primdns_main(
 		// log
 		goto fail;
 	}
-	if (lookup_native(&lookup, primdns_output_foreach, NULL)) {
+	if (lookup_native(&lookup, primdns_output_foreach, &output_buffer)) {
 		LOG(LOG_LV_ERR, "failed in native lookup");
 		goto fail;
 	}
 	printf("%s\n", NOERROR);
+	printf("%s", output_buffer.buf);
 	if (lookup_finalize(&lookup)) {
 		LOG(LOG_LV_ERR, "failed in finalize of lookup");
 		// log
