@@ -269,6 +269,7 @@ bhash_clone(
 	new->free_cb = NULL;
 	new->free_cb_arg = NULL;
 	new->bhash_data = clone_data;
+	*bhash = new;
 
 	return 0;
 
