@@ -170,7 +170,6 @@ lookup_accessa_status_find(
 	}
 	*accessa_status_group = (accessa_status_group_t *)ptr;
 	if (*accessa_status_group == NULL) {
-		LOG(LOG_LV_INFO, "not found group in blist of status of group of accessa (%s)", group);
 		return 0;
 	}
 	if (!(record && !accessa_status_record)) {
