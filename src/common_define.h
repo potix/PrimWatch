@@ -23,6 +23,10 @@
 #define MAX_TCP_LISTEN 8
 #endif
 
+#ifndef DOMAIN_CHARS
+#define DOMAIN_CHARS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
+#endif
+
 
 /* XXXX configarable */
 #ifndef READ_TIMEOUT

@@ -1017,9 +1017,14 @@ watcher_polling_common_add_element(
 
 	switch (target_type) {
         case TARGET_TYPE_DOMAIN_MAP:
+		key_size = strlen(key) + 1;
 		value_size = strlen(value) + 1;
 		map_element = (map_element_t *)buffer;
 		memcpy(buffer + offsetof(map_element_t, value), value, value_size); 
+                if (strspn(key, DOMAIN_CHARS) != key_size - 1) {
+			LOG(LOG_LV_INFO, "failed in validate %s entry as domain (type = %d)", key, target_type);
+			return 1;
+		}
 		if (bhash_replace(
 		    new_elements,
 		    key,
@@ -1159,8 +1164,7 @@ watcher_polling_common_response(
 			     target->remain_buffer,
 			     target->remain_buffer_len);
 			tmp_buffer[target->remain_buffer_len] = '\0';
-			if (tmp_buffer[0] != '\0') {
-				string_kv_split_b(&kv, tmp_buffer, " \t" );
+			if (tmp_buffer[0] != '\0' && !string_kv_split_b(&kv, tmp_buffer, " \t")) {
 				if (target->tmp_elements) {
 					if (watcher_polling_common_add_element(
 					    target->type,
@@ -1196,17 +1200,18 @@ watcher_polling_common_response(
 			}
 			*line_end = '\0';
                         if (*line_start == '\0') {
-                                continue;
+                                break;
                         }
-			string_kv_split_b(&kv, line_start, " \t" );
-			if (target->tmp_elements) {
-				if (watcher_polling_common_add_element(
-				    target->type,
-				    kv.key,
-				    kv.value,
-				    target->tmp_elements,
-				    target->elements)) {
-					LOG(LOG_LV_INFO, "failed in add element (type = %d)", target->type);
+			if (!string_kv_split_b(&kv, line_start, " \t" )) {
+				if (target->tmp_elements) {
+					if (watcher_polling_common_add_element(
+					    target->type,
+					    kv.key,
+					    kv.value,
+					    target->tmp_elements,
+					    target->elements)) {
+						LOG(LOG_LV_INFO, "failed in add element (type = %d)", target->type);
+					}
 				}
 			}
 			line_start = line_end + 1;
