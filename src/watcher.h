@@ -37,6 +37,11 @@ int watcher_hostnames_foreach(
     void (*foreach_cb)(void *foreach_cb_arg, const char *name),
     void *foreach_cb_arg);
 
+int watcher_address_hostnames_foreach(
+    watcher_t *watcher,
+    void (*foreach_cb)(void *foreach_cb_arg, const char *name),
+    void *foreach_cb_arg);
+
 int watcher_get_group_health(
     watcher_t *watcher,
     const char *name,
@@ -58,6 +63,13 @@ int watcher_get_hostname_health(
     int *previous_status,
     int *preempt_status);
 
+int watcher_get_address_hostname_health(
+    watcher_t *watcher,
+    const char *name,
+    int *current_status,
+    int *previous_status,
+    int *preempt_status);
+
 int watcher_update_group_health_status(
     watcher_t *watcher,
     const char *name,
@@ -73,6 +85,11 @@ int watcher_update_hostname_health_status(
     const char *name,
     int current_status);
 
+int watcher_update_address_hostname_health_status(
+    watcher_t *watcher,
+    const char *name,
+    int current_status);
+
 int watcher_update_group_health_preempt_status(
     watcher_t *watcher,
     const char *name,
@@ -84,6 +101,11 @@ int watcher_update_address_health_preempt_status(
     int preempt_status);
 
 int watcher_update_hostname_health_preempt_status(
+    watcher_t *watcher,
+    const char *name,
+    int preempt_status);
+
+int watcher_update_address_hostname_health_preempt_status(
     watcher_t *watcher,
     const char *name,
     int preempt_status);

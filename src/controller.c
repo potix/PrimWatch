@@ -132,15 +132,19 @@ controller_hostnames_foreach_cb(
  *    show groups
  *    show addresses 
  *    show hostnames
+ *    show addressesHostnames
  *    show health group <group>
  *    show health address <address>
  *    show health hostname <hostname>
+ *    show health addressHostname <address hostname>
  *    set status group <group> <up|down>
  *    set status address <address> <up|down>
  *    set status hostname <hostname> <up|down>
+ *    set status addressHostname <address hostname> <up|down>
  *    set preempt_status group <group> <true|false>
  *    set preempt_status address <address> <true|false>
  *    set preempt_status hostname <hostname> <true|false>
+ *    set preempt_status addressHostname <address hostname> <true|false>
  */
 static void
 controller_execute_command(
@@ -180,6 +184,11 @@ controller_execute_command(
 		} else if (strcasecmp(parse_cmd->args[1], "hostnames") == 0) {
 			if  (watcher_hostnames_foreach(controller->watcher, controller_hostnames_foreach_cb, controller)) {
 				err_msg = "failed in gather hostnames";
+				goto fail;
+			}
+		} else if (strcasecmp(parse_cmd->args[1], "addresesHostnames") == 0) {
+			if  (watcher_hostnames_foreach(controller->watcher, controller_hostnames_foreach_cb, controller)) {
+				err_msg = "failed in gather addresses and hostnames";
 				goto fail;
 			}
 		} else if (strcasecmp(parse_cmd->args[1], "health") == 0) {
@@ -224,6 +233,19 @@ controller_execute_command(
 				}
 				wlen = snprintf(controller->result, controller->result_size,
 				   "OK hostname=%s, current status=%s, previous status=%s, preempt status=%s\n",
+				   parse_cmd->args[3], (current_status) ? "up" : "down", (previous_status) ? "up" : "down", (preempt_status) ? "true" : "false");
+				controller->result_real_size += wlen;
+			} else if (strcasecmp(parse_cmd->args[2], "addressHostname") == 0) {
+				if (parse_cmd->arg_size < 4) {
+					err_msg = "too few arguments";
+					goto fail;
+				}
+				if (watcher_get_address_hostname_health(controller->watcher, parse_cmd->args[3], &current_status, &previous_status, &preempt_status)) {
+					err_msg = "failed in get status of health";
+					goto fail;
+				}
+				wlen = snprintf(controller->result, controller->result_size,
+				   "OK address and hostname=%s, current status=%s, previous status=%s, preempt status=%s\n",
 				   parse_cmd->args[3], (current_status) ? "up" : "down", (previous_status) ? "up" : "down", (preempt_status) ? "true" : "false");
 				controller->result_real_size += wlen;
 			}
@@ -302,6 +324,26 @@ controller_execute_command(
 				wlen = snprintf(controller->result, controller->result_size,
 				    "OK hostname=%s current status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
 				controller->result_real_size += wlen;
+			} else if (strcasecmp(parse_cmd->args[2], "addressHostname") == 0) {
+				if (parse_cmd->arg_size < 5) {
+					err_msg = "too few arguments";
+					goto fail;
+				}
+				if (strcasecmp(parse_cmd->args[4], "up") == 0) {
+					current_status = 1;
+				} else if (strcasecmp(parse_cmd->args[4], "down") == 0) {
+					current_status = 0;
+				} else {
+					err_msg = "invalid parameter";
+					goto fail;
+				}
+				if (watcher_update_address_hostname_health_status(controller->watcher, parse_cmd->args[3], current_status)) {
+					err_msg = "can not update staus of health";
+					goto fail;
+				}
+				wlen = snprintf(controller->result, controller->result_size,
+				    "OK address and hostname=%s current status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
+				controller->result_real_size += wlen;
 			} else {
 				err_msg = "unexpected command";
 				goto fail;
@@ -369,7 +411,27 @@ controller_execute_command(
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK address=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
+				    "OK hostname=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
+				controller->result_real_size += wlen;
+			} else if (strcasecmp(parse_cmd->args[2], "addressHostname") == 0) {
+				if (parse_cmd->arg_size < 5) {
+					err_msg = "too few arguments";
+					goto fail;
+				}
+				if (strcasecmp(parse_cmd->args[4], "true") == 0) {
+					preempt_status = 1;
+				} else if (strcasecmp(parse_cmd->args[4], "false") == 0) {
+					preempt_status = 0;
+				} else {
+					err_msg = "invalid parameter";
+					goto fail;
+				}
+				if (watcher_update_address_hostname_health_preempt_status(controller->watcher, parse_cmd->args[3], preempt_status)) {
+					err_msg = "can not update preempt status of health";
+					goto fail;
+				}
+				wlen = snprintf(controller->result, controller->result_size,
+				    "OK address and hostname=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
 				controller->result_real_size += wlen;
 			} else {
 				err_msg = "unexpected command";

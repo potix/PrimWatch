@@ -32,6 +32,7 @@
 #endif
 
 #define MAX_RECORD_BUFFER (INET6_ADDRSTRLEN + NI_MAXHOST + sizeof(record_buffer_t) + 8)
+#define MAX_ADDRESS_HOSTNAME_BUFFER (INET6_ADDRSTRLEN + NI_MAXHOST + 1024)
 #define ALIGN_SIZE(size) ((size) + 8 - ((size) & 7))
 
 typedef enum watcher_target_type watcher_target_type_t;
@@ -49,7 +50,8 @@ enum watcher_target_type {
 	TARGET_TYPE_DOMAIN_MAP = 1,
 	TARGET_TYPE_REMOTE_ADDRESS_MAP,
 	TARGET_TYPE_ADDRESS_HEALTH_CHECK,
-	TARGET_TYPE_HOSTNAME_HEALTH_CHECK
+	TARGET_TYPE_HOSTNAME_HEALTH_CHECK,
+	TARGET_TYPE_ADDRESS_HOSTNAME_HEALTH_CHECK
 };
 
 struct watcher_status_element {
@@ -75,6 +77,7 @@ struct watcher {
         watcher_target_t remote_address_map;
         watcher_target_t address_health_check;
         watcher_target_t hostname_health_check;
+        watcher_target_t address_hostname_health_check;
         bhash_t *groups;
 	struct event update_check_event;
 	struct timeval update_check_interval;
@@ -90,6 +93,7 @@ struct group_foreach_cb_arg {
 	bson *config;
         bhash_t *address_health_check;
         bhash_t *hostname_health_check;
+        bhash_t *address_hostname_health_check;
 	bhash_t *new_groups;
 	bhash_t *old_groups;
 	int group_preempt;
@@ -164,6 +168,7 @@ static int watcher_status_make(
     bhash_t *remote_address_map,
     bhash_t *address_health_check,
     bhash_t *hostname_health_check,
+    bhash_t *address_hostname_health_check,
     bhash_t *new_groups,
     bhash_t *old_groups);
 static void watcher_status_clean(bson *status);
@@ -201,16 +206,18 @@ watcher_forward_record_foreach_cb(
 {
 	forward_record_foreach_cb_arg_t *arg = forward_record_foreach_cb_arg;
 	bson *config;
-	bhash_t *address_health_check, *hostname_health_check;
+	bhash_t *address_health_check, *hostname_health_check, *address_hostname_health_check;
 	bhash_t *hostname;
 	const char *default_record_status;
 	char p[MAX_BSON_PATH_LEN];
 	char entry_buffer[MAX_RECORD_BUFFER];
 	record_buffer_t *entry;
 	const char *idx, *addr, *host;
-	size_t addr_size, host_size;
+	char addr_host[MAX_ADDRESS_HOSTNAME_BUFFER];
+	size_t addr_size, host_size, addr_host_size;
 	watcher_status_element_t *address_health_check_element = NULL;
 	watcher_status_element_t *hostname_health_check_element = NULL;
+	watcher_status_element_t *address_hostname_health_check_element = NULL;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
 	int force_down = 0;
@@ -230,6 +237,7 @@ watcher_forward_record_foreach_cb(
 	config = arg->group_foreach_cb_arg->config;
 	address_health_check = arg->group_foreach_cb_arg->address_health_check;
 	hostname_health_check = arg->group_foreach_cb_arg->hostname_health_check;
+	address_hostname_health_check = arg->group_foreach_cb_arg->address_hostname_health_check;
 	default_record_status = arg->group_foreach_cb_arg->default_record_status;
 	entry = (record_buffer_t *)&entry_buffer[0];
 	idx = bson_iterator_key(itr);
@@ -272,13 +280,20 @@ watcher_forward_record_foreach_cb(
 	host_size = strlen(host) + 1;
 	if (address_health_check) {
 		if (bhash_get(address_health_check, (char **)&address_health_check_element, NULL, addr, addr_size)) {
-			LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
+			LOG(LOG_LV_ERR, "failed in get address health (index = %s)", idx);
 			goto last;
 		}
 	}
 	if (hostname_health_check) {
 		if (bhash_get(hostname_health_check, (char **)&hostname_health_check_element, NULL, host, host_size)) {
-			LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
+			LOG(LOG_LV_ERR, "failed in get hostname health (index = %s)", idx);
+			goto last;
+		}
+	}
+	if (address_hostname_health_check) {
+		addr_host_size = snprintf(addr_host, sizeof(addr_host), "%s@%s", addr, host);
+		if (bhash_get(address_hostname_health_check, (char **)&address_hostname_health_check_element, NULL, addr_host, addr_host_size)) {
+			LOG(LOG_LV_ERR, "failed in get address and hostname health (index = %s)", idx);
 			goto last;
 		}
 	}
@@ -294,13 +309,19 @@ watcher_forward_record_foreach_cb(
 			hostname_health_check_element->preempt_status = 1;
 		}
 	}
-	if (address_health_check_element == NULL || hostname_health_check_element == NULL) {
+	if (address_hostname_health_check_element) {
+		if (arg->preempt && address_hostname_health_check_element->current_status == 1) {
+			address_hostname_health_check_element->preempt_status = 1;
+		}
+	}
+	if (address_health_check_element == NULL && hostname_health_check_element == NULL && address_hostname_health_check_element == NULL) {
 		if (strcasecmp(default_record_status, "up") != 0) {
 			goto last;
 		}
 	}
 	if (!(address_health_check_element->current_status & address_health_check_element->preempt_status & 
-	      hostname_health_check_element->current_status & hostname_health_check_element->preempt_status)) {
+	      hostname_health_check_element->current_status & hostname_health_check_element->preempt_status &
+	      address_hostname_health_check_element->current_status & address_hostname_health_check_element->preempt_status)) {
 		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.ttl", idx);
@@ -337,16 +358,18 @@ watcher_reverse_record_foreach_cb(
 {
 	reverse_record_foreach_cb_arg_t *arg = reverse_record_foreach_cb_arg;
 	bson *config;
-	bhash_t *address_health_check, *hostname_health_check;
+	bhash_t *address_health_check, *hostname_health_check, *address_hostname_health_check;
 	bhash_t *address;
 	const char *default_record_status;
 	char p[MAX_BSON_PATH_LEN];
 	char entry_buffer[MAX_RECORD_BUFFER];
 	record_buffer_t *entry;
 	const char *idx, *addr, *host;
-	size_t addr_size, host_size;
+	char addr_host[MAX_ADDRESS_HOSTNAME_BUFFER];
+	size_t addr_size, host_size, addr_host_size;
 	watcher_status_element_t *address_health_check_element = NULL;
 	watcher_status_element_t *hostname_health_check_element = NULL;
+	watcher_status_element_t *address_hostname_health_check_element = NULL;
 	v4v6_addr_mask_t *addr_mask;
 	size_t addr_mask_size;
 	int force_down = 0;
@@ -366,6 +389,7 @@ watcher_reverse_record_foreach_cb(
 	config = arg->group_foreach_cb_arg->config;
 	address_health_check = arg->group_foreach_cb_arg->address_health_check;
 	hostname_health_check = arg->group_foreach_cb_arg->hostname_health_check;
+	address_hostname_health_check = arg->group_foreach_cb_arg->address_hostname_health_check;
 	default_record_status = arg->group_foreach_cb_arg->default_record_status;
 	entry = (record_buffer_t *)&entry_buffer[0];
 	idx = bson_iterator_key(itr);
@@ -419,6 +443,13 @@ watcher_reverse_record_foreach_cb(
 			goto last;
 		}
 	}
+	if (address_hostname_health_check) {
+		addr_host_size = snprintf(addr_host, sizeof(addr_host), "%s@%s", addr, host);
+		if (bhash_get(address_hostname_health_check, (char **)&address_hostname_health_check_element, NULL, addr_host, addr_host_size)) {
+			LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
+			goto last;
+		}
+	}
 	// 現在のステータスがupの場合preemptが有効であれば、preemptのstatusもupにする 
 	// 本来はpolling結果のとこでやりたいが、設定を取得しにくいのでここでやっている
 	if (address_health_check_element) {
@@ -431,13 +462,19 @@ watcher_reverse_record_foreach_cb(
 			hostname_health_check_element->preempt_status = 1;
 		}
 	}
-	if (address_health_check_element == NULL || hostname_health_check_element == NULL) {
+	if (address_hostname_health_check_element) {
+		if (arg->preempt && address_hostname_health_check_element->current_status == 1) {
+			address_hostname_health_check_element->preempt_status = 1;
+		}
+	}
+	if (address_health_check_element == NULL && hostname_health_check_element == NULL && address_hostname_health_check_element == NULL) {
 		if (strcasecmp(default_record_status, "up") != 0) {
 			goto last;
 		}
 	}
 	if (!(address_health_check_element->current_status & address_health_check_element->preempt_status & 
-	      hostname_health_check_element->current_status & hostname_health_check_element->preempt_status)) {
+	      hostname_health_check_element->current_status & hostname_health_check_element->preempt_status &
+	      address_hostname_health_check_element->current_status & address_hostname_health_check_element->preempt_status)) {
 		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.ttl", idx);
@@ -746,6 +783,7 @@ watcher_status_make(
     bhash_t *remote_address_map,
     bhash_t *address_health_check,
     bhash_t *hostname_health_check,
+    bhash_t *address_hostname_health_check,
     bhash_t *new_groups,
     bhash_t *old_groups) 
 {
@@ -869,6 +907,7 @@ watcher_status_make(
 	group_foreach_cb_arg.config = config;
 	group_foreach_cb_arg.address_health_check = address_health_check;
 	group_foreach_cb_arg.hostname_health_check = hostname_health_check;
+	group_foreach_cb_arg.address_hostname_health_check = address_hostname_health_check;
 	group_foreach_cb_arg.default_record_status = default_record_status;
 	group_foreach_cb_arg.new_groups = new_groups;
 	group_foreach_cb_arg.old_groups = old_groups;
@@ -946,6 +985,7 @@ watcher_update(
 	    watcher->remote_address_map.elements,
 	    watcher->address_health_check.elements,
 	    watcher->hostname_health_check.elements,
+	    watcher->address_hostname_health_check.elements,
 	    tmp_groups,
             watcher->groups)) {
 		LOG(LOG_LV_ERR, "failed in update status");
@@ -1016,11 +1056,14 @@ watcher_set_polling_common(
 		break;
         case TARGET_TYPE_ADDRESS_HEALTH_CHECK:
 		target = &watcher->address_health_check;
-		path = "healthCheck.pollingInterval";
+		path = "addressHealthCheck.pollingInterval";
 		break;
         case TARGET_TYPE_HOSTNAME_HEALTH_CHECK:
 		target = &watcher->hostname_health_check;
-		path = "healthCheck.pollingInterval";
+		path = "hostnameHealthCheck.pollingInterval";
+        case TARGET_TYPE_ADDRESS_HOSTNAME_HEALTH_CHECK:
+		target = &watcher->address_hostname_health_check;
+		path = "addressHostnameHealthCheck.pollingInterval";
 	default:
 		/* NOTREACHED */
 		ABORT("unknown target type");
@@ -1050,6 +1093,7 @@ watcher_polling_common_add_element(
 	char buffer[sizeof(map_element_t) + DEFAULT_IO_BUFFER_SIZE];
 	watcher_status_element_t new_address_health_check_element, *old_address_health_check_element = NULL;
 	watcher_status_element_t new_hostname_health_check_element, *old_hostname_health_check_element = NULL;
+	watcher_status_element_t new_address_hostname_health_check_element, *old_address_hostname_health_check_element = NULL;
 	map_element_t *map_element;
 	v4v6_addr_mask_t addr_mask;
 	size_t key_size;
@@ -1180,6 +1224,51 @@ watcher_polling_common_add_element(
 		    key,
 		    strlen(key) + 1,
 		    (char *)&new_hostname_health_check_element,
+		    sizeof(watcher_status_element_t),
+		    NULL,
+                    NULL)) {
+			LOG(LOG_LV_INFO, "failed in replace %s entry of health check (type = %d)", key, target_type);
+			return 1;	
+		}
+		break;
+        case TARGET_TYPE_ADDRESS_HOSTNAME_HEALTH_CHECK:
+		key_size = strlen(key) + 1;
+		// 古いhostname_health_checkを取得
+		new_address_hostname_health_check_element.previous_status = 1;
+		new_address_hostname_health_check_element.preempt_status = 1;
+		if (old_elements) {
+			if (bhash_get(old_elements, (char **)&old_address_hostname_health_check_element, NULL, key, key_size)) {
+				// pass
+			}
+			// previous_status情報とpreempt_status情報を新しいaddress_hostname_health_checkに継承
+			if (old_address_hostname_health_check_element) {
+				new_address_hostname_health_check_element.previous_status = old_address_hostname_health_check_element->current_status;
+				new_address_hostname_health_check_element.preempt_status = old_address_hostname_health_check_element->preempt_status;
+			}
+		}
+		// up/downのチェック
+		if (strcasecmp(value, "up") != 0) {
+			new_address_hostname_health_check_element.current_status = 0;
+			new_address_hostname_health_check_element.preempt_status = 0;
+		} else {
+			new_address_hostname_health_check_element.current_status = 1;
+			// preemptが有効ならば、new_address_hostname_health_check_elementのpreempt_statusを変化させたいが、
+			// 設定をここで読むのが大変なので別のところで処理している
+		}
+		// ログ出力
+		if (new_address_hostname_health_check_element.previous_status == 0 && new_address_hostname_health_check_element.current_status == 1) {
+			// DOWN TO UP
+			LOG(LOG_LV_INFO, "%s status change down to up (record)", key);
+		} else if (new_address_hostname_health_check_element.previous_status == 1 && new_address_hostname_health_check_element.current_status == 0) {
+			// UP TO DOWN
+			LOG(LOG_LV_INFO, "%s status change up to down (record)", key);
+		}
+		//データを更新
+		if (bhash_replace(
+		    new_elements,
+		    key,
+		    strlen(key) + 1,
+		    (char *)&new_address_hostname_health_check_element,
 		    sizeof(watcher_status_element_t),
 		    NULL,
                     NULL)) {
@@ -1339,6 +1428,9 @@ watcher_polling_common(
         case TARGET_TYPE_HOSTNAME_HEALTH_CHECK:
 		path = "hostnameHealthCheck.executeScript";
 		break;
+        case TARGET_TYPE_ADDRESS_HOSTNAME_HEALTH_CHECK:
+		path = "addressHostnameHealthCheck.executeScript";
+		break;
 	default:
 		/* NOTREACHED */
 		ABORT("unknown target type");
@@ -1455,6 +1547,8 @@ watcher_create(
 	new->address_health_check.backptr = new;
 	new->hostname_health_check.type = TARGET_TYPE_HOSTNAME_HEALTH_CHECK;
 	new->hostname_health_check.backptr = new;
+	new->address_hostname_health_check.type = TARGET_TYPE_ADDRESS_HOSTNAME_HEALTH_CHECK;
+	new->address_hostname_health_check.backptr = new;
 	new->executor = new_executor;
 	new->event_base = event_base;
 	new->config_manager = config_manager;
@@ -1500,6 +1594,9 @@ watcher_destroy(
         if (watcher->hostname_health_check.elements) {
 		bhash_destroy(watcher->hostname_health_check.elements);
         }
+        if (watcher->address_hostname_health_check.elements) {
+		bhash_destroy(watcher->address_hostname_health_check.elements);
+        }
 	if (watcher->executor) {
 		executor_waitpid(watcher->executor);
 		executor_destroy(watcher->executor);
@@ -1525,6 +1622,7 @@ watcher_polling_start(
 	watcher_set_polling_common(watcher, TARGET_TYPE_REMOTE_ADDRESS_MAP);
 	watcher_set_polling_common(watcher, TARGET_TYPE_ADDRESS_HEALTH_CHECK);
 	watcher_set_polling_common(watcher, TARGET_TYPE_HOSTNAME_HEALTH_CHECK);
+	watcher_set_polling_common(watcher, TARGET_TYPE_ADDRESS_HOSTNAME_HEALTH_CHECK);
 	watcher_set_polling_update_check(watcher);
 
 	return 0;
@@ -1542,6 +1640,7 @@ watcher_polling_stop(
 	evtimer_del(&watcher->remote_address_map.event);
 	evtimer_del(&watcher->address_health_check.event);
 	evtimer_del(&watcher->hostname_health_check.event);
+	evtimer_del(&watcher->address_hostname_health_check.event);
 	evtimer_del(&watcher->update_check_event);
 
 	return 0;
@@ -1617,6 +1716,27 @@ watcher_hostnames_foreach(
 		return 1;
 	}
 	if (bhash_foreach(watcher->hostname_health_check.elements, watcher_status_foreach_cb, &watcher_status_foreach_cb_arg)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+int
+watcher_addresses_hostnames_foreach(
+    watcher_t *watcher,
+    void (*foreach_cb)(void *foreach_cb_arg, const char *name),
+    void *foreach_cb_arg)
+{
+	watcher_status_foreach_cb_arg_t watcher_status_foreach_cb_arg;
+	watcher_status_foreach_cb_arg.foreach_cb = foreach_cb;
+	watcher_status_foreach_cb_arg.foreach_cb_arg = foreach_cb_arg;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	if (bhash_foreach(watcher->address_hostname_health_check.elements, watcher_status_foreach_cb, &watcher_status_foreach_cb_arg)) {
 		return 1;
 	}
 
@@ -1711,6 +1831,35 @@ watcher_get_hostname_health(
 }
 
 int
+watcher_get_address_hostname_health(
+    watcher_t *watcher,
+    const char *name,
+    int *current_status,
+    int *previous_status,
+    int *preempt_status)
+{
+	size_t name_size;
+	watcher_status_element_t *health_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->address_hostname_health_check.elements, (char **)&health_status, NULL, name, name_size)) {
+		return 1;
+	}
+	if (health_status == NULL) {
+		return 1;
+	}
+	*current_status = health_status->current_status;
+	*previous_status = health_status->previous_status;
+	*preempt_status = health_status->preempt_status;
+
+	return 0;
+}
+
+int
 watcher_update_group_health_status(
     watcher_t *watcher,
     const char *name,
@@ -1786,6 +1935,31 @@ watcher_update_hostname_health_status(
 }
 
 int
+watcher_update_address_hostname_health_status(
+    watcher_t *watcher,
+    const char *name,
+    int current_status)
+{
+	size_t name_size;
+	watcher_status_element_t *health_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->address_hostname_health_check.elements, (char **)&health_status, NULL, name, name_size)) {
+		return 1;
+	}
+	if (health_status == NULL) {
+		return 1;
+	}
+	health_status->current_status = current_status;
+
+	return 0;
+}
+
+int
 watcher_update_group_health_preempt_status(
     watcher_t *watcher,
     const char *name,
@@ -1850,6 +2024,31 @@ watcher_update_hostname_health_preempt_status(
 	}
 	name_size = strlen(name) + 1;
 	if (bhash_get(watcher->hostname_health_check.elements, (char **)&health_status, NULL, name, name_size)) {
+		return 1;
+	}
+	if (health_status == NULL) {
+		return 1;
+	}
+	health_status->preempt_status = preempt_status;
+
+	return 0;
+}
+
+int
+watcher_update_address_hostname_health_preempt_status(
+    watcher_t *watcher,
+    const char *name,
+    int preempt_status)
+{
+	size_t name_size;
+	watcher_status_element_t *health_status;
+
+	if (watcher == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	name_size = strlen(name) + 1;
+	if (bhash_get(watcher->address_hostname_health_check.elements, (char **)&health_status, NULL, name, name_size)) {
 		return 1;
 	}
 	if (health_status == NULL) {
