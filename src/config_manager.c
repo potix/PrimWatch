@@ -272,10 +272,16 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_string(json_parser, "^remoteAddressMap\\.executeScript$", 1, MAXPATHLEN, NULL, 0, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_integer(json_parser, "^healthCheck\\.pollingInterval$", 1, 86400, NULL, NULL)) {
+	if (json_parser_add_validation_integer(json_parser, "^addressHealthCheck\\.pollingInterval$", 1, 86400, NULL, NULL)) {
 		return 1;
 	}
-	if (json_parser_add_validation_string(json_parser, "^healthCheck\\.executeScript$", 1, MAXPATHLEN, NULL, 0, NULL, NULL)) {
+	if (json_parser_add_validation_string(json_parser, "^addressHealthCheck\\.executeScript$", 1, MAXPATHLEN, NULL, 0, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^hostnameHealthCheck\\.pollingInterval$", 1, 86400, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_string(json_parser, "^hostnameHealthCheck\\.executeScript$", 1, MAXPATHLEN, NULL, 0, NULL, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.maxForwardRecords$", 1, MAX_RECORDS, NULL, NULL)) {

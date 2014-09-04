@@ -30,10 +30,17 @@ struct controller {
 static int controller_glow_result_buffer(
     controller_t *controller,
     size_t lacked_size);
-static void controller_groups_status_foreach_cb(
+static void controller_common_foreach_cb(
+    void *foreach_cb_arg,
+    const char *name,
+    const char *target);
+static void controller_groups_foreach_cb(
     void *foreach_cb_arg,
     const char *name);
-static void controller_healths_status_foreach_cb(
+static void controller_addresses_foreach_cb(
+    void *foreach_cb_arg,
+    const char *name);
+static void controller_hostnames_foreach_cb(
     void *foreach_cb_arg,
     const char *name);
 static void controller_execute_command(
@@ -69,9 +76,10 @@ controller_glow_result_buffer(
 }
 
 static void
-controller_groups_status_foreach_cb(
+controller_common_foreach_cb(
     void *foreach_cb_arg,
-    const char *name)
+    const char *name,
+    const char *target)
 {
 	controller_t *controller = foreach_cb_arg;
 	size_t need_size;
@@ -80,7 +88,7 @@ controller_groups_status_foreach_cb(
 	ASSERT(controller != NULL);
 
 	if (controller->result_real_size == 0) {
-		wlen = snprintf(controller->result, controller->result_size, "OK health:\n");
+		wlen = snprintf(controller->result, controller->result_size, "OK %s:\n", target);
 		controller->result_real_size += wlen;
 	}
 	need_size = controller->result_real_size + strlen(name) + 6 /* space * 4 + newline + termination */;
@@ -96,41 +104,43 @@ controller_groups_status_foreach_cb(
 } 
 
 static void
-controller_healths_status_foreach_cb(
+controller_groups_foreach_cb(
     void *foreach_cb_arg,
     const char *name)
 {
-	controller_t *controller = foreach_cb_arg;
-	size_t need_size;
-	int wlen;
+	controller_common_foreach_cb(foreach_cb_arg, name, "groups");
+} 
 
-	ASSERT(controller != NULL);
+static void
+controller_addresses_foreach_cb(
+    void *foreach_cb_arg,
+    const char *name)
+{
+	controller_common_foreach_cb(foreach_cb_arg, name, "addresses");
+}
 
-	if (controller->result_real_size == 0) {
-		wlen = snprintf(controller->result, controller->result_size, "OK health:\n");
-		controller->result_real_size += wlen;
-	}
-	need_size = controller->result_real_size + strlen(name) + 6 /* space * 4 + newline + termination */;
-	if (need_size > controller->result_size) {
-		if (controller_glow_result_buffer(controller, need_size - controller->result_size)) {
-			LOG(LOG_LV_ERR, "failed in glow buffer of result");
-		}
-	}
-	wlen = snprintf(&controller->result[controller->result_real_size],
-	    controller->result_size - controller->result_real_size, "    %s\n", name);
-	controller->result_real_size += wlen;
+static void
+controller_hostnames_foreach_cb(
+    void *foreach_cb_arg,
+    const char *name)
+{
+	controller_common_foreach_cb(foreach_cb_arg, name, "hostnames");
 }
 
 /*
  *command:
  *    show groups
- *    show healths
- *    show group <group>
- *    show health <address>
+ *    show addresses 
+ *    show hostnames
+ *    show health group <group>
+ *    show health address <address>
+ *    show health hostname <hostname>
  *    set status group <group> <up|down>
- *    set status health <address> <up|down>
- *    set valid group <group> <true|false>
- *    set valid health <address> <true|false>
+ *    set status address <address> <up|down>
+ *    set status hostname <hostname> <up|down>
+ *    set preempt_status group <group> <true|false>
+ *    set preempt_status address <address> <true|false>
+ *    set preempt_status hostname <hostname> <true|false>
  */
 static void
 controller_execute_command(
@@ -140,7 +150,8 @@ controller_execute_command(
 	const char *err_msg = NULL;
 	int wlen;
 	int current_status = 0;
-	int valid = 0;
+	int previous_status = 0;
+	int preempt_status = 0;
 	int i;
 	size_t need_size;
 
@@ -157,39 +168,66 @@ controller_execute_command(
 			goto fail;
 		}
 		if (strcasecmp(parse_cmd->args[1], "groups") == 0) {
-			if (watcher_groups_status_foreach(controller->watcher, controller_groups_status_foreach_cb, controller)) {
-				err_msg = "failed in gather status of groups";
+			if (watcher_groups_foreach(controller->watcher, controller_groups_foreach_cb, controller)) {
+				err_msg = "failed in gather groups";
 				goto fail;
 			}
-		} else if (strcasecmp(parse_cmd->args[1], "healths") == 0) {
-			if (watcher_healths_status_foreach(controller->watcher, controller_healths_status_foreach_cb, controller)) {
-				err_msg = "failed in gather status of healths";
+		} else if (strcasecmp(parse_cmd->args[1], "addresses") == 0) {
+			if  (watcher_addresses_foreach(controller->watcher, controller_addresses_foreach_cb, controller)) {
+				err_msg = "failed in gather addresses";
 				goto fail;
 			}
-		} else if (strcasecmp(parse_cmd->args[1], "group") == 0) {
-			if (parse_cmd->arg_size < 3) {
-				err_msg = "too few arguments";
+		} else if (strcasecmp(parse_cmd->args[1], "hostnames") == 0) {
+			if  (watcher_hostnames_foreach(controller->watcher, controller_hostnames_foreach_cb, controller)) {
+				err_msg = "failed in gather hostnames";
 				goto fail;
 			}
-			if (watcher_get_group(controller->watcher, parse_cmd->args[2], &current_status, &valid)) {
-				err_msg = "failed in get status of group";
-				goto fail;
-			}
-			wlen = snprintf(controller->result, controller->result_size, "OK group=%s, status=%s, valid=%s\n",
-			    parse_cmd->args[2], (current_status) ? "up" : "down", (valid) ? "true" : "false");
-			controller->result_real_size += wlen;
 		} else if (strcasecmp(parse_cmd->args[1], "health") == 0) {
-			if (parse_cmd->arg_size < 3) {
+			if (parse_cmd->arg_size < 2) {
 				err_msg = "too few arguments";
 				goto fail;
 			}
-			if (watcher_get_health(controller->watcher, parse_cmd->args[2], &current_status, &valid)) {
-				err_msg = "failed in get status of health";
+			if (strcasecmp(parse_cmd->args[2], "group") == 0) {
+				if (parse_cmd->arg_size < 4) {
+					err_msg = "too few arguments";
+					goto fail;
+				}
+				if (watcher_get_group_health(controller->watcher, parse_cmd->args[3], &current_status, &previous_status, &preempt_status)) {
+					err_msg = "failed in get status of group";
 				goto fail;
+				}
+				wlen = snprintf(controller->result, controller->result_size,
+				   "OK group=%s, current status=%s, previous status=%s, preempt status=%s\n",
+				   parse_cmd->args[3], (current_status) ? "up" : "down", (previous_status) ? "up" : "down", (preempt_status) ? "true" : "false");
+				controller->result_real_size += wlen;
+			} else if (strcasecmp(parse_cmd->args[2], "address") == 0) {
+				if (parse_cmd->arg_size < 4) {
+					err_msg = "too few arguments";
+					goto fail;
+				}
+				if (watcher_get_address_health(controller->watcher, parse_cmd->args[3], &current_status, &previous_status, &preempt_status)) {
+					err_msg = "failed in get status of health";
+					goto fail;
+				}
+				wlen = snprintf(controller->result, controller->result_size,
+				   "OK address=%s, current status=%s, previous status=%s, preempt status=%s\n",
+				   parse_cmd->args[3], (current_status) ? "up" : "down", (previous_status) ? "up" : "down", (preempt_status) ? "true" : "false");
+				controller->result_real_size += wlen;
+			} else if (strcasecmp(parse_cmd->args[2], "hostname") == 0) {
+				if (parse_cmd->arg_size < 4) {
+					err_msg = "too few arguments";
+					goto fail;
+				}
+				if (watcher_get_hostname_health(controller->watcher, parse_cmd->args[3], &current_status, &previous_status, &preempt_status)) {
+					err_msg = "failed in get status of health";
+					goto fail;
+				}
+				wlen = snprintf(controller->result, controller->result_size,
+				   "OK hostname=%s, current status=%s, previous status=%s, preempt status=%s\n",
+				   parse_cmd->args[3], (current_status) ? "up" : "down", (previous_status) ? "up" : "down", (preempt_status) ? "true" : "false");
+				controller->result_real_size += wlen;
 			}
-			wlen = snprintf(controller->result, controller->result_size, "OK address=%s, status=%s, valid=%s\n",
-			    parse_cmd->args[2], (current_status) ? "up" : "down", (valid) ? "true" : "false");
-			controller->result_real_size += wlen;
+
 		} else {
 			err_msg = "unexpected command";
 			goto fail;
@@ -217,14 +255,14 @@ controller_execute_command(
 					err_msg = "invalid parameter";
 					goto fail;
 				} 
-				if (watcher_update_group_status(controller->watcher, parse_cmd->args[3], current_status)) {
+				if (watcher_update_group_health_status(controller->watcher, parse_cmd->args[3], current_status)) {
 					err_msg = "can not update staus of group";
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK group=%s status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
+				    "OK group=%s current status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
 				controller->result_real_size += wlen;
-			} else if (strcasecmp(parse_cmd->args[2], "health") == 0) {
+			} else if (strcasecmp(parse_cmd->args[2], "address") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
@@ -237,18 +275,38 @@ controller_execute_command(
 					err_msg = "invalid parameter";
 					goto fail;
 				}
-				if (watcher_update_health_status(controller->watcher, parse_cmd->args[3], current_status)) {
+				if (watcher_update_address_health_status(controller->watcher, parse_cmd->args[3], current_status)) {
 					err_msg = "can not update staus of health";
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK address=%s status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
+				    "OK address=%s current status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
+				controller->result_real_size += wlen;
+			} else if (strcasecmp(parse_cmd->args[2], "hostname") == 0) {
+				if (parse_cmd->arg_size < 5) {
+					err_msg = "too few arguments";
+					goto fail;
+				}
+				if (strcasecmp(parse_cmd->args[4], "up") == 0) {
+					current_status = 1;
+				} else if (strcasecmp(parse_cmd->args[4], "down") == 0) {
+					current_status = 0;
+				} else {
+					err_msg = "invalid parameter";
+					goto fail;
+				}
+				if (watcher_update_hostname_health_status(controller->watcher, parse_cmd->args[3], current_status)) {
+					err_msg = "can not update staus of health";
+					goto fail;
+				}
+				wlen = snprintf(controller->result, controller->result_size,
+				    "OK hostname=%s current status=%s\n", parse_cmd->args[3], (current_status) ? "up":"down");
 				controller->result_real_size += wlen;
 			} else {
 				err_msg = "unexpected command";
 				goto fail;
 			}
-		} else if (strcasecmp(parse_cmd->args[1], "valid") == 0) {
+		} else if (strcasecmp(parse_cmd->args[1], "preempt_satus") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
 				goto fail;
@@ -259,39 +317,59 @@ controller_execute_command(
 					goto fail;
 				}
 				if (strcasecmp(parse_cmd->args[4], "true") == 0) {
-					valid = 1;
+					preempt_status = 1;
 				} else if (strcasecmp(parse_cmd->args[4], "false") == 0) {
-					valid = 0;
+					preempt_status = 0;
 				} else {
 					err_msg = "invalid parameter";
 					goto fail;
 				}
-				if (watcher_update_group_valid(controller->watcher, parse_cmd->args[3], valid)) {
-					err_msg = "can not update valid of group";
+				if (watcher_update_group_health_preempt_status(controller->watcher, parse_cmd->args[3], preempt_status)) {
+					err_msg = "can not update preempt status of group";
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK group=%s valid=%s\n", parse_cmd->args[3], (valid) ? "true":"false");
+				    "OK group=%s preempt status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
 				controller->result_real_size += wlen;
-			} else if (strcasecmp(parse_cmd->args[2], "health") == 0) {
+			} else if (strcasecmp(parse_cmd->args[2], "address") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
 				}
 				if (strcasecmp(parse_cmd->args[4], "true") == 0) {
-					valid = 1;
+					preempt_status = 1;
 				} else if (strcasecmp(parse_cmd->args[4], "false") == 0) {
-					valid = 0;
+					preempt_status = 0;
 				} else {
 					err_msg = "invalid parameter";
 					goto fail;
 				}
-				if (watcher_update_health_valid(controller->watcher, parse_cmd->args[3], valid)) {
-					err_msg = "can not update valid of health";
+				if (watcher_update_address_health_preempt_status(controller->watcher, parse_cmd->args[3], preempt_status)) {
+					err_msg = "can not update preempt status of health";
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK address=%s valid=%s\n", parse_cmd->args[3], (valid) ? "true":"false");
+				    "OK address=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
+				controller->result_real_size += wlen;
+			} else if (strcasecmp(parse_cmd->args[2], "hostname") == 0) {
+				if (parse_cmd->arg_size < 5) {
+					err_msg = "too few arguments";
+					goto fail;
+				}
+				if (strcasecmp(parse_cmd->args[4], "true") == 0) {
+					preempt_status = 1;
+				} else if (strcasecmp(parse_cmd->args[4], "false") == 0) {
+					preempt_status = 0;
+				} else {
+					err_msg = "invalid parameter";
+					goto fail;
+				}
+				if (watcher_update_hostname_health_preempt_status(controller->watcher, parse_cmd->args[3], preempt_status)) {
+					err_msg = "can not update preempt status of health";
+					goto fail;
+				}
+				wlen = snprintf(controller->result, controller->result_size,
+				    "OK address=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
 				controller->result_real_size += wlen;
 			} else {
 				err_msg = "unexpected command";
