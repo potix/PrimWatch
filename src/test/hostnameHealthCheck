@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo qqq.test.com up
+echo yyy.test.com down
