@@ -24,7 +24,7 @@
 #endif
 
 #ifndef DOMAIN_CHARS
-#define DOMAIN_CHARS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
+#define DOMAIN_CHARS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
 #endif
 
 
