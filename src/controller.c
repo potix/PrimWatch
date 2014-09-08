@@ -358,9 +358,9 @@ controller_execute_command(
 					err_msg = "too few arguments";
 					goto fail;
 				}
-				if (strcasecmp(parse_cmd->args[4], "true") == 0) {
+				if (strcasecmp(parse_cmd->args[4], "up") == 0) {
 					preempt_status = 1;
-				} else if (strcasecmp(parse_cmd->args[4], "false") == 0) {
+				} else if (strcasecmp(parse_cmd->args[4], "down") == 0) {
 					preempt_status = 0;
 				} else {
 					err_msg = "invalid parameter";
@@ -371,16 +371,16 @@ controller_execute_command(
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK group=%s preempt status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
+				    "OK group=%s preempt status=%s\n", parse_cmd->args[3], (preempt_status) ? "up":"down");
 				controller->result_real_size += wlen;
 			} else if (strcasecmp(parse_cmd->args[2], "address") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
 				}
-				if (strcasecmp(parse_cmd->args[4], "true") == 0) {
+				if (strcasecmp(parse_cmd->args[4], "up") == 0) {
 					preempt_status = 1;
-				} else if (strcasecmp(parse_cmd->args[4], "false") == 0) {
+				} else if (strcasecmp(parse_cmd->args[4], "down") == 0) {
 					preempt_status = 0;
 				} else {
 					err_msg = "invalid parameter";
@@ -391,16 +391,16 @@ controller_execute_command(
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK address=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
+				    "OK address=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "up":"down");
 				controller->result_real_size += wlen;
 			} else if (strcasecmp(parse_cmd->args[2], "hostname") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
 				}
-				if (strcasecmp(parse_cmd->args[4], "true") == 0) {
+				if (strcasecmp(parse_cmd->args[4], "up") == 0) {
 					preempt_status = 1;
-				} else if (strcasecmp(parse_cmd->args[4], "false") == 0) {
+				} else if (strcasecmp(parse_cmd->args[4], "down") == 0) {
 					preempt_status = 0;
 				} else {
 					err_msg = "invalid parameter";
@@ -411,16 +411,16 @@ controller_execute_command(
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK hostname=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
+				    "OK hostname=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "up":"down");
 				controller->result_real_size += wlen;
 			} else if (strcasecmp(parse_cmd->args[2], "addressHostname") == 0) {
 				if (parse_cmd->arg_size < 5) {
 					err_msg = "too few arguments";
 					goto fail;
 				}
-				if (strcasecmp(parse_cmd->args[4], "true") == 0) {
+				if (strcasecmp(parse_cmd->args[4], "up") == 0) {
 					preempt_status = 1;
-				} else if (strcasecmp(parse_cmd->args[4], "false") == 0) {
+				} else if (strcasecmp(parse_cmd->args[4], "down") == 0) {
 					preempt_status = 0;
 				} else {
 					err_msg = "invalid parameter";
@@ -431,7 +431,7 @@ controller_execute_command(
 					goto fail;
 				}
 				wlen = snprintf(controller->result, controller->result_size,
-				    "OK address and hostname=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "true":"false");
+				    "OK address and hostname=%s preempt_status=%s\n", parse_cmd->args[3], (preempt_status) ? "up":"down");
 				controller->result_real_size += wlen;
 			} else {
 				err_msg = "unexpected command";
