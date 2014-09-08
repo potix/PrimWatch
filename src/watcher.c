@@ -1482,7 +1482,7 @@ watcher_polling_common(
 		goto last;
 	}
 	if (config_manager_get_string(watcher->config_manager, &execute_script, path, NULL)) {
-		LOG(LOG_LV_INFO, "failed in get script (type = %d)", target->type);
+		LOG(LOG_LV_DEBUG, "failed in get script (type = %d)", target->type);
 		goto last;
 	}
 	if (executor_exec(
@@ -1492,6 +1492,7 @@ watcher_polling_common(
 	    target)) {
 		LOG(LOG_LV_INFO, "failed in execute script (type = %d)", target->type);
 	}
+	LOG(LOG_LV_DEBUG, "execute script (type = %d, script=%s)", target->type, execute_script);
 last:
 	watcher_set_polling_common(watcher, target->type);
 }
