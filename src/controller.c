@@ -186,7 +186,7 @@ controller_execute_command(
 				err_msg = "failed in gather hostnames";
 				goto fail;
 			}
-		} else if (strcasecmp(parse_cmd->args[1], "addresesHostnames") == 0) {
+		} else if (strcasecmp(parse_cmd->args[1], "addressesHostnames") == 0) {
 			if  (watcher_hostnames_foreach(controller->watcher, controller_hostnames_foreach_cb, controller)) {
 				err_msg = "failed in gather addresses and hostnames";
 				goto fail;
@@ -348,7 +348,7 @@ controller_execute_command(
 				err_msg = "unexpected command";
 				goto fail;
 			}
-		} else if (strcasecmp(parse_cmd->args[1], "preempt_satus") == 0) {
+		} else if (strcasecmp(parse_cmd->args[1], "preempt_status") == 0) {
 			if (parse_cmd->arg_size < 3) {
 				err_msg = "too few arguments";
 				goto fail;
