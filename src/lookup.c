@@ -1794,15 +1794,15 @@ lookup_native(
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_ANY;
 	} else if (strcasecmp(lookup->input.type, "SOA") == 0){
 		/* XXX soa record */
-		LOG(LOG_LV_INFO, "soa record is unsupported");
+		LOG(LOG_LV_INFO, "soa record is unsupported (name=%s, class=%s)", lookup->input.name, lookup->input.class);
 		return 0;
 	} else if (strcasecmp(lookup->input.type, "NS") == 0){
 		/* XXX ns record */
-		LOG(LOG_LV_INFO, "ns record is unsupported");
+		LOG(LOG_LV_INFO, "ns record is unsupported (name=%s, class=%s)", lookup->input.name, lookup->input.class);
 		return 0;
 	} else {
 		/* log */
-		LOG(LOG_LV_ERR, "unexpected type (%s)", lookup->input.type);
+		LOG(LOG_LV_ERR, "unexpected type (type=%s, name=%s, class=%s)", lookup->input.type, lookup->input.name, lookup->input.class);
 		return 1;
 	}
        	// PTRレコードの場合アドレスを検索しやすい形に変換しておく
