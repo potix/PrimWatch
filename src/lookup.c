@@ -1395,7 +1395,7 @@ lookup_group(
 		return 1;
 	}
 	// グループの最大数を取得
-	if (bson_helper_bson_get_long(&lookup->params->status, &group_members_count, "groupMembersCount", NULL)) {
+	if (bson_helper_bson_get_long(&lookup->params->status, &group_members_count, "activeGroupMembersCount", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get value of group members count");
 		return 1;
 	}

@@ -98,6 +98,7 @@ struct group_foreach_cb_arg {
 	bhash_t *old_groups;
 	int group_preempt;
 	const char *default_record_status;
+	int active_group_members_count;
 };
 
 struct forward_record_foreach_cb_arg {
@@ -684,6 +685,8 @@ watcher_group_foreach_cb(
 		result = BSON_HELPER_FOREACH_SUCCESS;
 		goto last;
 	}
+	// activeなグループのカウントを取っておく
+	arg->active_group_members_count++;
 	// bsonにデータを追加開始
         if (bson_append_start_object(status, name) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in start group entry object (group %s)", name);
@@ -928,6 +931,7 @@ watcher_status_make(
 		LOG(LOG_LV_ERR, "failed in get default record status");
 		goto fail;
 	}
+	group_foreach_cb_arg.active_group_members_count = 0;
 	group_foreach_cb_arg.status = status;
 	group_foreach_cb_arg.config = config;
 	group_foreach_cb_arg.address_health_check = address_health_check;
@@ -952,6 +956,11 @@ watcher_status_make(
 	}
 	if (bson_append_finish_object(status) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in finish group object");
+		goto fail;
+	}
+        group_object_start = 0;
+	if (bson_append_long(status, "activeGroupMembersCount", (int64_t)group_foreach_cb_arg.active_group_members_count) != BSON_OK) {
+		LOG(LOG_LV_ERR, "failed in append active group members count");
 		goto fail;
 	}
         if (bson_finish(status) != BSON_OK) {
