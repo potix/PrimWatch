@@ -283,12 +283,14 @@ watcher_forward_record_foreach_cb(
 	}
 	host_size = strlen(host) + 1;
 	if (address_health_check) {
+		LOG(LOG_LV_DEBUG, "address = %s", addr);
 		if (bhash_get(address_health_check, (char **)&address_health_check_element, NULL, addr, addr_size)) {
 			LOG(LOG_LV_ERR, "failed in get address health (index = %s)", idx);
 			goto last;
 		}
 	}
 	if (hostname_health_check) {
+		LOG(LOG_LV_DEBUG, "hostname = %s", host);
 		if (bhash_get(hostname_health_check, (char **)&hostname_health_check_element, NULL, host, host_size)) {
 			LOG(LOG_LV_ERR, "failed in get hostname health (index = %s)", idx);
 			goto last;
@@ -296,7 +298,8 @@ watcher_forward_record_foreach_cb(
 	}
 	if (address_hostname_health_check) {
 		addr_host_size = snprintf(addr_host, sizeof(addr_host), "%s@%s", addr, host);
-		if (bhash_get(address_hostname_health_check, (char **)&address_hostname_health_check_element, NULL, addr_host, addr_host_size)) {
+		LOG(LOG_LV_DEBUG, "address and hostname = %s", addr_host);
+		if (bhash_get(address_hostname_health_check, (char **)&address_hostname_health_check_element, NULL, addr_host, addr_host_size + 1)) {
 			LOG(LOG_LV_ERR, "failed in get address and hostname health (index = %s)", idx);
 			goto last;
 		}
@@ -446,12 +449,14 @@ watcher_reverse_record_foreach_cb(
 	}
 	host_size = strlen(host) + 1;
 	if (address_health_check) {
+		LOG(LOG_LV_DEBUG, "address = %s", addr);
 		if (bhash_get(address_health_check, (char **)&address_health_check_element, NULL, addr, addr_size)) {
 			LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
 			goto last;
 		}
 	}
 	if (hostname_health_check) {
+		LOG(LOG_LV_DEBUG, "hostname = %s", host);
 		if (bhash_get(hostname_health_check, (char **)&hostname_health_check_element, NULL, host, host_size)) {
 			LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
 			goto last;
@@ -459,7 +464,8 @@ watcher_reverse_record_foreach_cb(
 	}
 	if (address_hostname_health_check) {
 		addr_host_size = snprintf(addr_host, sizeof(addr_host), "%s@%s", addr, host);
-		if (bhash_get(address_hostname_health_check, (char **)&address_hostname_health_check_element, NULL, addr_host, addr_host_size)) {
+		LOG(LOG_LV_DEBUG, "address and hostname = %s", addr_host);
+		if (bhash_get(address_hostname_health_check, (char **)&address_hostname_health_check_element, NULL, addr_host, addr_host_size + 1)) {
 			LOG(LOG_LV_ERR, "failed in get health (index = %s)", idx);
 			goto last;
 		}
