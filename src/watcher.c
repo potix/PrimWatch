@@ -1948,6 +1948,7 @@ watcher_update_group_health_status(
 	} else {
 		group_status->current_status = current_status;
 	}
+	watcher->updated |= 0x100;
 	LOG(LOG_LV_INFO, "change current status to %s of %s entry of group health ", (current_status) ? "up" : "down", name);
 
 	return 0;
@@ -1997,6 +1998,7 @@ watcher_update_common_health_status(
 	} else {
 		health_status->current_status = current_status;
 	}
+	watcher->updated |= 0x100;
 	LOG(LOG_LV_INFO, "change current status to %s of %s entry of %s health ", (current_status) ? "up" : "down", name, target_name);
 
 	return 0;
@@ -2074,6 +2076,7 @@ watcher_update_group_health_preempt_status(
 	} else {
 		group_status->preempt_status = preempt_status;
 	}
+	watcher->updated |= 0x100;
 	LOG(LOG_LV_INFO, "change preempt status to %s of %s entry of group health ", (preempt_status) ? "up" : "down", name);
 
 	return 0;
@@ -2123,6 +2126,7 @@ watcher_update_common_health_preempt_status(
 	} else {
 		health_status->preempt_status = preempt_status;
 	}
+	watcher->updated |= 0x100;
 	LOG(LOG_LV_INFO, "change preempt status to %s of %s entry of %s health ", (preempt_status) ? "up" : "down", name, target_name);
 
 	return 0;
