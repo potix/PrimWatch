@@ -255,9 +255,10 @@ tcp_server_on_recv(
 	tcp_client_response_t *tcp_client_response;
 	int read_len;
 	struct timeval write_timeout;
-	char *line_ptr, *newline_ptr, *cr_ptr;
+	char *line_start_ptr, *newline_ptr, *cr_ptr;
 	int line_len;
 	char *tmp_result;
+	size_t tmp_result_size;
 
 	ASSERT(arg != NULL);
 	ASSERT((event == EV_READ || event == EV_TIMEOUT));
@@ -308,32 +309,42 @@ tcp_server_on_recv(
 		tcp_server_client_finish(tcp_client);
 		return;
 	}
-	TAILQ_INSERT_TAIL(&tcp_client->response_head, tcp_client_response, next);
-
-	/* １行分取り出す */
-	line_ptr = &tcp_client->recvbuffer[0];
-	if ((cr_ptr = strstr(line_ptr, "\r\n")) != NULL) {
-		*cr_ptr = '\0';
-	}
-	*newline_ptr = '\0';
-	line_len = newline_ptr + 1 - &tcp_client->recvbuffer[0];
-	
-	/* ラインparseコールバックの呼び出し */
 	tcp_client_response->write_size = 0;
 	tcp_client_response->result = NULL;
 	tcp_client_response->result_size = 0;
-	if (tcp_listen->tcp_server->on_recv_line_cb(&tmp_result,
-	     &tcp_client_response->result_size, line_ptr, tcp_listen->tcp_server->on_recv_line_cb_arg)) {
-		LOG(LOG_LV_ERR, "failed in execute callback of receieved line message (%m)");
-	}
-	tcp_client_response->result = malloc(tcp_client_response->result_size);
-	if (tcp_client_response->result != NULL) {
-		memcpy(tcp_client_response->result, tmp_result, tcp_client_response->result_size);
-	}
+	TAILQ_INSERT_TAIL(&tcp_client->response_head, tcp_client_response, next);
 
-	/* 取り出した分を前につめる */
-	memmove(line_ptr, newline_ptr + 1, tcp_client->recvbuffer_len - line_len);
-	tcp_client->recvbuffer_len -= line_len;
+	line_start_ptr = tcp_client->recvbuffer;
+	while (1) {
+		/* １行分取り出す */
+		if ((cr_ptr = strstr(line_start_ptr, "\r\n")) != NULL) {
+			*cr_ptr = '\0';
+		}
+		*newline_ptr = '\0';
+		line_len = newline_ptr + 1 - line_start_ptr;
+
+		/* ラインparseコールバックの呼び出し */
+		if (tcp_listen->tcp_server->on_recv_line_cb(&tmp_result, &tmp_result_size,
+		    line_start_ptr, tcp_listen->tcp_server->on_recv_line_cb_arg)) {
+			LOG(LOG_LV_ERR, "failed in execute callback of receieved line message (%m)");
+		}
+		tcp_client_response->result = realloc(tcp_client_response->result, tcp_client_response->result_size + tmp_result_size);
+		if (tcp_client_response->result != NULL) {
+			memcpy(&tcp_client_response->result[tcp_client_response->result_size], tmp_result, tmp_result_size);
+			LOG(LOG_LV_ERR, "result %s", tcp_client_response->result);
+		}
+		tcp_client_response->result_size += tmp_result_size;
+
+		/* 取り出した分を前につめる */
+		memmove(line_start_ptr, newline_ptr + 1, tcp_client->recvbuffer_len - line_len);
+		tcp_client->recvbuffer_len -= line_len;
+
+		/* まだラインがあるか確認 */
+		newline_ptr = strchr(line_start_ptr, '\n');
+		if (newline_ptr == NULL) {
+			break;
+		}
+	}
 
 	/* レスポンス用の書き込みイベントを登録 */
 	if (tcp_client_response->result && !event_pending(&tcp_client->write_event, EV_WRITE, NULL)) {
