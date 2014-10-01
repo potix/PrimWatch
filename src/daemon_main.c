@@ -232,6 +232,8 @@ main(int argc, char *argv[]) {
 	const char *log_facility;
 	const char *log_path;
 	const char *pid_file_path;
+	const char *cntrl_addr;
+	const char *cntrl_port;
 	int64_t verbose_level;
 
 	if (logger_create()) {
@@ -273,6 +275,16 @@ main(int argc, char *argv[]) {
 		ret = EX_DATAERR;
 		goto last;
 	}
+	if (config_manager_get_string(primwatch.config_manager, &cntrl_addr , "controllerAddress", NULL)) {
+		LOG(LOG_LV_ERR, "failed in get controller address from config");
+		ret = EX_DATAERR;
+		goto last;
+	}
+	if (config_manager_get_string(primwatch.config_manager, &cntrl_port , "controllerPort", NULL)) {
+		LOG(LOG_LV_ERR, "failed in get controller port from config");
+		ret = EX_DATAERR;
+		goto last;
+	}
 	if (config_manager_get_long(primwatch.config_manager, &verbose_level , "verboseLevel", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get verbose level from config");
 		ret = EX_DATAERR;
@@ -306,7 +318,7 @@ main(int argc, char *argv[]) {
 		ret = EX_OSERR;
 		goto last;
 	}
-	if (controller_start(primwatch.controller)) {
+	if (controller_start(primwatch.controller, cntrl_addr, cntrl_port)) {
 		LOG(LOG_LV_ERR, "failed in start controller");
 		ret = EX_OSERR;
 		goto last;

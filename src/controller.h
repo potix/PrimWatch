@@ -12,7 +12,9 @@ int controller_destroy(
     controller_t *controller);
 
 int controller_start(
-    controller_t *controller);
+    controller_t *controller,
+    const char *host,
+    const char *serv);
 
 int controller_stop(
     controller_t *controller);

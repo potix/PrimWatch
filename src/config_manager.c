@@ -39,6 +39,8 @@
 #define DEFAULT_RECORD_TTL		      DEFAULT_POLLING_INTERVAL
 #define DEFAULT_RECORD_PRIORITY		      1000
 #define DEFAULT_RECORD_WEIGHT		      1000
+#define DEFAULT_CONTROLLER_ADDRESS            "127.0.0.1"	
+#define DEFAULT_CONTROLLER_PORT		      "50000"
 
 struct config_manager {
 	json_parser_t *json_parser;
@@ -218,6 +220,12 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^verboseLevel$", 0, 9, NULL, NULL)) {
 		return 1;
 	}
+	if (json_parser_add_validation_string(json_parser, "^controllerAddress$", 1, NI_MAXHOST, NULL, 0, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_string(json_parser, "^controllerPort$", 1, NI_MAXSERV, NULL, 0, NULL, NULL)) {
+		return 1;
+	}
         if (json_parser_add_validation_string(json_parser, "^groupSelectOrder$", 19, 19, group_select_order_candidate, 2, config_manager_append_value, NULL)) {
 		return 1;
 	}
@@ -387,6 +395,12 @@ config_finish(bson *config)
 		return 1;
 	}
 	if (bson_append_string(config, "pidFilePath", DEFAULT_PID_FILE_PATH) != BSON_OK) {
+		return 1;
+	}
+	if (bson_append_string(config, "controllerAddress", DEFAULT_CONTROLLER_ADDRESS) != BSON_OK) {
+		return 1;
+	}
+	if (bson_append_string(config, "controllerPort", DEFAULT_CONTROLLER_PORT) != BSON_OK) {
 		return 1;
 	}
 	if (bson_append_long(config, "verboseLevel",  DEFAULT_VERBOSE_LEVEL) != BSON_OK) {

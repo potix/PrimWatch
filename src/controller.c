@@ -565,7 +565,9 @@ controller_destroy(
 
 int 
 controller_start(
-    controller_t *controller)
+    controller_t *controller,
+    const char *host,
+    const char *serv)
 {
 	if (controller == NULL) {
 		errno = EINVAL;
@@ -573,7 +575,7 @@ controller_start(
 	}
 
 	if (tcp_server_start(&controller->tcp_server, controller->event_base,
-	     SERVER_HOST, SERVER_PORT, controller_on_recv_line, controller)) {
+	    host, serv, controller_on_recv_line, controller)) {
 		return 1;
 	}
 

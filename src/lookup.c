@@ -1217,7 +1217,10 @@ lookup_group_random(
 
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
-	ASSERT(group_members_count > 0);
+	if (group_members_count < 0) {
+		LOG(LOG_LV_ERR, "not found active group");
+		return 1;	
+	}
 	// ランダムにインデックスを作成し
 	idx = (int)(random() % (int)group_members_count);
 	// そのインデックスにあるデータを引っ張る。なければエラーを返す。
@@ -1282,7 +1285,7 @@ lookup_group_priority(
 	}
 	// groupが何も見つからなかったらエラーを返す
 	if (lookup_group_priority_foreach_arg.max_priority == INITIAL_MAX_PRIORITY) {
-		LOG(LOG_LV_ERR, "no group");
+		LOG(LOG_LV_ERR, "not found active group");
 		return 1;
 	}
 
@@ -1369,7 +1372,10 @@ lookup_group_roundrobin(
 
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
-	ASSERT(group_members_count > 0);
+	if (group_members_count < 0) {
+		LOG(LOG_LV_ERR, "not found active group");
+		return 1;	
+	}
 	// 過去のaccessaのstatus情報をみながら、採用を決定する
 	if (lookup_accessa_status_handle(lookup, lookup_group_roundrobin_cb, &lookup_group_roundrobin_cb_arg)) {
 		LOG(LOG_LV_ERR, "failed in handling of accessa status");
