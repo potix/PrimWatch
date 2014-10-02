@@ -1990,7 +1990,7 @@ watcher_update_common_health_status(
 		    target->elements,
 		    name,
 		    name_size,
-		    (char *)&health_status,
+		    (char *)&new_health_status,
 	  	    sizeof(watcher_status_element_t))) {
 			LOG(LOG_LV_ERR, "failed in put %s entry of %s health", name, target_name);
 			return 1;	
