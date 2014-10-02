@@ -19,6 +19,9 @@
 #ifndef MAX_LINE_BUFFER
 #define MAX_LINE_BUFFER 2048
 #endif
+#ifndef MAX_TCP_BUFFER
+#define MAX_TCP_BUFFER 65535
+#endif
 #ifndef MAX_TCP_LISTEN
 #define MAX_TCP_LISTEN 8
 #endif

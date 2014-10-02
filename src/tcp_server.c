@@ -42,7 +42,7 @@ struct tcp_client {
                 struct sockaddr_in6 in6;
         } remote;
         socklen_t remote_len;
-	char recvbuffer[MAX_LINE_BUFFER];
+	char recvbuffer[MAX_TCP_BUFFER];
 	int recvbuffer_len;
 	TAILQ_HEAD(response_head, tcp_client_response) response_head;
 	tcp_listen_t *tcp_listen;
