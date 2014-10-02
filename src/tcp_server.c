@@ -328,13 +328,14 @@ tcp_server_on_recv(
 		if (tcp_listen->tcp_server->on_recv_line_cb(&tmp_result, &tmp_result_size,
 		    line_start_ptr, tcp_listen->tcp_server->on_recv_line_cb_arg)) {
 			LOG(LOG_LV_ERR, "failed in execute callback of receieved line message (%m)");
+		} else {
+			tmp_ptr = realloc(tcp_client_response->result, tcp_client_response->result_size + tmp_result_size);
+			if (tmp_ptr != NULL) {
+				memcpy(&tmp_ptr[tcp_client_response->result_size], tmp_result, tmp_result_size);
+			}
+			tcp_client_response->result = tmp_ptr;
+			tcp_client_response->result_size += tmp_result_size;
 		}
-		tmp_ptr = realloc(tcp_client_response->result, tcp_client_response->result_size + tmp_result_size);
-		if (tmp_ptr != NULL) {
-			memcpy(&tmp_ptr[tcp_client_response->result_size], tmp_result, tmp_result_size);
-		}
-		tcp_client_response->result = tmp_ptr;
-		tcp_client_response->result_size += tmp_result_size;
 
 		/* 取り出した分を前につめる */
 		memmove(line_start_ptr, newline_ptr + 1, tcp_client->recvbuffer_len - line_len);
