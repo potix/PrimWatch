@@ -1,5 +1,3 @@
-VERSION=0.1
-PACKAGE=primwatch
 YAJL_MAJOR = 1
 
 bin_PROGRAMS = primwatchd primwatch_primdns primwatch_powerdns

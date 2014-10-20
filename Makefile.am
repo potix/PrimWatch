@@ -1,3 +1,5 @@
+VERSION=0.1
+PACKAGE=primwatch
 SUBDIRS = src
 
 rpm: dist
