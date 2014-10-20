@@ -12,4 +12,4 @@ primwatch_powerdns_SOURCES = accessa_main.c lookup.c bhash.c  shared_buffer.c bs
 primwatch_powerdns_CFLAGS = -Wall -g -ggdb -pipe -Ibson -Idns -std=gnu99 -DPOWERDNS
 
 
-EXTRA_DIST = conf/primwatch.conf rc/primwatchd.init.sh rc/primwatchd.sysconfig
+EXTRA_DIST = conf/primwatchd.conf rc/primwatchd.init.sh rc/primwatchd.sysconfig

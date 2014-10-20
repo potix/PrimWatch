@@ -1,5 +1,5 @@
-#PROG_DIR=
-#PID_FILE=
+#PROG_ROOT=
+PID_FILE=/var/run/primwatchd.pid
 #EXEC_USER=
 #APP_HOME=
 #EXEC_CMD=

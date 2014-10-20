@@ -50,7 +50,7 @@ cp "%{_builddir}/scripts/conf/config.json" "$RPM_BUILD_ROOT%{install_prefix}/%{p
 cp "%{_builddir}/%{package_name}-%{package_version}/src/primwatchd" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/sbin/"
 cp "%{_builddir}/%{package_name}-%{package_version}/src/primwatch_powerdns" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/sbin/"
 cp "%{_builddir}/%{package_name}-%{package_version}/src/primwatch_primdns" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/sbin/"
-cp "%{_builddir}/%{package_name}-%{package_version}/src/conf/primwatch.conf" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/etc/"
+cp "%{_builddir}/%{package_name}-%{package_version}/src/conf/primwatchd.conf" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/etc/"
 ln -sf %{install_prefix}/%{package_name}-%{package_version} "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}"
 cp "%{_builddir}/%{package_name}-%{package_version}/src/rc/primwatchd.init.sh" "$RPM_BUILD_ROOT/etc/init.d/primwatchd"
 cp "%{_builddir}/%{package_name}-%{package_version}/src/rc/primwatchd.sysconfig" "$RPM_BUILD_ROOT/etc/sysconfig/primwatchd"

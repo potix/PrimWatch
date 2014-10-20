@@ -15,14 +15,14 @@ fi
 
 ulimit -n 65535
 
-PROG_DIR=${PROG_DIR-"/usr/local"}
-PID_FILE=${PID_FILE-"{PROG_DIR}/run/${prog}.pid"}
+PROG_ROOT=${PROG_ROOT-"/usr/local"}
+PID_FILE=${PID_FILE-"{PROG_ROOT}/run/${prog}.pid"}
 EXEC_USER=${EXEC_USER-"root"}
 
-APP_HOME=${APP_HOME-"${PROG_DIR}/${package}"}
+PROG_HOME=${PROG_HOME-"${PROG_ROOT}/${package}"}
 
-EXEC_CMD="${APP_HOME}/sbin/${prog}"
-CONFIG_PATH="${APP_HOME}/conf/primwatchd.conf"
+EXEC_CMD="${PROG_HOME}/sbin/${prog}"
+CONFIG_PATH="${PROG_HOME}/etc/primwatchd.conf"
 EXEC_CMD_ARGS=${EXEC_CMD_ARGS-""}
 
 if [ -z ${JAVA_HOME}/bin/java ] ; then
@@ -49,7 +49,7 @@ start() {
         fi
     fi
     echo -n $"Starting ${prog}: "
-    cd ${APP_HOME}
+    cd ${PROG_HOME}
     /bin/su - ${EXEC_USER} -s /bin/bash -c "/bin/bash -c '${cmd} > /dev/null 2>&1' &"
     retval=$?
     [ ${retval} -eq 0 ] && success
