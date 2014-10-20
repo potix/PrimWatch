@@ -25,7 +25,6 @@ Requires:	libevent yajl
 tar -zxvf %{SOURCE0}
 tar -zxvf %{SOURCE1} 
 
-
 %build
 cd %{package_name}-%{package_version}
 ./configure --prefix=%{install_prefix}/%{package_name}-%{package_version}
@@ -47,6 +46,7 @@ mkdir -p "${RPM_BUILD_ROOT}/etc/sysconfig"
 cd %{package_name}-%{package_version} 
 make install DESTDIR=%{buildroot}
 cp "%{_builddir}/scripts/healthcheck/healthcheck.py" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/bin/"
+cp "%{_builddir}/scripts/conf/config.json" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/etc/healthcheck.conf"
 cp "%{_builddir}/%{package_name}-%{package_version}/src/primwatchd" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/sbin/"
 cp "%{_builddir}/%{package_name}-%{package_version}/src/primwatch_powerdns" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/sbin/"
 cp "%{_builddir}/%{package_name}-%{package_version}/src/primwatch_primdns" "$RPM_BUILD_ROOT%{install_prefix}/%{package_name}-%{package_version}/sbin/"
@@ -76,7 +76,7 @@ rm -rf "${RPM_BUILD_ROOT}"
 rm -rf "%{_builddir}"
 
 %changelog
-* Wed Oct 8 2014 Hiroyuki <kakine@iij.ad.jp> 1.0
-  - first package version 1.0
+* Mon Oct 20 2014 Hiroyuki Kakine <poti.dog@gmail.com> 0.1
+  - first package version 0.1
 
 
