@@ -4,8 +4,6 @@ package_name=primwatch
 package_version=0.1
 install_prefix?=/usr/local
 top_dir=$(shell pwd | sed 's/ /\\ /g')
-rpm_path=$(top_dir)/RPMS/x86_64/
-rpm_suffix=*.rpm
 
 rpm:  ../${package_name}-${package_version}.tar.gz ../scripts.tar.gz
 	mkdir -p $(top_dir)/SOURCES
