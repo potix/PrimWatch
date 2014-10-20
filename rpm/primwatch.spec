@@ -64,9 +64,9 @@ cp "%{_builddir}/%{package_name}-%{package_version}/src/rc/primwatchd.sysconfig"
 %{install_prefix}/tmp
 %{install_prefix}/logs
 %{install_prefix}/run
-%{install_prefix}/%{package_name}-%{package_version}/etc
+%config(noreplace) %{install_prefix}/%{package_name}-%{package_version}/etc
 %{install_prefix}/%{package_name}
-/etc/sysconfig/primwatchd
+%config(noreplace) /etc/sysconfig/primwatchd
 
 %doc
 # do nothing
