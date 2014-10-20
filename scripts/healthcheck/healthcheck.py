@@ -449,7 +449,7 @@ def logger_handler_factory(log_type='syslog', log_file=None, log_level='WARNING'
     logger = logging.getLogger(log_id)
     log_type = log_type.lower()
     if log_type == 'file':
-        handler = logging.FileHandler(log_file)
+        handler = logging.RotatingFileHandler(log_file, "a", (1024 * 1024 * 1024), 30)
     elif log_type in ('winlog', 'eventlog', 'nteventlog'):
         # win32 extensions
         handler = logging.handlers.NTEventLogHandler(log_id, logtype='Application')
