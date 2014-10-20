@@ -4,7 +4,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name = 'PrimWatch HealthCheck',
+    name = 'primwatch-healthcheck',
     version = '1.0.0',
     description = 'Server health check script for PrimWatch',
     author = 'jimo1001',
@@ -13,8 +13,10 @@ setup(
     url = 'https://github.com/potix/PrimWatch/wiki',
     packages = find_packages(exclude=['*.tests']),
     zip_safe = True,
+    data_files=[('conf', ['conf/config.json'])],
+    scripts=['healthcheck/healthcheck.py'],
     entry_points = """
         [console_scripts]
-        healthchecker = healthcheck.healthcheck:main
+        healthcheck = healthcheck.healthcheck:main
     """,
 )
