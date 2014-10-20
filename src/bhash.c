@@ -111,6 +111,11 @@ static int bhash_put_base(
         char *new_value,
         size_t new_value_size),
     void *replace_cb_arg);
+static int bhash_delete_base(
+    bhash_t *bhash,
+    const char *key,
+    size_t key_size,
+    int all);
 
 static int
 bhash_glow_buffer(
@@ -842,7 +847,7 @@ bhash_append(
 	    NULL);
 }
 
-int
+static int
 bhash_delete_base(
     bhash_t *bhash,
     const char *key,

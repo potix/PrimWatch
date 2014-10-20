@@ -187,7 +187,7 @@ controller_execute_command(
 				goto fail;
 			}
 		} else if (strcasecmp(parse_cmd->args[1], "addressesHostnames") == 0) {
-			if  (watcher_hostnames_foreach(controller->watcher, controller_hostnames_foreach_cb, controller)) {
+			if  (watcher_addresses_hostnames_foreach(controller->watcher, controller_hostnames_foreach_cb, controller)) {
 				err_msg = "failed in gather addresses and hostnames";
 				goto fail;
 			}

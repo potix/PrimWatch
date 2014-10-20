@@ -37,7 +37,7 @@ int watcher_hostnames_foreach(
     void (*foreach_cb)(void *foreach_cb_arg, const char *name),
     void *foreach_cb_arg);
 
-int watcher_address_hostnames_foreach(
+int watcher_addresses_hostnames_foreach(
     watcher_t *watcher,
     void (*foreach_cb)(void *foreach_cb_arg, const char *name),
     void *foreach_cb_arg);
