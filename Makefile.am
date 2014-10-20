@@ -3,7 +3,7 @@ PACKAGE=primwatch
 SUBDIRS = src
 
 rpm: dist
-	tar -cvf scripts.tar.gz scripts
+	tar -zcvf scripts.tar.gz scripts
 	(cd rpm && make) || exit 1
 
 rpmclean: 
