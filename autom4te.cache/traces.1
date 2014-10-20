@@ -382,6 +382,27 @@ AC_SUBST([am__quote])
 AC_MSG_RESULT([$_am_result])
 rm -f confinc confmf
 ])
+m4trace:/usr/share/aclocal-1.11/minuso.m4:14: -1- AC_DEFUN([AM_PROG_CC_C_O], [AC_REQUIRE([AC_PROG_CC_C_O])dnl
+AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
+AC_REQUIRE_AUX_FILE([compile])dnl
+# FIXME: we rely on the cache variable name because
+# there is no other way.
+set dummy $CC
+am_cc=`echo $[2] | sed ['s/[^a-zA-Z0-9_]/_/g;s/^[0-9]/_/']`
+eval am_t=\$ac_cv_prog_cc_${am_cc}_c_o
+if test "$am_t" != yes; then
+   # Losing compiler, so override with the script.
+   # FIXME: It is wrong to rewrite CC.
+   # But if we don't then we get into trouble of one sort or another.
+   # A longer-term fix would be to have automake use am__CC in this case,
+   # and then we could set am__CC="\$(top_srcdir)/compile \$(CC)"
+   CC="$am_aux_dir/compile $CC"
+fi
+dnl Make sure AC_PROG_CC is never called again, or it will override our
+dnl setting of CC.
+m4_define([AC_PROG_CC],
+          [m4_fatal([AC_PROG_CC cannot be called after AM_PROG_CC_C_O])])
+])
 m4trace:/usr/share/aclocal-1.11/missing.m4:14: -1- AC_DEFUN([AM_MISSING_PROG], [AC_REQUIRE([AM_MISSING_HAS_RUN])
 $1=${$1-"${am_missing_run}$2"}
 AC_SUBST($1)])
@@ -623,7 +644,7 @@ m4trace:configure.ac:5: -1- m4_pattern_allow([^LIBS$])
 m4trace:configure.ac:5: -1- m4_pattern_allow([^build_alias$])
 m4trace:configure.ac:5: -1- m4_pattern_allow([^host_alias$])
 m4trace:configure.ac:5: -1- m4_pattern_allow([^target_alias$])
-m4trace:configure.ac:6: -1- AM_INIT_AUTOMAKE
+m4trace:configure.ac:6: -1- AM_INIT_AUTOMAKE([])
 m4trace:configure.ac:6: -1- m4_pattern_allow([^AM_[A-Z]+FLAGS$])
 m4trace:configure.ac:6: -1- AM_SET_CURRENT_AUTOMAKE_VERSION
 m4trace:configure.ac:6: -1- AM_AUTOMAKE_VERSION([1.11.1])
@@ -728,44 +749,46 @@ m4trace:configure.ac:11: -1- m4_pattern_allow([^am__fastdepCC_TRUE$])
 m4trace:configure.ac:11: -1- m4_pattern_allow([^am__fastdepCC_FALSE$])
 m4trace:configure.ac:11: -1- _AM_SUBST_NOTMAKE([am__fastdepCC_TRUE])
 m4trace:configure.ac:11: -1- _AM_SUBST_NOTMAKE([am__fastdepCC_FALSE])
-m4trace:configure.ac:15: -1- m4_pattern_allow([^HAVE_LIBEVENT$])
-m4trace:configure.ac:17: -1- m4_pattern_allow([^HAVE_LIBYAJL$])
-m4trace:configure.ac:20: -1- m4_pattern_allow([^CPP$])
-m4trace:configure.ac:20: -1- m4_pattern_allow([^CPPFLAGS$])
-m4trace:configure.ac:20: -1- m4_pattern_allow([^CPP$])
-m4trace:configure.ac:20: -1- m4_pattern_allow([^GREP$])
-m4trace:configure.ac:20: -1- m4_pattern_allow([^EGREP$])
-m4trace:configure.ac:20: -1- m4_pattern_allow([^STDC_HEADERS$])
-m4trace:configure.ac:23: -1- m4_pattern_allow([^int64_t$])
-m4trace:configure.ac:24: -1- m4_pattern_allow([^mode_t$])
-m4trace:configure.ac:25: -1- m4_pattern_allow([^off_t$])
-m4trace:configure.ac:26: -1- m4_pattern_allow([^pid_t$])
-m4trace:configure.ac:27: -1- m4_pattern_allow([^size_t$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^ssize_t$])
-m4trace:configure.ac:29: -1- m4_pattern_allow([^HAVE__BOOL$])
-m4trace:configure.ac:29: -1- m4_pattern_allow([^HAVE_STDBOOL_H$])
-m4trace:configure.ac:30: -1- m4_pattern_allow([^_UINT64_T$])
-m4trace:configure.ac:30: -1- m4_pattern_allow([^uint64_t$])
-m4trace:configure.ac:31: -1- m4_pattern_allow([^_UINT8_T$])
-m4trace:configure.ac:31: -1- m4_pattern_allow([^uint8_t$])
-m4trace:configure.ac:34: -1- m4_pattern_allow([^HAVE_WORKING_VFORK$])
-m4trace:configure.ac:34: -1- m4_pattern_allow([^vfork$])
-m4trace:configure.ac:34: -1- m4_pattern_allow([^HAVE_WORKING_FORK$])
-m4trace:configure.ac:35: -1- m4_pattern_allow([^HAVE_MALLOC$])
-m4trace:configure.ac:35: -1- m4_pattern_allow([^HAVE_MALLOC$])
-m4trace:configure.ac:35: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.ac:35: -1- m4_pattern_allow([^malloc$])
-m4trace:configure.ac:36: -1- m4_pattern_allow([^HAVE_MMAP$])
-m4trace:configure.ac:37: -1- m4_pattern_allow([^HAVE_REALLOC$])
-m4trace:configure.ac:37: -1- m4_pattern_allow([^HAVE_REALLOC$])
-m4trace:configure.ac:37: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.ac:37: -1- m4_pattern_allow([^realloc$])
-m4trace:configure.ac:41: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.ac:41: -1- m4_pattern_allow([^LTLIBOBJS$])
-m4trace:configure.ac:41: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
-m4trace:configure.ac:41: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
-m4trace:configure.ac:41: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
-m4trace:configure.ac:41: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
-m4trace:configure.ac:41: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
-m4trace:configure.ac:41: -1- _AC_AM_CONFIG_HEADER_HOOK(["$ac_file"])
-m4trace:configure.ac:41: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS
+m4trace:configure.ac:12: -1- AM_PROG_CC_C_O
+m4trace:configure.ac:12: -1- m4_pattern_allow([^NO_MINUS_C_MINUS_O$])
+m4trace:configure.ac:16: -1- m4_pattern_allow([^HAVE_LIBEVENT$])
+m4trace:configure.ac:18: -1- m4_pattern_allow([^HAVE_LIBYAJL$])
+m4trace:configure.ac:21: -1- m4_pattern_allow([^CPP$])
+m4trace:configure.ac:21: -1- m4_pattern_allow([^CPPFLAGS$])
+m4trace:configure.ac:21: -1- m4_pattern_allow([^CPP$])
+m4trace:configure.ac:21: -1- m4_pattern_allow([^GREP$])
+m4trace:configure.ac:21: -1- m4_pattern_allow([^EGREP$])
+m4trace:configure.ac:21: -1- m4_pattern_allow([^STDC_HEADERS$])
+m4trace:configure.ac:24: -1- m4_pattern_allow([^int64_t$])
+m4trace:configure.ac:25: -1- m4_pattern_allow([^mode_t$])
+m4trace:configure.ac:26: -1- m4_pattern_allow([^off_t$])
+m4trace:configure.ac:27: -1- m4_pattern_allow([^pid_t$])
+m4trace:configure.ac:28: -1- m4_pattern_allow([^size_t$])
+m4trace:configure.ac:29: -1- m4_pattern_allow([^ssize_t$])
+m4trace:configure.ac:30: -1- m4_pattern_allow([^HAVE__BOOL$])
+m4trace:configure.ac:30: -1- m4_pattern_allow([^HAVE_STDBOOL_H$])
+m4trace:configure.ac:31: -1- m4_pattern_allow([^_UINT64_T$])
+m4trace:configure.ac:31: -1- m4_pattern_allow([^uint64_t$])
+m4trace:configure.ac:32: -1- m4_pattern_allow([^_UINT8_T$])
+m4trace:configure.ac:32: -1- m4_pattern_allow([^uint8_t$])
+m4trace:configure.ac:35: -1- m4_pattern_allow([^HAVE_WORKING_VFORK$])
+m4trace:configure.ac:35: -1- m4_pattern_allow([^vfork$])
+m4trace:configure.ac:35: -1- m4_pattern_allow([^HAVE_WORKING_FORK$])
+m4trace:configure.ac:36: -1- m4_pattern_allow([^HAVE_MALLOC$])
+m4trace:configure.ac:36: -1- m4_pattern_allow([^HAVE_MALLOC$])
+m4trace:configure.ac:36: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.ac:36: -1- m4_pattern_allow([^malloc$])
+m4trace:configure.ac:37: -1- m4_pattern_allow([^HAVE_MMAP$])
+m4trace:configure.ac:38: -1- m4_pattern_allow([^HAVE_REALLOC$])
+m4trace:configure.ac:38: -1- m4_pattern_allow([^HAVE_REALLOC$])
+m4trace:configure.ac:38: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.ac:38: -1- m4_pattern_allow([^realloc$])
+m4trace:configure.ac:42: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.ac:42: -1- m4_pattern_allow([^LTLIBOBJS$])
+m4trace:configure.ac:42: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
+m4trace:configure.ac:42: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
+m4trace:configure.ac:42: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
+m4trace:configure.ac:42: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
+m4trace:configure.ac:42: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
+m4trace:configure.ac:42: -1- _AC_AM_CONFIG_HEADER_HOOK(["$ac_file"])
+m4trace:configure.ac:42: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS

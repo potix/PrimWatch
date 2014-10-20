@@ -3,9 +3,9 @@
 
 AC_PREREQ([2.63])
 AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
-AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([bson_helper.h])
-AC_CONFIG_HEADERS([config.h])
+AM_INIT_AUTOMAKE()
+AC_CONFIG_SRCDIR([src/bson_helper.h])
+AC_CONFIG_HEADERS([src/config.h])
 
 # Checks for programs.
 AC_PROG_CC
