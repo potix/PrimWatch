@@ -6,7 +6,6 @@
 
 # global variables
 prog=primwatchd
-package=primwatch
 retval=0
 
 if [ -f /etc/sysconfig/${prog} ]; then
@@ -15,14 +14,10 @@ fi
 
 ulimit -n 65535
 
-PROG_ROOT=${PROG_ROOT-"/usr/local"}
-PID_FILE=${PID_FILE-"{PROG_ROOT}/run/${prog}.pid"}
+PID_FILE=${PID_FILE-"/var/run/${prog}.pid"}
 EXEC_USER=${EXEC_USER-"root"}
-
-PROG_HOME=${PROG_HOME-"${PROG_ROOT}/${package}"}
-
-EXEC_CMD="${PROG_HOME}/sbin/${prog}"
-CONFIG_PATH="${PROG_HOME}/etc/primwatchd.conf"
+EXEC_CMD=${EXEC_CMD-"/usr/local/sbin/${prog}"}
+CONFIG_PATH=${CONFIG_PATH-"/etc/primwatch/primwatchd.conf"}
 EXEC_CMD_ARGS=${EXEC_CMD_ARGS-""}
 
 # util
