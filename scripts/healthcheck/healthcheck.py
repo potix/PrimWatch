@@ -393,6 +393,7 @@ class HealthCheckService(object):
         self._queue = Queue()
         self._threads = []
         self._lock = Lock()
+	self._tasks = []
 
     def init_logger(self):
     # init logger
@@ -411,7 +412,11 @@ class HealthCheckService(object):
         for k, v in self.config.get('targets').iteritems():
             target = HealthCheckTarget(k, v, self.logger, self.default_timeout, self.default_retry)
             self._targets.append(target)
-
+        for target in self._targets:
+            for task in target.get_tasks():
+                self._tasks.append(task)
+        if len(self._tasks) < self.worker_size:
+            self.worker_size = len(self._tasks)
         for i in range(self.worker_size):
             t = Thread(target=self._worker)
             self._threads.append(t)
@@ -420,9 +425,8 @@ class HealthCheckService(object):
 
     def run(self):
         start = time.time()
-        for target in self._targets:
-            for task in target.get_tasks():
-                self._queue.put(task)
+        for task in self._tasks:
+            self._queue.put(task)
         self._queue.join()
         self.logger.info('Done all tasks. elapsed time: %lf sec', (time.time() - start))
 
@@ -449,7 +453,7 @@ def logger_handler_factory(log_type='syslog', log_file=None, log_level='WARNING'
     logger = logging.getLogger(log_id)
     log_type = log_type.lower()
     if log_type == 'file':
-        handler = logging.RotatingFileHandler(log_file, "a", (1024 * 1024 * 1024), 30)
+        handler = logging.handlers.TimedRotatingFileHandler(log_file, "D", 1)
     elif log_type in ('winlog', 'eventlog', 'nteventlog'):
         # win32 extensions
         handler = logging.handlers.NTEventLogHandler(log_id, logtype='Application')

@@ -1,6 +1,6 @@
 {
     "logging": {
-        "type": "syslog",
+        "type": "file",
         "file": "/var/log/primwatch/healthcheck.log",
         "level": "DEBUG"
     },
