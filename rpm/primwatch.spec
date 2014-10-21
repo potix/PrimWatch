@@ -58,8 +58,8 @@ install -c -m 644 "%{_builddir}/%{package_name}-%{package_version}/src/rc/primwa
 %{install_prefix}/sbin
 %{sysconf_install_prefix}/etc/init.d/primwatchd
 %defattr(0644,root,root,-)
-%{sysconf_install_prefix}/etc/sysconfig/primwatchd
-%{sysconf_install_prefix}/etc/%{package_name}
+%config(noreplace) %{sysconf_install_prefix}/etc/sysconfig/primwatchd
+%config(noreplace) %{sysconf_install_prefix}/etc/%{package_name}
 
 %doc
 # do nothing
