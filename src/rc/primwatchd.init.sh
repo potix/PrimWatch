@@ -25,11 +25,6 @@ EXEC_CMD="${PROG_HOME}/sbin/${prog}"
 CONFIG_PATH="${PROG_HOME}/etc/primwatchd.conf"
 EXEC_CMD_ARGS=${EXEC_CMD_ARGS-""}
 
-if [ -z ${JAVA_HOME}/bin/java ] ; then
-        echo "java command not in PATH"
-        exit 1
-fi
-
 # util
 running() {
         [ -f $1 ] || return 1
