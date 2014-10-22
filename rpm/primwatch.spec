@@ -11,8 +11,8 @@ Name:		%{package_name}
 Version:	%{package_version}
 Release:	1%{?dist}
 Summary:	%{package_name}
-Group:		Etc
-License:	Etc
+Group:          System Environment
+License:        BSD
 Vendor:         Hiroyuki Kakine <poti.dog@gmail.com>
 Packager:       Hiroyuki Kakine <poti.dog@gmail.com>
 URL:		https://github.com/potix/PrimWatch
