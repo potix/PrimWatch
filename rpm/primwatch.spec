@@ -10,7 +10,7 @@
 Name:		%{package_name}
 Version:	%{package_version}
 Release:	1%{?dist}
-Summary:	%{package_name}
+Summary:	backend software of dns server
 Group:          System Environment
 License:        BSD
 Vendor:         Hiroyuki Kakine <poti.dog@gmail.com>
