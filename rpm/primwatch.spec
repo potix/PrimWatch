@@ -13,11 +13,14 @@ Release:	1%{?dist}
 Summary:	%{package_name}
 Group:		Etc
 License:	Etc
+Vendor:         Hiroyuki Kakine <poti.dog@gmail.com>
+Packager:       Hiroyuki Kakine <poti.dog@gmail.com>
 URL:		https://github.com/potix/PrimWatch
 Source0:	%{package_name}-%{package_version}.tar.gz
 Source1:	scripts.tar.gz
 BuildRequires:	libevent-devel yajl-devel
 Requires:	libevent yajl
+Prefix:         /
 
 %description
  Check system helth and dynamic generate record of DNS with PrimDNS or PowerDNS
