@@ -48,9 +48,6 @@ cd "%{_builddir}/%{package_name}-%{package_version}"
 make install
 install -c -m 755 "%{_builddir}/scripts/healthcheck/healthcheck.py" "$RPM_BUILD_ROOT%{install_prefix}/bin/healthcheck.py"
 install -c -m 644 "%{_builddir}/scripts/conf/config.json" "$RPM_BUILD_ROOT%{sysconf_install_prefix}/etc/%{package_name}/healthcheck.conf"
-install -c -m 755 "%{_builddir}/%{package_name}-%{package_version}/src/primwatchd" "$RPM_BUILD_ROOT%{install_prefix}/sbin/primwatchd"
-install -c -m 755 "%{_builddir}/%{package_name}-%{package_version}/src/primwatch_powerdns" "$RPM_BUILD_ROOT%{install_prefix}/sbin/primwatch_powerdns"
-install -c -m 755 "%{_builddir}/%{package_name}-%{package_version}/src/primwatch_primdns" "$RPM_BUILD_ROOT%{install_prefix}/sbin/primwatch_primdns"
 install -c -m 644 "%{_builddir}/%{package_name}-%{package_version}/src/conf/primwatchd.conf" "$RPM_BUILD_ROOT%{sysconf_install_prefix}/etc/%{package_name}/primwatchd.conf"
 install -c -m 755 "%{_builddir}/%{package_name}-%{package_version}/src/rc/primwatchd.init.sh" "$RPM_BUILD_ROOT%{sysconf_install_prefix}/etc/init.d/primwatchd"
 install -c -m 644 "%{_builddir}/%{package_name}-%{package_version}/src/rc/primwatchd.sysconfig" "$RPM_BUILD_ROOT%{sysconf_install_prefix}/etc/sysconfig/primwatchd"
@@ -58,7 +55,6 @@ install -c -m 644 "%{_builddir}/%{package_name}-%{package_version}/src/rc/primwa
 %files
 %defattr(0755,root,root,-)
 %{install_prefix}/bin
-%{install_prefix}/sbin
 %{sysconf_install_prefix}/etc/init.d/primwatchd
 %defattr(0644,root,root,-)
 %config(noreplace) %{sysconf_install_prefix}/etc/sysconfig/primwatchd
