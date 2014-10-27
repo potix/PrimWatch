@@ -11,6 +11,7 @@ import struct
 import traceback
 import time
 import sys
+import errno
 
 from urllib2 import urlopen, HTTPError, URLError
 from Queue import Queue
@@ -297,10 +298,10 @@ Example:
         except HTTPError as e:
             code = e.code
             self.log.warn('Failed to open %s. code: %s', url, code)
-            return
+            return code
         except URLError as e:
             self.log.warn('Failed to open %s. reason: %s', url, e.reason)
-        return code
+            return code
 
 
 class HealthCheckTask(object):
@@ -393,7 +394,6 @@ class HealthCheckService(object):
         self._queue = Queue()
         self._threads = []
         self._lock = Lock()
-	self._tasks = []
 
     def init_logger(self):
     # init logger
@@ -412,39 +412,44 @@ class HealthCheckService(object):
         for k, v in self.config.get('targets').iteritems():
             target = HealthCheckTarget(k, v, self.logger, self.default_timeout, self.default_retry)
             self._targets.append(target)
+        task_cnt = 0
         for target in self._targets:
             for task in target.get_tasks():
-                self._tasks.append(task)
-        if len(self._tasks) < self.worker_size:
-            self.worker_size = len(self._tasks)
-        for i in range(self.worker_size):
-            t = Thread(target=self._worker)
-            self._threads.append(t)
-            t.setDaemon(True)
-            t.start()
+                self._queue.put(task)
+                task_cnt += 1
+        if task_cnt < self.worker_size:
+            self.worker_size = task_cnt
 
     def run(self):
         start = time.time()
-        for task in self._tasks:
-            self._queue.put(task)
+        self.logger.info('Start healthcheck')
+        for i in range(self.worker_size):
+            t = Thread(target=self._worker)
+            self._threads.append(t)
+            t.start()
         self._queue.join()
+        for t in self._threads:
+           t.join
         self.logger.info('Done all tasks. elapsed time: %lf sec', (time.time() - start))
 
     def shutdown(self):
-        self._do_shutdown = True
+        while not self._queue.empty():
+            self._queue.get()
+            self._queue.task_done()
         self._queue.join()
+        for t in self._threads:
+           t.join()
 
     def _worker(self):
-        while True:
+        while not self._queue.empty():
             task = self._queue.get()
             task.run()
             target = task.watch_target
             if target.is_done():
                 result = target.is_alive() and 'up' or 'down'
                 self.logger.info("%s(%s) is %s", target.name, target.address, result)
-                self._lock.acquire()
-                print('%s %s' % (target.address, result))
-                self._lock.release()
+                with self._lock:
+                  print('%s %s' % (target.address, result))
             self._queue.task_done()
 
 
@@ -453,6 +458,11 @@ def logger_handler_factory(log_type='syslog', log_file=None, log_level='WARNING'
     logger = logging.getLogger(log_id)
     log_type = log_type.lower()
     if log_type == 'file':
+        try:
+            os.makedirs(os.path.dirname(log_file))
+        except os.error, e:
+            if e.errno != errno.EEXIST:
+                raise
         handler = logging.handlers.TimedRotatingFileHandler(log_file, "D", 1)
     elif log_type in ('winlog', 'eventlog', 'nteventlog'):
         # win32 extensions
