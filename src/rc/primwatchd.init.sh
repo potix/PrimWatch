@@ -1,5 +1,19 @@
-#!/bin/sh
+#!/bin/bash
 #
+# primwatchd This shell script takes care of starting and stopping primwatchd.
+#
+# chkconfig: - 13 87
+# description: primd is backend daemon for primdns or powerdns
+
+### BEGIN INIT INFO
+# Provides: primwatch
+# Required-Start: $local_fs $network
+# Required-Stop:
+# Default-Start:
+# Default-Stop:
+# Short-Description: backend daemon for primdns or powerdns
+# Description: backend daemon for primdns or powerdns
+### END INIT INFO
 
 # Source function library.
 . /etc/rc.d/init.d/functions
