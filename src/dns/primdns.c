@@ -9,7 +9,16 @@
 #include "dns/primdns.h"
 
 #define NOERROR  "0"
+#define FORMERR  "1"
+#define SERVFAIL "2"
 #define NXDOMAIN "3"
+#define NOTIMP   "4"
+#define REFUSED  "5"
+#define YXDOMAIN "6"
+#define YXRRSET  "7"
+#define NXRRSET  "8"
+#define NOTAUTH  "9"
+#define NOTZONE  "10"
 
 struct output_buffer {
 	char buf[65535];

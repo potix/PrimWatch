@@ -1217,7 +1217,7 @@ lookup_group_random(
 
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
-	if (group_members_count < 0) {
+	if (group_members_count < 1) {
 		LOG(LOG_LV_ERR, "not found active group");
 		return 1;	
 	}
@@ -1372,7 +1372,7 @@ lookup_group_roundrobin(
 
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
-	if (group_members_count < 0) {
+	if (group_members_count < 1) {
 		LOG(LOG_LV_ERR, "not found active group");
 		return 1;	
 	}
