@@ -53,7 +53,6 @@ start() {
         fi
     fi
     echo -n $"Starting ${prog}: "
-    cd ${PROG_HOME}
     /bin/su - ${EXEC_USER} -s /bin/bash -c "/bin/bash -c '${cmd} > /dev/null 2>&1' &"
     retval=$?
     [ ${retval} -eq 0 ] && success
