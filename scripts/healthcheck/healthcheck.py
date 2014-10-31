@@ -463,7 +463,7 @@ def logger_handler_factory(log_type='syslog', log_file=None, log_level='WARNING'
         except os.error, e:
             if e.errno != errno.EEXIST:
                 raise
-        handler = logging.handlers.TimedRotatingFileHandler(log_file, "D", 1)
+        handler = logging.handlers.WatchedFileHandler(log_file, 'a')
     elif log_type in ('winlog', 'eventlog', 'nteventlog'):
         # win32 extensions
         handler = logging.handlers.NTEventLogHandler(log_id, logtype='Application')
