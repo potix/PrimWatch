@@ -71,10 +71,10 @@ class Config(object):
 
 
 class Context(object):
-    def __init__(self, config, logger, address, default_timeout, default_retry):
+    def __init__(self, config, logger, name, default_timeout, default_retry):
         self.config = config
         self.logger = logger
-        self.address = address
+        self.name = name
         self.default_timeout = default_timeout
         self.default_retry = default_retry
 
@@ -101,13 +101,13 @@ class HealthCheck(Interface):
         self.context = None
         self.config = None
         self.log = None
-        self.address = None
+        self.name = None
 
     def init(self, context):
         self.context = context
         self.config = context.config
         self.log = context.logger
-        self.address = context.address
+        self.name = context.name
 
     def is_alive(self):
         """If server is alive, return True. Otherwise return False."""
@@ -137,6 +137,7 @@ class TCPHealthCheck(HealthCheck):
     """Health check with TCP.
 
 Configuration attributes:
+  address : The target Address for health check.
   port    : TCP port number.
   timeout : A timeout on socket operations.
             This value can be a float, giving in seconds.
@@ -144,25 +145,27 @@ Configuration attributes:
 
 Example:
   "TCP": {
+    "address": "127.0.0.1",
     "port": 5000,
     "timeout": 5,
     "retry": 3
   }"""
 
     def is_alive(self):
+        address = self.config.get('address')
         port = self.config.get_int('port')
         timeout = self.config.get_int('timeout', self.context.default_timeout)
         retry = self.config.get_int('retry', self.context.default_retry)
         for i in range(retry):
-            if self.connect(port, timeout):
+            if self.connect(address, port, timeout):
                 return True
             self.log.debug('Retry TCP health check: %d', i + 1)
         return False
 
-    def connect(self, port, timeout):
+    def connect(self, address, port, timeout):
         try:
             start = time.time()
-            host = socket.gethostbyname(self.address)
+            host = socket.gethostbyname(address)
             try:
                 port = int(self.port)
             except ValueError:
@@ -172,10 +175,10 @@ Example:
             sock.connect((host, port))
             sock.close()
             elapsed = (time.time() - start) * 1000
-            self.log.debug('Successfully to connect %s:%s. time: %lf ms', self.address, port, elapsed)
+            self.log.debug('Successfully to connect %s:%s. time: %lf ms', address, port, elapsed)
             return True
         except Exception as e:
-            self.log.info('Failed to connect TCP %s:%s.', self.address, port)
+            self.log.info('Failed to connect TCP %s:%s.', address, port)
         return False
 
 
@@ -184,12 +187,14 @@ class ICMPHealthCheck(HealthCheck):
     """Health check with ICMP.
 
 Configuration attributes:
+  address : The target Address for health check.
   timeout : A timeout on socket operations.
             This value can be a float, giving in seconds.
   retry   : A number of retry operation.
 
 Example:
   "ICMP": {
+    "address": 127.0.0.1
     "timeout": 3
     "retry": 5
   }"""
@@ -197,12 +202,13 @@ Example:
     ECHO_REQUEST = 8
 
     def is_alive(self):
+        address = self.config.get('address')
         timeout = self.config.get_int('timeout', self.context.default_timeout)
         retry = self.config.get_int('retry', self.context.default_retry)
         sid = (int(time.time() * 1000) + os.getpid() + random.randint(0, 0xffff)) & 0xffff
         seq = 1
         for i in range(retry):
-            if self.send(sid, seq, timeout):
+            if self.send(sid, seq, address, timeout):
                 return True
             self.log.debug('Retry ICMP health check: %d', i + 1)
         return False
@@ -224,11 +230,10 @@ Example:
         checksum = socket.htons(checksum)
         return checksum
 
-    def send(self, sid, seq, timeout):
+    def send(self, sid, seq, address, timeout):
         r_packet = None
         try:
             start = time.time()
-            host = self.address
             protocol = socket.IPPROTO_ICMP
             sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, protocol)
             sock.settimeout(timeout)
@@ -238,8 +243,7 @@ Example:
             checksum = self.get_checksum(send_header + send_data)
             send_header = struct.pack('!bbHHH', self.ECHO_REQUEST, 0, checksum, sid, seq)
             send_packet = send_header + send_data
-            sock.sendto(send_packet, (host, protocol))
-
+            sock.sendto(send_packet, (address, protocol))
             while True:
                 r_packet, from_host = sock.recvfrom(1024)
                 r_header = r_packet[20:28]
@@ -249,11 +253,10 @@ Example:
             sock.close()
             ttl = (time.time() - struct.unpack('d', str(r_packet[28:28 + double_size]))[0]) * 1000
             elapsed = (time.time() - start) * 1000
-            self.log.debug('ICMP sent %s. id: %d, ttl: %lf ms, time: %lf ms' % (self.address, sid, ttl, elapsed))
+            self.log.debug('ICMP sent %s. id: %d, ttl: %lf ms, time: %lf ms' % (address, sid, ttl, elapsed))
             return True
-
         except Exception as e:
-            self.log.info('Failed to send ICMP %s, %s', self.address, e)
+            self.log.info('Failed to send ICMP %s, %s', address, e)
         return False
 
 
@@ -305,11 +308,11 @@ Example:
 
 
 class HealthCheckTask(object):
-    def __init__(self, provider, config, logger, address, default_timeout, default_retry, target):
+    def __init__(self, provider, config, logger, name, default_timeout, default_retry, target):
         self.provider = provider
         self.config = config
         self.logger = logger
-        self.context = Context(config, logger, address, default_timeout, default_retry)
+        self.context = Context(config, logger, name, default_timeout, default_retry)
         self.alive = False
         self.done = False
         self.watch_target = target
@@ -341,7 +344,7 @@ class HealthCheckTarget(object):
         self.logger = logger
         self.default_timeout = default_timeout
         self.default_retry = default_retry
-        self.address = config.get('address')
+        self.name = config.get('name')
         self.force_down = config.get('force_down')
         self.providers = get_components()
         self._tasks = None
@@ -362,13 +365,12 @@ class HealthCheckTarget(object):
             matched = False
             for t, p in self.providers:
                 if k and k.upper() == t:
-                    self._tasks.append(HealthCheckTask(p, v, self.logger, self.address,
+                    self._tasks.append(HealthCheckTask(p, v, self.logger, self.name,
                                                        self.default_timeout, self.default_retry, self))
                     matched = True
                     break
             if not matched:
                 self.logger.warn('Unknown watch type: %s, target: %s', k, self.name)
-
         return self._tasks
 
     def is_alive(self):
@@ -427,30 +429,33 @@ class HealthCheckService(object):
             t = Thread(target=self._worker)
             self._threads.append(t)
             t.start()
+        self.logger.info('queue join')
         self._queue.join()
+        self.logger.info('thread join')
         for t in self._threads:
-           t.join
+           while t.isAlive():
+               try:
+                   time.sleep(1)
+               except:
+                   pass
+           t.join()
         self.logger.info('Done all tasks. elapsed time: %lf sec', (time.time() - start))
 
-    def shutdown(self):
-        while not self._queue.empty():
-            self._queue.get()
-            self._queue.task_done()
-        self._queue.join()
-        for t in self._threads:
-           t.join()
-
     def _worker(self):
-        while not self._queue.empty():
-            task = self._queue.get()
+        while True:
+            task = None
+            with self._lock:
+                if self._queue.empty():
+                    return
+                task = self._queue.get()
+                self._queue.task_done()
             task.run()
             target = task.watch_target
             if target.is_done():
                 result = target.is_alive() and 'up' or 'down'
-                self.logger.info("%s(%s) is %s", target.name, target.address, result)
+                self.logger.info("%s(%s) is %s", target.name, target.name, result)
                 with self._lock:
-                  print('%s %s' % (target.address, result))
-            self._queue.task_done()
+                  print('%s %s' % (target.name, result))
 
 
 def logger_handler_factory(log_type='syslog', log_file=None, log_level='WARNING', log_id='Main', log_format=None):
@@ -473,7 +478,6 @@ def logger_handler_factory(log_type='syslog', log_file=None, log_level='WARNING'
         handler = logging.StreamHandler(sys.stderr)
     else:
         handler = logging.handlers.BufferingHandler(0)
-
     if not log_format:
         log_format = 'PrimWatch [%(module)s] %(levelname)s: %(message)s'
         if log_type in ('file', 'stderr'):
@@ -520,11 +524,7 @@ def main():
         config.load(path)
     service = HealthCheckService(config)
     service.prepare()
-    try:
-        service.run()
-    except KeyboardInterrupt:
-        service.shutdown()
-        sys.exit(0)
+    service.run()
 
 
 if __name__ == '__main__':
