@@ -9,9 +9,10 @@
     "default_retry": 1,
     "targets": {
         "local": {
-            "address": "127.0.0.1",
+            "name": "127.0.0.1",
             "watches": {
                 "ICMP": {
+                    "address" : "127.0.0.1",
                     "retry": 5,
                     "timeout": 3
                 },
@@ -22,9 +23,10 @@
             }
         },
         "vm00": {
-            "address": "10.110.6.11",
+            "name": "10.110.6.11",
             "watches": {
                 "ICMP": {
+                    "address" : "10.110.6.11",
                     "retry": 5,
                     "timeout": 3
                 },
@@ -35,9 +37,10 @@
             }
         },
         "vm36": {
-            "address": "10.110.5.25",
+            "name": "10.110.5.25",
             "watches": {
                 "ICMP": {
+                    "address" :"10.110.5.25",
                     "retry": 5,
                     "timeout": 3
                 },
