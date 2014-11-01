@@ -338,8 +338,8 @@ class HealthCheckTask(object):
 
 
 class HealthCheckTarget(object):
-    def __init__(self, name, config, logger, default_timeout=5, default_retry=3):
-        self.name = name
+    def __init__(self, label, config, logger, default_timeout=5, default_retry=3):
+        self.label = label
         self.config = config
         self.logger = logger
         self.default_timeout = default_timeout
@@ -362,14 +362,12 @@ class HealthCheckTarget(object):
             return self._tasks
         self._tasks = []
         for k, v in self.config.get('watches', {}).iteritems():
-            matched = False
             for t, p in self.providers:
                 if k and k.upper() == t:
                     self._tasks.append(HealthCheckTask(p, v, self.logger, self.name,
                                                        self.default_timeout, self.default_retry, self))
-                    matched = True
                     break
-            if not matched:
+            else:
                 self.logger.warn('Unknown watch type: %s, target: %s', k, self.name)
         return self._tasks
 
@@ -455,7 +453,7 @@ class HealthCheckService(object):
             target = task.watch_target
             if target.is_done():
                 result = target.is_alive() and 'up' or 'down'
-                self.logger.info("%s(%s) is %s", target.name, target.name, result)
+                self.logger.info("%s(%s) is %s", target.name, target.label, result)
                 with self._lock:
                   print('%s %s' % (target.name, result))
             self._queue.task_done()
