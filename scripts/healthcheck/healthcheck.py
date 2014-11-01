@@ -430,7 +430,10 @@ class HealthCheckService(object):
             self._threads.append(t)
             t.start()
         self.logger.info('queue join')
-        self._queue.join()
+        try:
+            self._queue.join()
+        except:
+             pass
         self.logger.info('thread join')
         for t in self._threads:
            while t.isAlive():
@@ -448,7 +451,6 @@ class HealthCheckService(object):
                 if self._queue.empty():
                     return
                 task = self._queue.get()
-                self._queue.task_done()
             task.run()
             target = task.watch_target
             if target.is_done():
@@ -456,6 +458,7 @@ class HealthCheckService(object):
                 self.logger.info("%s(%s) is %s", target.name, target.name, result)
                 with self._lock:
                   print('%s %s' % (target.name, result))
+            self._queue.task_done()
 
 
 def logger_handler_factory(log_type='syslog', log_file=None, log_level='WARNING', log_id='Main', log_format=None):
