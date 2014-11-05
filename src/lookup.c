@@ -1217,10 +1217,6 @@ lookup_group_random(
 
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
-	if (group_members_count < 1) {
-		LOG(LOG_LV_ERR, "not found active group");
-		return 1;	
-	}
 	// ランダムにインデックスを作成し
 	idx = (int)(random() % (int)group_members_count);
 	// そのインデックスにあるデータを引っ張る。なければエラーを返す。
@@ -1283,11 +1279,12 @@ lookup_group_priority(
 		LOG(LOG_LV_ERR, "failed in get iterator of groups");
 		return 1;
 	}
-	// groupが何も見つからなかったらエラーを返す
-	if (lookup_group_priority_foreach_arg.max_priority == INITIAL_MAX_PRIORITY) {
-		LOG(LOG_LV_ERR, "not found active group");
-		return 1;
-	}
+        // groupが何も見つからなかった
+        // 事前にactiveなグループ数をチェックしているのであり得ない
+        if (lookup_group_priority_foreach_arg.max_priority == INITIAL_MAX_PRIORITY) {
+        	LOG(LOG_LV_ERR, "not found active group");
+                return 1;
+        }
 
 	return 0;
 }
@@ -1372,10 +1369,6 @@ lookup_group_roundrobin(
 
 	ASSERT(lookup != NULL);
 	ASSERT(group_itr != NULL);
-	if (group_members_count < 1) {
-		LOG(LOG_LV_ERR, "not found active group");
-		return 1;	
-	}
 	// 過去のaccessaのstatus情報をみながら、採用を決定する
 	if (lookup_accessa_status_handle(lookup, lookup_group_roundrobin_cb, &lookup_group_roundrobin_cb_arg)) {
 		LOG(LOG_LV_ERR, "failed in handling of accessa status");
@@ -1404,6 +1397,10 @@ lookup_group(
 	if (bson_helper_bson_get_long(&lookup->params->status, &group_members_count, "activeGroupMembersCount", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get value of group members count");
 		return 1;
+	}
+	if (group_members_count < 1) {
+		LOG(LOG_LV_WARNING, "not found active group");
+		return 0;	
 	}
 	// 各アルゴリズムの処理
 	switch (group_select_algorithm) {
