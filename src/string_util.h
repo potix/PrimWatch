@@ -1,6 +1,8 @@
 #ifndef STRING_UTIL_H
 #define STRING_UTIL_H
 
+#define TUPLE_MAX 32
+
 #if !defined(strlcpy)
 #define USE_BSD_STRLCPY
 size_t
@@ -20,10 +22,16 @@ strlcat(
 #endif
 
 struct kv_split {
-    char *key;
-    char *value;
+	char *key;
+	char *value;
 };
 typedef struct kv_split kv_split_t;
+
+struct tuple_split {
+	char *value[TUPLE_MAX];
+	int value_count;
+};
+typedef struct tuple_split tuple_split_t;
 
 struct parse_cmd {
         char *args[NCARGS];
@@ -42,6 +50,11 @@ int string_rstrip_b(
 
 int string_kv_split_b(
     kv_split_t *kv,
+    char *str,
+    const char *delim_str);
+
+int string_tuple_split_b(
+    tuple_split_t *tuple,
     char *str,
     const char *delim_str);
 

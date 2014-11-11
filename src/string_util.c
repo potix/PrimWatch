@@ -206,6 +206,52 @@ string_kv_split_b(
         return 0;
 }
 
+
+int
+string_tuple_split_b(
+    tuple_split_t *tuple,
+    char *str,
+    const char *delim_str)
+{
+	int i;
+	char *value;
+
+	if (tuple == NULL ||
+	    str == NULL ||
+	    delim_str == NULL) {
+		return 1;
+	}
+	tuple->value_count = 0;
+	if (string_rstrip_b(str, " \t\r")) {
+		return 1;
+	}
+	if (*str == '\0') {
+            return 0;
+        }
+        for (i = 0; tuple->value_count < TUPLE_MAX; i++) {
+		if ((value = strsep(&str, delim_str)) == NULL) {
+			return 1;
+		}
+		if (string_rstrip_b(value, " \t\r")) {
+			return 1;
+		}
+		tuple->value[tuple->value_count] = value;
+		tuple->value_count += 1;
+		if (str == NULL) {
+			break;
+		}
+		if (string_lstrip_b(&str, str, " \t\r")) {
+			return 1;
+		}
+	}
+	if (str != NULL) {
+		errno = ENOBUFS;
+		return 1;
+	}
+
+        return 0;
+}
+
 static int
 strtovalue(
     long *value,
