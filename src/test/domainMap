@@ -1,6 +1,7 @@
 #!/bin/sh
 
-echo ex.com group3
-echo aa.test.com group2 
-echo b.test.com group1
-echo v6.ex.com group3
+echo A ex.com group3
+echo A aa.test.com group2 
+echo A b.test.com group1
+echo A v6.ex.com group3
+echo PTR 10.0.0.0/8 group3
