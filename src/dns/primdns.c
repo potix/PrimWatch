@@ -70,7 +70,15 @@ primdns_main(
 		LOG(LOG_LV_ERR, "failed in native lookup");
 		goto fail;
 	}
-	printf("%s\n", NOERROR);
+	if (lookup.output.entry_count == 0) {
+		if (lookup_record_is_exists(&lookup)) {
+			printf("%s\n", NOERROR);
+		} else {
+			printf("%s\n", NXDOMAIN);
+		}
+	} else {
+		printf("%s\n", NOERROR);
+	}
 	printf("%s", output_buffer.buf);
 	if (lookup_finalize(&lookup)) {
 		LOG(LOG_LV_ERR, "failed in finalize of lookup");

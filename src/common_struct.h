@@ -4,6 +4,11 @@
 typedef struct record_buffer record_buffer_t;
 typedef struct map_element map_element_t;
 
+enum record_type {
+	RECORD_TYPE_FORWARD = 1,
+	RECORD_TYPE_REVERSE,
+};
+
 struct record_buffer {
         int  wildcard;
         int64_t ttl;

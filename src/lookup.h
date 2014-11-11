@@ -70,8 +70,7 @@ int lookup_setup_input(
     const char *local_address,
     const char *edns_address);
     
-int
-lookup_native(
+int lookup_native(
     lookup_t *lookup,
     void (*output_foreach_cb)(
         void *output_foreach_cb_arg,
@@ -83,8 +82,7 @@ lookup_native(
         const char *content),
     void *output_foreach_cb_arg);
 
-int
-lookup_native_axfr(
+int lookup_native_axfr(
     lookup_t *lookup,
     void (*output_foreach_cb)(
         void *output_foreach_cb_arg,
@@ -95,5 +93,8 @@ lookup_native_axfr(
         const char *id,
         const char *content),
     void *output_foreach_cb_arg);
+
+int lookup_record_is_exists(
+    lookup_t *lookup);
 
 #endif

@@ -26,6 +26,8 @@
 #include "lookup.h"
 
 #define INITIAL_MAX_PRIORITY (0xFFFFFFFF)
+#define EXISTS     1
+#define NOT_EXISTS 0
 
 typedef struct lookup_record_match_foreach_arg lookup_record_match_foreach_arg_t;
 typedef struct lookup_record_roundrobin_cb_arg lookup_record_roundrobin_cb_arg_t;
@@ -33,13 +35,13 @@ typedef struct lookup_group_priority_foreach_arg lookup_group_priority_foreach_a
 typedef struct lookup_group_roundrobin_cb_arg lookup_group_roundrobin_cb_arg_t;
 typedef struct lookup_all_group_foreach_arg lookup_all_group_foreach_arg_t;
 typedef struct lookup_all_record_foreach_arg lookup_all_record_foreach_arg_t;
+typedef struct lookup_record_is_exists_foreach_cb_arg lookup_record_is_exists_foreach_cb_arg_t;
 
 struct lookup_params {
         char *shared_buffer_data;
         bson status;
         lookup_type_t lookup_type;
         v4v6_addr_mask_t revaddr_mask;
-	char revaddr_str[INET6_ADDRSTRLEN];
 	revfmt_type_t revfmt_type;
 };
 
@@ -67,6 +69,11 @@ struct lookup_group_priority_foreach_arg {
 struct lookup_group_roundrobin_cb_arg {
 	bson_iterator *group_itr;
 	int64_t group_members_count;
+};
+
+struct lookup_record_is_exists_foreach_cb_arg {
+	lookup_t *lookup;
+	int exists;
 };
 
 struct lookup_all_group_foreach_arg {
@@ -647,7 +654,7 @@ fail:
 }
 
 static int
-lookup_domain_map(
+lookup_record_is_exists_map(
     lookup_t *lookup,
     char const **group,
     bson_iterator *group_itr)
@@ -1614,23 +1621,20 @@ lookup_all_record_foreach(
 }
 
 static int
-lookup_all_group_foreach(
-	void *foreach_arg,
-	const char *path,
-	bson_iterator *itr)
+lookup_all_record_base(
+    lookup_all_group_foreach_arg_t *lookup_all_group_foreach_arg,
+    bson_iterator *itr)
 {
+
 	const char *name;
-	bhash_t target;
 	char p[MAX_BSON_PATH_LEN];
+	bhash_t target;
 	const char *bin_data;
 	size_t bin_data_size;
 	lookup_all_record_foreach_arg_t lookup_all_record_foreach_arg = {
-		.lookup_all_group_foreach_arg = foreach_arg,
+		.lookup_all_group_foreach_arg = lookup_all_group_foreach_arg,
 	};
 
-	ASSERT(foreach_arg != NULL);
-	ASSERT(path != NULL);
-	ASSERT(itr != NULL);
 	name = bson_iterator_key(itr);
 	// ipv4の正引きをチック
 	lookup_all_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_A;
@@ -1695,7 +1699,47 @@ lookup_all_group_foreach(
 		return 1;
 	}
 
-	return BSON_HELPER_FOREACH_SUCCESS;
+	return 0;
+}
+
+static int
+lookup_all_record(
+    lookup_t *lookup,
+    void (*output_foreach_cb)(
+        void *output_foreach_cb_arg,
+        const char *name,
+        const char *class,
+        const char *type,
+        unsigned long long ttl,
+        const char *id,
+        const char *content),
+    void *output_foreach_cb_arg,
+    bson_iterator *itr,
+    int axfr)
+{
+	lookup_all_group_foreach_arg_t lookup_all_group_foreach_arg = {
+		.lookup = lookup,
+		.output_foreach_cb = output_foreach_cb,
+		.output_foreach_cb_arg = output_foreach_cb_arg,
+		.axfr = axfr,
+	};
+
+	ASSERT(itr != NULL);
+
+	return lookup_all_record_base(&lookup_all_group_foreach_arg, itr);
+}
+
+static int
+lookup_all_group_foreach(
+	void *foreach_arg,
+	const char *path,
+	bson_iterator *itr)
+{
+	ASSERT(foreach_arg != NULL);
+	ASSERT(path != NULL);
+	ASSERT(itr != NULL);
+
+	return lookup_all_record_base(foreach_arg, itr);
 }
 
 static int
@@ -1806,45 +1850,36 @@ lookup_native(
 			LOG(LOG_LV_ERR, "failed in convert address and mask");
 			return 1;
 		}
-		// 文字列に変換
-		if (inet_ntop(
-		    lookup->params->revaddr_mask.addr.family,
-		    &lookup->params->revaddr_mask.addr.in_addr,
-		    lookup->params->revaddr_str,
-		    sizeof(lookup->params->revaddr_str)) == NULL) {
-			LOG(LOG_LV_ERR, "failed in convert address");
+	}
+	// 最初にgroupを決定する
+	if (group_select_order == 0) { 
+		// domainMapをチェック
+		if (lookup_record_is_exists_map(lookup, &group, &group_itr)) {
+			LOG(LOG_LV_ERR, "failed in get value of group select order");
 			return 1;
 		}
-	}
-	if (lookup->params->lookup_type != LOOKUP_TYPE_NATIVE_ANY) {
-		// 最初にgroupを決定する
-		if (group_select_order == 0) { 
-			// domainMapをチェック
-			if (lookup_domain_map(lookup, &group, &group_itr)) {
-				LOG(LOG_LV_ERR, "failed in get value of group select order");
-				return 1;
-			}
-			if (!group) {
-				// remoteAddressMapをチェック
-				if (lookup_remote_address_map(lookup, &group, &group_itr)) {
-					LOG(LOG_LV_ERR, "failed in lookup of remote address");
-					return 1;
-				}
-			}
-		} else {
-			// remoteAddrssMapをチェック
+		if (!group) {
+			// remoteAddressMapをチェック
 			if (lookup_remote_address_map(lookup, &group, &group_itr)) {
 				LOG(LOG_LV_ERR, "failed in lookup of remote address");
 				return 1;
 			}
-			if (!group) {
-				// domainMapをチェック
-				if (lookup_domain_map(lookup, &group, &group_itr)) {
-					LOG(LOG_LV_ERR, "failed in get value of group select order");
-					return 1;
-				}
+		}
+	} else {
+		// remoteAddrssMapをチェック
+		if (lookup_remote_address_map(lookup, &group, &group_itr)) {
+			LOG(LOG_LV_ERR, "failed in lookup of remote address");
+			return 1;
+		}
+		if (!group) {
+			// domainMapをチェック
+			if (lookup_record_is_exists_map(lookup, &group, &group_itr)) {
+				LOG(LOG_LV_ERR, "failed in get value of group select order");
+				return 1;
 			}
 		}
+	}
+	if (lookup->params->lookup_type != LOOKUP_TYPE_NATIVE_ANY) {
 		if (group) {
 			// groupが見つかったので、レコードを探す
 			if (lookup_record(lookup, &group_itr)) {
@@ -1853,6 +1888,7 @@ lookup_native(
 			}
 		} else {
 			// groupが見つかってないので、アルゴリズムからグループを決定する
+			// その後レコードを探す
 			if (lookup_group(lookup)) {
 				LOG(LOG_LV_ERR, "failed in lookup group");
 				return 1;
@@ -1869,10 +1905,20 @@ lookup_native(
 			    lookup->output.entry[i].content);
 		}
 	} else {
-		// 結果出力もやってしまう。
-		if (lookup_all_group(lookup, output_foreach_cb, output_foreach_cb_arg, 0)) {
-			LOG(LOG_LV_ERR, "failed in lookup all group");
-			return 1;
+		if (group) {
+			// groupが見つかったので、特定のレコードのすべてのレコードを探す
+			// 結果出力もやってしまう。
+			if (lookup_all_record(lookup, output_foreach_cb, output_foreach_cb_arg, &group_itr, 0)) {
+				LOG(LOG_LV_ERR, "failed in lookup all group");
+				return 1;
+			}
+		} else {
+			// 全てのグループにある全てのレコードを探す
+			// 結果出力もやってしまう。
+			if (lookup_all_group(lookup, output_foreach_cb, output_foreach_cb_arg, 0)) {
+				LOG(LOG_LV_ERR, "failed in lookup all group");
+				return 1;
+			}
 		}
 	}
 
@@ -1920,3 +1966,127 @@ lookup_native_axfr(
 
 	return 0;
 }
+
+static void
+lookup_record_is_exists_foreach(
+    void *foreach_cb_arg,
+    int idx,
+    const char *key,
+    size_t key_size,
+    char *value,
+    size_t value_size)
+{
+        lookup_record_is_exists_foreach_cb_arg_t *lookup_record_is_exists_foreach_cb_arg = foreach_cb_arg;
+        char *tmp_name_ptr, tmp_name[NI_MAXHOST];
+	size_t tmp_name_size;
+	int *wildcard;
+	lookup_t *lookup = lookup_record_is_exists_foreach_cb_arg->lookup;
+	int match = 0;
+	
+	ASSERT(lookup_record_is_exists_foreach_cb_arg != NULL);
+	ASSERT(idx >= 0);
+	ASSERT(key != NULL);
+	ASSERT(key_size > 0);
+	ASSERT(value != NULL);
+	ASSERT(value_size > 0);
+
+	wildcard = (int *)value;
+	// ドメインが一致するものを探す
+	strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
+	tmp_name_ptr = tmp_name;
+	while (1) {
+		tmp_name_size = strlen(tmp_name_ptr) + 1;
+		if (key_size == tmp_name_size
+		     && strncmp(key, tmp_name_ptr, tmp_name_size) == 0) {
+			strlcpy(
+			    lookup->output.entry[lookup->output.entry_count].name,
+			    lookup->input.name,
+			    sizeof(lookup->output.entry[lookup->output.entry_count].name));
+			match = 1;
+			break;
+		}
+		// ワイルドカードでなければマッチしなかったとみなす
+		if (!wildcard) {
+			break;
+		}
+		// ここで、レベルを上げながらチェック
+		if (decrement_domain_b(&tmp_name_ptr)) {
+			break;
+		}
+	}
+	lookup_record_is_exists_foreach_cb_arg->exists |= 1;
+}
+
+int
+lookup_record_is_exists(
+    lookup_t *lookup)
+{
+        char *shared_buffer_data = NULL;
+	bson status;
+	const char *bin_data = NULL;
+	size_t bin_data_size;
+	bhash_t target;
+	record_buffer_t *record_buffer = NULL;
+        v4v6_addr_mask_t revaddr_mask;
+	revfmt_type_t revfmt_type;
+	lookup_record_is_exists_foreach_cb_arg_t lookup_record_is_exists_foreach_cb_arg;
+
+	if (shared_buffer_read(lookup->accessa->daemon_buffer, &shared_buffer_data, NULL)) {
+		LOG(LOG_LV_ERR, "failed in read shared_buffer");
+		return NOT_EXISTS;
+	}
+	if (shared_buffer_data == NULL) {
+		// デーモンがステータス情報を記録するまではすべてのレコードが存在しているものとする
+		LOG(LOG_LV_WARNING, "not status data of daemon");
+		return EXISTS;
+	}
+	if (bson_init_finished_data(&status, shared_buffer_data, 0) != BSON_OK) {
+		LOG(LOG_LV_ERR, "failed in initialize of bson");
+		return NOT_EXISTS;
+	}
+	// どっちかにあればNOT_EXISTSを返す
+       	// forwardsのデータを取り出す
+        if (strcasecmp(lookup->input.type, "PTR") == 0){
+		// 自前sockaddr構造体に変換
+		if (revaddrstr_to_addrmask(&revaddr_mask, &revfmt_type, lookup->input.name)) {
+			LOG(LOG_LV_ERR, "failed in convert address and mask");
+			return NOT_EXISTS;
+		}
+		if (bson_helper_bson_get_binary(&status, &bin_data, &bin_data_size, "reverses", NULL)) {
+			LOG(LOG_LV_ERR, "failed in get reverses");
+			return NOT_EXISTS;
+		}
+		if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
+			LOG(LOG_LV_ERR, "failed in create bhash");
+			return NOT_EXISTS;
+		}
+		if (bhash_get(&target, (char **)&record_buffer, NULL, (const char *)&revaddr_mask, sizeof(revaddr_mask))) {
+			LOG(LOG_LV_ERR, "failed in get group from bhash");
+			return NOT_EXISTS;
+		}
+		if (record_buffer != NULL) {
+			return NOT_EXISTS;
+		}
+	} else {
+		if (bson_helper_bson_get_binary(&status, &bin_data, &bin_data_size, "forwards", NULL)) {
+			LOG(LOG_LV_ERR, "failed in get forwards");
+			return NOT_EXISTS;
+		}
+		if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
+			LOG(LOG_LV_ERR, "failed in create bhash");
+			return NOT_EXISTS;
+		}
+		lookup_record_is_exists_foreach_cb_arg.lookup = lookup;
+		lookup_record_is_exists_foreach_cb_arg.exists = 0;
+		if (bhash_foreach(&target, lookup_record_is_exists_foreach, &lookup_record_is_exists_foreach_cb_arg))  {
+			LOG(LOG_LV_ERR, "failed in foreach of bhash");
+			return NOT_EXISTS;
+		}
+		if (lookup_record_is_exists_foreach_cb_arg.exists) {
+			return NOT_EXISTS;
+		}
+	}
+
+	return NOT_EXISTS;
+}
+
