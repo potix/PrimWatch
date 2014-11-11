@@ -39,6 +39,7 @@
 #define DEFAULT_RECORD_TTL		      DEFAULT_POLLING_INTERVAL
 #define DEFAULT_RECORD_PRIORITY		      1000
 #define DEFAULT_RECORD_WEIGHT		      1000
+#define DEFAULT_RECORD_WILDCARD	 	      0
 #define DEFAULT_CONTROLLER_ADDRESS            "127.0.0.1"	
 #define DEFAULT_CONTROLLER_PORT		      "50000"
 
@@ -268,6 +269,9 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^defaultRecordWeight$", 1, 65535, NULL, NULL)) {
 		return 1;
 	}
+	if (json_parser_add_validation_boolean(json_parser, "^defaultRecordWild$", NULL, NULL)) {
+		return 1;
+	}
 	if (json_parser_add_validation_integer(json_parser, "^domainMap\\.pollingInterval$", 1, 86400, NULL, NULL)) {
 		return 1;
 	}
@@ -332,6 +336,9 @@ config_manager_init_validation(json_parser_t *json_parser)
 		return 1;
 	}
 	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.forwardRecords\\.[0-9]+\\.ttl$", 0, 2147483647, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]\\.forwardRecords\\.[0-9]+\\.wildcard$", NULL, NULL)) {
 		return 1;
 	}
 	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]\\.forwardRecords\\.[0-9]+\\.forceDown$", NULL, NULL)) {
@@ -455,6 +462,9 @@ config_finish(bson *config)
 		return 1;
 	}
 	if (bson_append_long(config, "defaultRecordWeight", DEFAULT_RECORD_WEIGHT) != BSON_OK) {
+		return 1;
+	}
+	if (bson_append_bool(config, "defaultRecordWild", DEFAULT_RECORD_WILDCARD) != BSON_OK) {
 		return 1;
 	}
 	if (bson_finish(config) != BSON_OK) {

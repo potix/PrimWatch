@@ -837,6 +837,10 @@ lookup_record_match_foreach(
 				match = 1;
 				break;
 			}
+			// ワイルドカードでなければマッチしなかったとみなす
+			if (!record_buffer->wildcard) {
+				break;
+			}
 			// ここで、レベルを上げながらチェック
 			if (decrement_domain_b(&tmp_name_ptr)) {
 				break;
@@ -1558,6 +1562,10 @@ lookup_all_record_foreach(
 					    ((char *)record_buffer) + offsetof(record_buffer_t, value));
 					break;
 				}
+				// ワイルドカードでなければマッチしなかったとみなす
+				if (!record_buffer->wildcard) {
+					break;
+				}
 				// ここで、レベルを上げながらチェック
 				if (decrement_domain_b(&tmp_name_ptr)) {
 					break;
@@ -1583,36 +1591,19 @@ lookup_all_record_foreach(
 			    lookup->input.id,
 			    ((char *)record_buffer) + offsetof(record_buffer_t, value));
 		} else {
-			// ドメインが一致するものを探す
-			input_size = strlen(lookup->input.name) + 1;
-			strlcpy(tmp_name, ((char *)record_buffer) + offsetof(record_buffer_t, value), sizeof(tmp_name));
-			tmp_name_ptr = tmp_name;
-			while (1) {
-				tmp_name_size = strlen(tmp_name_ptr) + 1;
-				if (lookup_all_group_foreach_arg->axfr == 1 ||
-				    (input_size == tmp_name_size &&
-				     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0)) {
-					if (addrmask_to_revaddrstr(
-					    tmp_addr,
-					    sizeof(tmp_addr),
-					    (v4v6_addr_mask_t *)key,
-					    lookup_all_record_foreach_arg->revfmt_type)) {
-						continue;
-					}
-					lookup_all_group_foreach_arg->output_foreach_cb(
-					    lookup_all_group_foreach_arg->output_foreach_cb_arg,
-					    tmp_addr,
-					    lookup->input.class,
-					    "PTR",
-					    record_buffer->ttl,
-					    lookup->input.id,
-					    ((char *)record_buffer) + offsetof(record_buffer_t, value));
-					break;
-				}
-				// ここで、レベルを上げながらチェック
-				if (decrement_domain_b(&tmp_name_ptr)) {
-					break;
-				}
+			// アドレスが一致するものを探す
+			// 完全一致のみ
+			if (key_size == sizeof(lookup->params->revaddr_mask) &&
+			    memcmp(key, &lookup->params->revaddr_mask, key_size) == 0) {
+				lookup_all_group_foreach_arg->output_foreach_cb(
+				    lookup_all_group_foreach_arg->output_foreach_cb_arg,
+				    lookup->input.name,
+				    lookup->input.class,
+				    "PTR",
+				    record_buffer->ttl,
+				    lookup->input.id,
+				    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+				break;
 			}
 		}
 		break;

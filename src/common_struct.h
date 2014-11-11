@@ -5,6 +5,7 @@ typedef struct record_buffer record_buffer_t;
 typedef struct map_element map_element_t;
 
 struct record_buffer {
+        int  wildcard;
         int64_t ttl;
         int64_t record_priority;
         int64_t value_size;

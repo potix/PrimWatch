@@ -515,6 +515,11 @@ watcher_reverse_record_foreach_cb(
 		LOG(LOG_LV_ERR, "failed in get record priority (index = %s)", idx);
 		goto last;
 	}
+	snprintf(p, sizeof(p),  "%s.wildcard", idx);
+	if (bson_helper_itr_get_bool(itr, &entry->wildcard, p, config, "defaultRecordWildcard")) {
+		LOG(LOG_LV_ERR, "failed in get record wildcard (index = %s)", idx);
+		goto last;
+	}
 	entry->value_size = host_size;
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), host, host_size);
 	if (bhash_append(address,
