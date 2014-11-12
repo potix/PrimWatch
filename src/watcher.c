@@ -1408,7 +1408,7 @@ watcher_polling_common_add_element(
 		value_size = strlen(value) + 1;
 		map_element = (map_element_t *)buffer;
 		memcpy(buffer + offsetof(map_element_t, value), value, value_size);
-		if (strcmp(option, "A") == 0) {
+		if (strcasecmp(option, "NAME") == 0) {
 			key_size = strlen(key) + 1;
 			if (strspn(key, DOMAIN_CHARS) != key_size - 1) {
 				LOG(LOG_LV_INFO, "failed in validate %s entry as domain (type = %d)", key, target_type);
@@ -1425,7 +1425,7 @@ watcher_polling_common_add_element(
 				LOG(LOG_LV_INFO, "failed in replace %s entry (type = %d)", key, target_type);
 				return 1;
 			}
-		} else if (strcmp(option, "PTR") == 0) {
+		} else if (strcasecmp(option, "ADDR") == 0) {
 			if (addrstr_to_addrmask_b(&addr_mask, key)) {
 				LOG(LOG_LV_INFO, "failed in convert string to address and mask %s entry (type = %d)", key, target_type);
 				return 1;
