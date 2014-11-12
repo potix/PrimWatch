@@ -1,5 +1,6 @@
 #!/bin/sh
 
+echo NAME test0.com group0
 echo NAME ex.com group3
 echo NAME aa.test.com group2 
 echo NAME b.test.com group1

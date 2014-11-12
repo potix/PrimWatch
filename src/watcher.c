@@ -158,7 +158,7 @@ static struct sub_copy_param group_copy_params[] = {
 	{ BSON_LONG, "maxReverseRecords", "defaultMaxReverseRecords" },
 	{ BSON_LONG, "maxCanonicalNameRecords", "defaultMaxCanonicalNameRecords" },
 	{ BSON_LONG, "recordSelectAlgorithmValue", "defaultRecordSelectAlgorithmValue" },
-	{ BSON_BOOL, "recordPreempt", "defaultRcordPreempt" },
+	{ BSON_BOOL, "recordPreempt", "defaultRecordPreempt" },
 	{ BSON_LONG, "groupPriority", "defaultGroupPriority" }
 };
 
@@ -590,7 +590,7 @@ watcher_canonical_name_record_foreach_cb(
 	watcher_status_element_t *hostname_health_check_element = NULL;
 	int force_down = 0;
 	int hostname_current_status = 1, hostname_preempt_status = 1;
-	size_t canonical_name_size, host_size, execute_script_size;
+	size_t canonical_name_size, host_size;
 	/*
          * not return BSON_HELPER_FOREACH_ERROR
          * then, skip record entry
@@ -643,11 +643,11 @@ watcher_canonical_name_record_foreach_cb(
 	}
 	snprintf(p, sizeof(p),  "%s.executeScript", idx);
 	if (bson_helper_itr_get_string(itr, &execute_script, p, NULL, NULL)) {
-		execute_script_size = 0;
+		entry->execute_script_size = 0;
 	} else {
-		execute_script_size = strlen(execute_script) + 1;
+		entry->execute_script_size = strlen(execute_script) + 1;;
 	}
-	entry->value_size = execute_script_size + canonical_name_size;
+	entry->value_size = entry->execute_script_size + canonical_name_size;
 	// all_forwardsにはup/downに関わらずエントリを入れておく
 	if (bhash_append(arg->all_forwards,
 	    host,
@@ -689,10 +689,10 @@ watcher_canonical_name_record_foreach_cb(
 	} else if (!(hostname_current_status & hostname_preempt_status)) {
 		goto last;
 	}
-	if (execute_script_size != 0) {
-		memcpy(((char *)entry) + offsetof(record_buffer_t, value), execute_script, execute_script_size);
+	if (entry->execute_script_size > 0) {
+		memcpy(((char *)entry) + offsetof(record_buffer_t, value), execute_script, entry->execute_script_size);
 	}
-	memcpy(((char *)entry) + offsetof(record_buffer_t, value) + execute_script_size , canonical_name, canonical_name_size);
+	memcpy(((char *)entry) + offsetof(record_buffer_t, value) + entry->execute_script_size, canonical_name, canonical_name_size);
 	if (bhash_append(arg->canonical_name,
 	    host,
 	    host_size,
@@ -757,7 +757,8 @@ watcher_group_foreach_cb(
 		goto last;
 	}
 	// preemptの設定は先に読む
-	if (bson_helper_itr_get_bool(itr, &preempt, "recordPreempt", config, "defaultRecordPreempt")) {
+	snprintf(p, sizeof(p),  "%s.%s", name, "recordPreempt");
+	if (bson_helper_itr_get_bool(itr, &preempt, p, config, "defaultRecordPreempt")) {
 		LOG(LOG_LV_ERR, "failed in get record preempt (group %s)", name);
 		goto last;
 	}
@@ -1207,7 +1208,7 @@ watcher_status_make(
 		goto fail;
 	}
 	// bsonに取り出したall_forwards情報のbitmapデータを保存する
-	if (bson_append_binary(status, "all_forwards", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+	if (bson_append_binary(status, "allForwards", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of all_forwards hash to new status");
 		goto fail;
 	}
@@ -1217,7 +1218,7 @@ watcher_status_make(
 		goto fail;
 	}
 	// bsonに取り出したreverse情報のbitmapデータを保存する
-	if (bson_append_binary(status, "all_reverses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
+	if (bson_append_binary(status, "allReverses", BSON_BIN_BINARY, bhash_data, bhash_data_size) != BSON_OK) {
 		LOG(LOG_LV_ERR, "failed in append data of all_reverses hash to new status");
 		goto fail;
 	}

@@ -1925,8 +1925,8 @@ lookup_native(
 	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
 		// 自前sockaddr構造体に変換
 		if (revaddrstr_to_addrmask(&lookup->params->revaddr_mask, &lookup->params->revfmt_type, lookup->input.name)) {
-			LOG(LOG_LV_ERR, "failed in convert address and mask");
-			return 1;
+			// 変換に失敗した場合はレコードがないとみなす
+			return 0;
 		}
 	}
 	// 最初にgroupを決定する
@@ -2059,7 +2059,6 @@ lookup_record_is_exists_foreach(
 	size_t tmp_name_size;
 	int *wildcard;
 	lookup_t *lookup = lookup_record_is_exists_foreach_cb_arg->lookup;
-	int match = 0;
 	
 	ASSERT(lookup_record_is_exists_foreach_cb_arg != NULL);
 	ASSERT(idx >= 0);
@@ -2080,7 +2079,7 @@ lookup_record_is_exists_foreach(
 			    lookup->output.entry[lookup->output.entry_count].name,
 			    lookup->input.name,
 			    sizeof(lookup->output.entry[lookup->output.entry_count].name));
-			match = 1;
+			lookup_record_is_exists_foreach_cb_arg->exists = 1;
 			break;
 		}
 		// ワイルドカードでなければマッチしなかったとみなす
@@ -2092,7 +2091,6 @@ lookup_record_is_exists_foreach(
 			break;
 		}
 	}
-	lookup_record_is_exists_foreach_cb_arg->exists |= 1;
 }
 
 int
@@ -2123,15 +2121,10 @@ lookup_record_is_exists(
 		return NOT_EXISTS;
 	}
 	// どっちかにあればNOT_EXISTSを返す
-       	// forwardsのデータを取り出す
-        if (strcasecmp(lookup->input.type, "PTR") == 0){
-		// 自前sockaddr構造体に変換
-		if (revaddrstr_to_addrmask(&revaddr_mask, &revfmt_type, lookup->input.name)) {
-			LOG(LOG_LV_ERR, "failed in convert address and mask");
-			return NOT_EXISTS;
-		}
-		if (bson_helper_bson_get_binary(&status, &bin_data, &bin_data_size, "reverses", NULL)) {
-			LOG(LOG_LV_ERR, "failed in get reverses");
+	// 自前sockaddr構造体に変換ができれば逆引きをチェック
+	if (!revaddrstr_to_addrmask(&revaddr_mask, &revfmt_type, lookup->input.name)) {
+		if (bson_helper_bson_get_binary(&status, &bin_data, &bin_data_size, "allReverses", NULL)) {
+			LOG(LOG_LV_ERR, "failed in get all reverses");
 			return NOT_EXISTS;
 		}
 		if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
@@ -2143,11 +2136,12 @@ lookup_record_is_exists(
 			return NOT_EXISTS;
 		}
 		if (record_buffer != NULL) {
-			return NOT_EXISTS;
+			return EXISTS;
 		}
 	} else {
-		if (bson_helper_bson_get_binary(&status, &bin_data, &bin_data_size, "forwards", NULL)) {
-			LOG(LOG_LV_ERR, "failed in get forwards");
+		// 正引きをチェック
+		if (bson_helper_bson_get_binary(&status, &bin_data, &bin_data_size, "allForwards", NULL)) {
+			LOG(LOG_LV_ERR, "failed in get all forwards");
 			return NOT_EXISTS;
 		}
 		if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
@@ -2161,7 +2155,7 @@ lookup_record_is_exists(
 			return NOT_EXISTS;
 		}
 		if (lookup_record_is_exists_foreach_cb_arg.exists) {
-			return NOT_EXISTS;
+			return EXISTS;
 		}
 	}
 

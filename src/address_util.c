@@ -195,12 +195,12 @@ revaddrstr_to_addrmask_b(
 				*revfmt_type = REVFMT_TYPE_IP6_ARPA;
 			}
 		} else {
-			LOG(LOG_LV_ERR, "invalid formart (%s)\n", revaddr_str);
+			errno = EINVAL;
 			return 1;
 
 		}
 	} else {
-		LOG(LOG_LV_ERR, "invalid formart (%s)\n", revaddr_str);
+		errno = EINVAL;
 		return 1;
 	}
 	*ptr = '\0';
@@ -210,7 +210,7 @@ revaddrstr_to_addrmask_b(
 		case AF_INET:
 			end_ptr = strchr(ptr, '.');
 			if (end_ptr == NULL) {
-				LOG(LOG_LV_ERR, "invalid formart (offset = %d)\n", ptr - revaddr_str);
+				errno = EINVAL;
 				return 1;
 			}
 			*end_ptr = '\0';
@@ -225,12 +225,12 @@ revaddrstr_to_addrmask_b(
 			 v = 0;
 			for (i = 0; i < 2; i ++) {
                                 if (*ptr == '\0') {
-					LOG(LOG_LV_ERR, "invalid formart (offset = %d)\n", ptr - revaddr_str);
+					errno = EINVAL;
 					return 1;
 				}
 				end_ptr = strchr(ptr, '.');
 				if (end_ptr == NULL) {
-					LOG(LOG_LV_ERR, "invalid formart (offset = %d)\n", ptr - revaddr_str);
+					errno = EINVAL;
 					return 1;
 				}
 				*end_ptr = '\0';
@@ -253,7 +253,7 @@ revaddrstr_to_addrmask_b(
 		}
 	}
 	if (last != -1) {
-		LOG(LOG_LV_ERR, "invalid formart (offset = %d)\n", ptr - revaddr_str);
+		errno = EINVAL;
 		return 1;
 	}
 
