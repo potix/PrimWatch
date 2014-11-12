@@ -13,6 +13,8 @@ struct record_buffer {
         int  wildcard;
         int64_t ttl;
         int64_t record_priority;
+        int external_command;
+        int64_t execute_script_size;
         int64_t value_size;
         char value[0];
 };

@@ -683,7 +683,8 @@ lookup_record_is_exists_map(
 		return 1;
 	}
        	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_A ||
-            lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA) {
+            lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA ||
+	    lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_CNAME) {
 		strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
 		tmp_name_ptr = tmp_name;
 		// domainMapからグループを取り出す
@@ -830,6 +831,7 @@ lookup_record_match_foreach(
 	switch (lookup->params->lookup_type) {
 	case LOOKUP_TYPE_NATIVE_A:
 	case LOOKUP_TYPE_NATIVE_AAAA:
+	case LOOKUP_TYPE_NATIVE_CNAME:
 		// ドメインが一致するものを探す
 		strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
 		tmp_name_ptr = tmp_name;
@@ -899,8 +901,13 @@ lookup_record_match_foreach(
 		lookup->output.entry[lookup->output.entry_count].class = lookup->input.class;
 		lookup->output.entry[lookup->output.entry_count].type = lookup->input.type;
 		lookup->output.entry[lookup->output.entry_count].ttl = (unsigned long long)record_buffer->ttl;
+		if (record_buffer->external_command && record_buffer->execute_script_size > 1) {
+			lookup->output.entry[lookup->output.entry_count].execute_script = ((char *)record_buffer) + offsetof(record_buffer_t, value);
+		} else {
+			lookup->output.entry[lookup->output.entry_count].execute_script = NULL;
+		}
 		lookup->output.entry[lookup->output.entry_count].id = lookup->input.id;
-		lookup->output.entry[lookup->output.entry_count].content = ((char *)record_buffer) + offsetof(record_buffer_t, value);
+		lookup->output.entry[lookup->output.entry_count].content = ((char *)record_buffer) + offsetof(record_buffer_t, value) + record_buffer->execute_script_size;
 		lookup->output.entry_count++;
 	}
 }
@@ -1136,6 +1143,10 @@ lookup_record(
 			return 1;
 		}
 		break;
+	case LOOKUP_TYPE_NATIVE_CNAME:
+		param = "canonicalNames";
+		cnt = "canonicalNameRecordMembersCount";
+		break;
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected type of lookup");
@@ -1155,9 +1166,14 @@ lookup_record(
 			LOG(LOG_LV_ERR, "failed in get max record");
 			return 1;
 		}
-
 	 } else if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
 		snprintf(path, sizeof(path), "%s.%s", name, "maxReverseRecords");
+		if (bson_helper_itr_get_long(group_itr, &max_records, path, NULL, NULL)) {
+			LOG(LOG_LV_ERR, "failed in get max record");
+			return 1;
+		}
+	 } else if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_CNAME) {
+		snprintf(path, sizeof(path), "%s.%s", name, "maxCanonicalNameRecords");
 		if (bson_helper_itr_get_long(group_itr, &max_records, path, NULL, NULL)) {
 			LOG(LOG_LV_ERR, "failed in get max record");
 			return 1;
@@ -1176,7 +1192,7 @@ lookup_record(
 		LOG(LOG_LV_INFO, "lookup dns record is empty (%s)", name);
 		return 0;
 	}
-	// 対象タのハッシュデータ取り出し
+	// 対象のハッシュデータ取り出し
 	snprintf(path, sizeof(path), "%s.%s", name, param);
 	if (bson_helper_itr_get_binary(group_itr, &bin_data, &bin_data_size, path, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get binary (%s)", path);
@@ -1614,6 +1630,49 @@ lookup_all_record_foreach(
 			}
 		}
 		break;
+
+	case LOOKUP_TYPE_NATIVE_CNAME:
+		if (lookup_all_group_foreach_arg->axfr == 1) {
+			/// XXXXXXXXXXXXXXXX execute script XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+			lookup_all_group_foreach_arg->output_foreach_cb(
+			    lookup_all_group_foreach_arg->output_foreach_cb_arg,
+			    key,
+			    "IN",
+			    "CNAME",
+			    record_buffer->ttl,
+			    lookup->input.id,
+			    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+		} else {
+			// ドメインが一致するものを探す
+			input_size = strlen(lookup->input.name) + 1;
+			strlcpy(tmp_name, key, sizeof(tmp_name));
+			tmp_name_ptr = tmp_name;
+			while (1) {
+				tmp_name_size = strlen(tmp_name_ptr) + 1;
+				if (input_size == tmp_name_size &&
+				     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
+					/// XXXXXXXXXXXXXXXX execute script XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+					lookup_all_group_foreach_arg->output_foreach_cb(
+					    lookup_all_group_foreach_arg->output_foreach_cb_arg,
+					    key,
+					    lookup->input.class,
+					    "CNAME",
+					    record_buffer->ttl,
+					    lookup->input.id,
+					    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+					break;
+				}
+				// ワイルドカードでなければマッチしなかったとみなす
+				if (!record_buffer->wildcard) {
+					break;
+				}
+				// ここで、レベルを上げながらチェック
+				if (decrement_domain_b(&tmp_name_ptr)) {
+					break;
+				}
+			}
+		}
+		break;
 	default:
 		/* NOTREACHED */
 		ABORT("unexpected type of lookup");
@@ -1686,6 +1745,21 @@ lookup_all_record_base(
 	lookup_all_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_PTR;
 	lookup_all_record_foreach_arg.revfmt_type = REVFMT_TYPE_IP6_ARPA;
 	snprintf(p, sizeof(p), "%s.ipv6Addresses", name);
+	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
+		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
+		return 1;
+	}
+	if (bhash_create_wrap_bhash_data(&target, bin_data, bin_data_size)) {
+		LOG(LOG_LV_ERR, "failed in create of bhash");
+		return 1;
+	}
+	if (bhash_foreach(&target, lookup_all_record_foreach, &lookup_all_record_foreach_arg))  {
+		LOG(LOG_LV_ERR, "failed in foreach of bhash");
+		return 1;
+	}
+	// canonical nameをチェック
+	lookup_all_record_foreach_arg.lookup_type = LOOKUP_TYPE_NATIVE_CNAME;
+	snprintf(p, sizeof(p), "%s.canonicalNames", name);
 	if (bson_helper_itr_get_binary(itr, &bin_data, &bin_data_size, p, NULL, NULL)) {
 		LOG(LOG_LV_ERR, "failed in get binary (%s)", p);
 		return 1;
@@ -1828,16 +1902,20 @@ lookup_native(
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_AAAA;
 	} else if (strcasecmp(lookup->input.type, "PTR") == 0){
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_PTR;
-	} else if (strcasecmp(lookup->input.type, "ANY") == 0){
-		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_ANY;
-	} else if (strcasecmp(lookup->input.type, "SOA") == 0){
-		/* XXX soa record */
-		LOG(LOG_LV_INFO, "soa record is unsupported (name=%s, class=%s)", lookup->input.name, lookup->input.class);
-		return 0;
+	} else if (strcasecmp(lookup->input.type, "CNAME") == 0){
+		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_CNAME;
 	} else if (strcasecmp(lookup->input.type, "NS") == 0){
+		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_NS;
 		/* XXX ns record */
 		LOG(LOG_LV_INFO, "ns record is unsupported (name=%s, class=%s)", lookup->input.name, lookup->input.class);
 		return 0;
+	} else if (strcasecmp(lookup->input.type, "SOA") == 0){
+		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_SOA;
+		/* XXX soa record */
+		LOG(LOG_LV_INFO, "soa record is unsupported (name=%s, class=%s)", lookup->input.name, lookup->input.class);
+		return 0;
+	} else if (strcasecmp(lookup->input.type, "ANY") == 0){
+		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_ANY;
 	} else {
 		/* log */
 		LOG(LOG_LV_ERR, "unexpected type (type=%s, name=%s, class=%s)", lookup->input.type, lookup->input.name, lookup->input.class);

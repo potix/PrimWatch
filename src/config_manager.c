@@ -30,8 +30,9 @@
 #define DEFAULT_POLLING_INTERVAL	      5
 #define DEFAULT_GROUP_PRIORITY		      1000
 #define DEFAULT_GROUP_WEIGHT		      1000
-#define DEFAULT_MAX_FORWARD_RECORDS	      3
-#define DEFAULT_MAX_REVERSE_RECORDS	      1 
+#define DEFAULT_MAX_FORWARD_RECORDS	      5 
+#define DEFAULT_MAX_REVERSE_RECORDS	      5 
+#define DEFAULT_MAX_CANONICAL_NAME_RECORDS    5 
 #define DEFAULT_RECORD_SELECT_ALGORITHM       "random"
 #define DEFAULT_RECORD_SELECT_ALGORITHM_VALUE 0
 #define DEFAULT_RECORD_PREEMPT		      1
@@ -40,6 +41,7 @@
 #define DEFAULT_RECORD_PRIORITY		      1000
 #define DEFAULT_RECORD_WEIGHT		      1000
 #define DEFAULT_RECORD_WILDCARD	 	      0
+#define DEFAULT_RECORD_EXTERNAL_COMMAND	      0	 	      
 #define DEFAULT_CONTROLLER_ADDRESS            "127.0.0.1"	
 #define DEFAULT_CONTROLLER_PORT		      "50000"
 
@@ -251,6 +253,9 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^defaultMaxReverseRecords$", 1, 64, NULL, NULL)) {
 		return 1;
 	}
+	if (json_parser_add_validation_integer(json_parser, "^defaultMaxCanonicalNameRecords$", 1, 64, NULL, NULL)) {
+		return 1;
+	}
 	if (json_parser_add_validation_string(json_parser, "^defaultRecordSelectAlgorithm$", 6, 10, record_select_algorithm_candidate, 4, config_manager_append_value, NULL)) {
 		return 1;
 	}
@@ -308,6 +313,9 @@ config_manager_init_validation(json_parser_t *json_parser)
 	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.maxReverseRecords$", 1, MAX_RECORDS, NULL, NULL)) {
 		return 1;
 	}
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.maxCanonicalNameRecords$", 1, MAX_RECORDS, NULL, NULL)) {
+		return 1;
+	}
 	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.recordSelectAlgorithm$", 6, 10, record_select_algorithm_candidate, 4, config_manager_append_value, NULL)) {
 		return 1;
 	}
@@ -360,6 +368,33 @@ config_manager_init_validation(json_parser_t *json_parser)
 		return 1;
 	}
 	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]\\.reverseRecords\\.[0-9]+\\.forceDown$", NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.canonicalNames\\.[0-9]+\\.hostname$", 1, NI_MAXHOST, NULL, 0, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.canonicalNames\\.[0-9]+\\.canonicalName$", 1, NI_MAXHOST, NULL, 0, 0, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]+\\.canonicalNames\\.[0-9]+\\.recordPriority$", 1, 65535, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.canonicalNames\\.[0-9]+\\.recordWeight$", 1, 65535, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_integer(json_parser, "^groups\\.[^.]\\.canonicalNames\\.[0-9]+\\.ttl$", 0, 2147483647, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]\\.canonicalNames\\.[0-9]+\\.wildcard$", NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]\\.canonicalNames\\.[0-9]+\\.externalCommand$", NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_string(json_parser, "^groups\\.[^.]+\\.canonicalNames\\.[0-9]+\\.executeScript$", 1, MAXPATHLEN , NULL, 0, NULL, NULL)) {
+		return 1;
+	}
+	if (json_parser_add_validation_boolean(json_parser, "^groups\\.[^.]\\.canonicalNames\\.[0-9]+\\.forceDown$", NULL, NULL)) {
 		return 1;
 	}
 
@@ -443,6 +478,9 @@ config_finish(bson *config)
 	if (bson_append_long(config, "defaultMaxReverseRecords", DEFAULT_MAX_REVERSE_RECORDS) != BSON_OK) {
 		return 1;
 	}
+	if (bson_append_long(config, "defaultMaxCanonicalNameRecords", DEFAULT_MAX_CANONICAL_NAME_RECORDS) != BSON_OK) {
+		return 1;
+	}
 	if (bson_append_string(config, "defaultRecordSelectAlgorithm", DEFAULT_RECORD_SELECT_ALGORITHM) != BSON_OK) {
 		return 1;
 	}
@@ -464,7 +502,10 @@ config_finish(bson *config)
 	if (bson_append_long(config, "defaultRecordWeight", DEFAULT_RECORD_WEIGHT) != BSON_OK) {
 		return 1;
 	}
-	if (bson_append_bool(config, "defaultRecordWild", DEFAULT_RECORD_WILDCARD) != BSON_OK) {
+	if (bson_append_bool(config, "defaultRecordWildcard", DEFAULT_RECORD_WILDCARD) != BSON_OK) {
+		return 1;
+	}
+	if (bson_append_bool(config, "defaultRecordExternalCommand", DEFAULT_RECORD_EXTERNAL_COMMAND) != BSON_OK) {
 		return 1;
 	}
 	if (bson_finish(config) != BSON_OK) {

@@ -17,6 +17,9 @@ enum lookup_type {
         LOOKUP_TYPE_NATIVE_A = 1,
         LOOKUP_TYPE_NATIVE_AAAA,
         LOOKUP_TYPE_NATIVE_PTR,
+        LOOKUP_TYPE_NATIVE_CNAME,
+        LOOKUP_TYPE_NATIVE_NS,
+        LOOKUP_TYPE_NATIVE_SOA,
         LOOKUP_TYPE_NATIVE_ANY,
 };
 
@@ -38,6 +41,7 @@ struct lookup_output_entry {
 	unsigned long long ttl;
 	const char *id;
 	const char *content;
+	const char *execute_script;
 };
 
 struct lookup_output {
