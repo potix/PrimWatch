@@ -1,9 +1,9 @@
 #!/bin/sh
 
 echo NAME sub1.example.com group0
-echo NAME sub2.test.com group1
+echo NAME sub2.example.com group1
 echo ADDR 10.0.0.0/16 group1 
-echo NAME sub3.test.com group2
+echo NAME sub3.example.com group2
 echo ADDR 10.1.0.0/16 group2
-echo NAME sub4.test.com group3
-echo NAME sub5.test.com group4
+echo NAME sub4.example.com group3
+echo NAME sub5.example.com group4

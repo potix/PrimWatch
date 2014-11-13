@@ -650,6 +650,12 @@ uninstall-am:
 	pdf-am ps ps-am tags tags-recursive uninstall uninstall-am
 
 
+test: all
+	src/test/src/address_util_test
+	src/test/src/bhash_test
+	src/test/src/command_test
+	src/test/src/string_util_test
+
 rpm: dist
 	tar -zcvf scripts.tar.gz scripts
 	(cd rpm && make) || exit 1
