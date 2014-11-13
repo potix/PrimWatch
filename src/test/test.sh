@@ -83,7 +83,7 @@ check 0 0 ""
 
 echo "test 7"
 query sub1.example.com ANY
-check 0 1 ".*"
+check 0 1 "sub1.example.com 60 IN CNAME h1.sub2.example.com"
 
 echo "test 8"
 query h1.sub2.example.com CNAME
@@ -244,12 +244,3 @@ check 0 2 "www.h1.sub7.example.com 10 IN A 10.6.0."
 
 #finalize
 stop_daemon
-
-
-
-#i=0
-#
-#while  [ ${i} -lt "10000" ]
-#do
-#../primwatch_primdns aa.test.com IN A > /dev/null
-#i=$((${i} + 1))

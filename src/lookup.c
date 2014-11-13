@@ -906,6 +906,7 @@ lookup_record_match_foreach(
 		lookup->output.entry[lookup->output.entry_count].class = lookup->input.class;
 		lookup->output.entry[lookup->output.entry_count].type = lookup->input.type;
 		lookup->output.entry[lookup->output.entry_count].ttl = (unsigned long long)record_buffer->ttl;
+		// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX execute script XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 		if (record_buffer->external_command && record_buffer->execute_script_size > 1) {
 			lookup->output.entry[lookup->output.entry_count].execute_script = ((char *)record_buffer) + offsetof(record_buffer_t, value);
 		} else {
@@ -1646,7 +1647,7 @@ lookup_all_record_foreach(
 			    "CNAME",
 			    record_buffer->ttl,
 			    lookup->input.id,
-			    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+			    ((char *)record_buffer) + offsetof(record_buffer_t, value) + record_buffer->execute_script_size);
 		} else {
 			// ドメインが一致するものを探す
 			input_size = strlen(lookup->input.name) + 1;
@@ -1664,7 +1665,7 @@ lookup_all_record_foreach(
 					    "CNAME",
 					    record_buffer->ttl,
 					    lookup->input.id,
-					    ((char *)record_buffer) + offsetof(record_buffer_t, value));
+					    ((char *)record_buffer) + offsetof(record_buffer_t, value) + record_buffer->execute_script_size);
 					break;
 				}
 				// ワイルドカードでなければマッチしなかったとみなす
