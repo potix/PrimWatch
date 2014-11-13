@@ -1,6 +1,6 @@
 VERSION=0.1
 PACKAGE=primwatch
-SUBDIRS = src
+SUBDIRS=src 
 
 test: all
 	src/test/src/address_util_test

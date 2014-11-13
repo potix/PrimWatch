@@ -1,4 +1,4 @@
-SUBDIRS = test/src
+iSUBDIRS=src/test/src
 
 YAJL_MAJOR = 1
 
