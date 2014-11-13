@@ -1575,15 +1575,15 @@ lookup_all_record_foreach(
 		} else {
 			// ドメインが一致するものを探す
 			input_size = strlen(lookup->input.name) + 1;
-			strlcpy(tmp_name, key, sizeof(tmp_name));
+			strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
 			tmp_name_ptr = tmp_name;
 			while (1) {
 				tmp_name_size = strlen(tmp_name_ptr) + 1;
-				if (input_size == tmp_name_size &&
-				     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
+				if (tmp_name_size == key_size &&
+				     strncmp(tmp_name_ptr, key, tmp_name_size) == 0) {
 					lookup_all_group_foreach_arg->output_foreach_cb(
 					    lookup_all_group_foreach_arg->output_foreach_cb_arg,
-					    key,
+					    lookup->input.name,
 					    lookup->input.class,
 					    (lookup_all_record_foreach_arg->lookup_type == LOOKUP_TYPE_NATIVE_A) ? "A" : "AAAA",
 					    record_buffer->ttl,
@@ -1651,16 +1651,16 @@ lookup_all_record_foreach(
 		} else {
 			// ドメインが一致するものを探す
 			input_size = strlen(lookup->input.name) + 1;
-			strlcpy(tmp_name, key, sizeof(tmp_name));
+			strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
 			tmp_name_ptr = tmp_name;
 			while (1) {
 				tmp_name_size = strlen(tmp_name_ptr) + 1;
-				if (input_size == tmp_name_size &&
-				     strncmp(lookup->input.name, tmp_name_ptr, tmp_name_size) == 0) {
+				if (tmp_name_size == key_size &&
+				     strncmp(tmp_name_ptr, key, tmp_name_size) == 0) {
 					/// XXXXXXXXXXXXXXXX execute script XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 					lookup_all_group_foreach_arg->output_foreach_cb(
 					    lookup_all_group_foreach_arg->output_foreach_cb_arg,
-					    key,
+					    lookup->input.name,
 					    lookup->input.class,
 					    "CNAME",
 					    record_buffer->ttl,

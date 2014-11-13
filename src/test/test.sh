@@ -233,13 +233,13 @@ echo "test 44"
 query www.h1.sub7.example.com A
 check 0 2 "www.h1.sub7.example.com 10 IN A 10.6.0."
 
+echo "test 45"
+query hoge.sub1.example.com ANY
+check 0 1 "hoge.sub1.example.com 60 IN CNAME h1.sub2.example.com"
 
-# ANYだとwildcardできない問題
-#echo "test 5"
-#query hoge.sub1.example.com ANY
-#check 0 1 ".*"
-
-
+echo "test 46"
+query www.h1.sub7.example.com ANY
+check 0 2 "www.h1.sub7.example.com 10 IN A 10.6.0."
 
 
 #finalize
