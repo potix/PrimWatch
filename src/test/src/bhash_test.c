@@ -19,7 +19,7 @@ struct foreach_cb_arg {
 	int test;
 };
 
-void
+static void
 free_cb(void *free_cb_arg, char *key, size_t key_size, char *value, size_t value_size)
 {
 	struct free_cb_arg *arg = free_cb_arg;
@@ -27,7 +27,7 @@ free_cb(void *free_cb_arg, char *key, size_t key_size, char *value, size_t value
 	free_call_count++;
 }
 
-void
+static void
 replace_cb(void *replace_cb_arg, const char *key, size_t key_size, char *old_value, size_t old_value_size, char *new_value, size_t new_value_size)
 {
 	ASSERT(key_size > 3);
@@ -38,7 +38,7 @@ replace_cb(void *replace_cb_arg, const char *key, size_t key_size, char *old_val
 	replace_call_count++;
 }
 
-void
+static void
 foreach_cb(void *foreach_cb_arg, int idx, const char *key, size_t key_size, char *value, size_t value_size)
 {
 	ASSERT(key_size > 3);

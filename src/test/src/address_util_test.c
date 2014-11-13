@@ -1,3 +1,4 @@
+#include <sys/param.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,6 +6,7 @@
 
 #include "common_macro.h"
 #include "logger.h"
+#include "string_util.h"
 #include "address_util.h"
 
 int
@@ -14,7 +16,7 @@ main(int argc, char*argv[])
 	revfmt_type_t type;
 	char str[128];
 
-        ASSERT(logger_create(1) == 0);
+        ASSERT(logger_create() == 0);
 	ASSERT(addrstr_to_addrmask(&addr_mask, "10.0.0.1") == 0);
         ASSERT(inet_ntop(addr_mask.addr.family, &addr_mask.addr.in_addr, str, sizeof(str)) != NULL);
         ASSERT(addr_mask.mask == 32);
@@ -271,13 +273,13 @@ main(int argc, char*argv[])
         ASSERT(strcmp(str, "2001::1") == 0);
         ASSERT(addrmask_to_revaddrstr(str, sizeof(str), &addr_mask, type) == 0);
 	ASSERT(strcmp(str, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.0.2.ip6.arpa") == 0);
-	ASSERT(revaddrstr_to_addrmask(&addr_mask, &type, "1.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.2.0.0.2.ip6.int") == 0);
-	ASSERT(type == REVFMT_TYPE_IP6_INT);
+	ASSERT(revaddrstr_to_addrmask(&addr_mask, &type, "1.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.2.0.0.2.ip6.arpa") == 0);
+	ASSERT(type == REVFMT_TYPE_IP6_ARPA);
         ASSERT(addr_mask.mask == 128);
         ASSERT(inet_ntop(addr_mask.addr.family, &addr_mask.addr.in_addr, str, sizeof(str)) != NULL);
         ASSERT(strcmp(str, "2002::11") == 0);
         ASSERT(addrmask_to_revaddrstr(str, sizeof(str), &addr_mask, type) == 0);
-	ASSERT(strcmp(str, "1.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.2.0.0.2.ip6.int") == 0);
+	ASSERT(strcmp(str, "1.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.2.0.0.2.ip6.arpa") == 0);
 
 	return 0;
 }

@@ -37,7 +37,7 @@ main(int argc, char*argv[]) {
 	ASSERT(tuple.value_count == 1);
 	ASSERT(strcmp(tuple.value[0], "ggggg") == 0);
 
-	snprintf(buff, sizeof(buff), "");
+	buff[0] = '\0';
 	ASSERT(string_tuple_split_b(&tuple, buff, " \t") == 0);
 	ASSERT(errno == 0);
 	ASSERT(tuple.value_count == 0);

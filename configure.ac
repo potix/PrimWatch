@@ -38,5 +38,5 @@ AC_FUNC_MMAP
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([dup2 ftruncate localtime_r memmove memset munmap regcomp socket strcasecmp strchr strdup strstr strtol])
 
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile src/test/src/Makefile])
 AC_OUTPUT
