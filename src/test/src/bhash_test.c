@@ -194,18 +194,13 @@ main(int argc, char*argv[])
 	ASSERT(free_call_count == 12);
 	ASSERT(bhash_create(&bhash, 127, free_cb, &free_cb_arg) == 0);
 	for (i = 0; i < 200000; i++) {
-		if ((i % 10000) == 0) {
-			printf("put count %d\n", i);
-		}
 		snprintf(v, sizeof(v), "value%06d", i);  
 		ASSERT(bhash_put(bhash, v, strlen(v) + 1, "000", 4) == 0);
 	}
 	ASSERT(bhash_get_entry_count(bhash, &entry_count) == 0);
 	ASSERT(entry_count == 200000);
-	printf("finish\n");
 	ASSERT(bhash_destroy(bhash) == 0);
 	ASSERT(free_call_count == 200012);
-	printf("pass\n");
 
 	return 0;
 }
