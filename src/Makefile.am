@@ -13,5 +13,5 @@ primwatch_primdns_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpoin
 primwatch_powerdns_SOURCES = accessa_main.c lookup.c bhash.c  shared_buffer.c bson_helper.c bson/bson.c bson/encoding.c bson/numbers.c logger.c dns/powerdns.c address_util.c string_util.c common_macro.h common_define.h lookup.h bhash.h shared_buffer.h bson_helper.h bson/bson.h bson/encoding.h logger.h dns/powerdns.h address_util.h string_util.h common_struct.h accessa.h
 primwatch_powerdns_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -Ibson -Idns -std=gnu99 -O2 -DPOWERDNS
 
-EXTRA_DIST = conf/primwatchd.conf rc/primwatchd.init.sh rc/primwatchd.sysconfig
+EXTRA_DIST = conf rc rc test
 
