@@ -1,8 +1,7 @@
-#!/bin/sh
-
-echo NAME test0.com group0
-echo NAME ex.com group3
-echo NAME aa.test.com group2 
-echo NAME b.test.com group1
-echo NAME v6.ex.com group3
-echo ADDR 10.0.0.0/8 group3
+NAME sub1.example.com group0
+NAME sub2.example.com group1
+ADDR 10.0.0.0/16 group1 
+NAME sub3.example.com group2
+ADDR 10.1.0.0/16 group2
+NAME sub4.example.com group3
+NAME sub5.example.com group4

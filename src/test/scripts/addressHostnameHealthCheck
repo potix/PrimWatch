@@ -1,4 +1,6 @@
-#!/bin/sh
-
-echo 100.0.0.1@hhh.test.com up
-echo 100.0.0.2@hhh.test.com down
+10.0.3.1@h1.sub5.example.com up
+10.0.3.2@h1.sub5.example.com up
+10.0.3.1@h2.sub5.example.com down
+10.0.3.2@h2.sub5.example.com down
+10.0.3.1@h3.sub5.example.com up
+10.0.3.2@h3.sub5.example.com down

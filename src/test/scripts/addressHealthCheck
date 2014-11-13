@@ -1,14 +1,10 @@
-#!/bin/sh
-
-
-echo 10.0.0.1 up
-echo 10.0.0.2 down
-echo 10.0.1.1 up
-echo 10.0.1.2 up
-echo 10.0.2.1 down
-echo 10.1.0.1 up
-echo 10.1.0.2 down
-echo 10.1.1.1 up
-echo 10.1.1.2 up
-echo 10.1.2.1 down
-echo 2002::1:0:6 up
+10.0.0.1 down
+10.0.0.2 up
+10.0.0.3 down
+10.0.0.4 up
+10.0.0.5 down
+10.1.0.1 up
+10.1.0.2 down
+10.1.0.3 up
+10.1.0.4 down
+10.1.0.5 up

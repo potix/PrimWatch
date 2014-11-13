@@ -1,4 +1,3 @@
-#!/bin/sh
-
-echo qqq.test.com up
-echo yyy.test.com down
+h1.sub4.example.com up
+h2.sub4.example.com down
+h3.sub4.example.com up

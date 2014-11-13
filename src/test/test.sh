@@ -1,4 +1,10 @@
 #!/bin/sh
+TESTDIR=$1
+
+cd ${TESTDIR}
+
+
+
 
 i=0
 
@@ -7,3 +13,6 @@ do
 ../primwatch_primdns aa.test.com IN A > /dev/null
 i=$((${i} + 1))
 done
+~
+~
+
