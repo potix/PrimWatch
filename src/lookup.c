@@ -41,8 +41,10 @@ struct lookup_params {
         char *shared_buffer_data;
         bson status;
         lookup_type_t lookup_type;
+        int valid_addrmask;
         v4v6_addr_mask_t revaddr_mask;
 	revfmt_type_t revfmt_type;
+	
 };
 
 struct lookup_record_match_foreach_arg {
@@ -684,7 +686,8 @@ lookup_record_is_exists_map(
 	}
        	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_A ||
             lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA ||
-	    lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_CNAME) {
+	    lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_CNAME ||
+            lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_ANY) {
 		strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
 		tmp_name_ptr = tmp_name;
 		// domainMapからグループを取り出す
@@ -708,7 +711,9 @@ lookup_record_is_exists_map(
 			*group = candidate_group;
 			break;
 		}
-	} else if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
+	}
+        if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR ||
+            (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_ANY && lookup->params->valid_addrmask)) {
 		memcpy(&tmp_addr_mask, &lookup->params->revaddr_mask, sizeof(tmp_addr_mask));
 		// domainMapからグループを取り出す
 		while (1) {
@@ -1877,6 +1882,7 @@ lookup_native(
 		errno = EINVAL;
 		return 1;
 	}
+	memset(&lookup_params, 0, sizeof(lookup_params_t));
 	lookup->params = &lookup_params;
 	if (shared_buffer_read(lookup->accessa->daemon_buffer, &lookup->params->shared_buffer_data, NULL)) {
 		LOG(LOG_LV_ERR, "failed in read shared_buffer");
@@ -1922,11 +1928,16 @@ lookup_native(
 		return 1;
 	}
        	// PTRレコードの場合アドレスを検索しやすい形に変換しておく
-	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
+	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR ||
+            lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_ANY) {
 		// 自前sockaddr構造体に変換
 		if (revaddrstr_to_addrmask(&lookup->params->revaddr_mask, &lookup->params->revfmt_type, lookup->input.name)) {
-			// 変換に失敗した場合はレコードがないとみなす
-			return 0;
+			if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR) {
+				// 変換に失敗した場合はレコードがないとみなす
+				return 0;
+			}
+		} else {
+			lookup->params->valid_addrmask = 1;
 		}
 	}
 	// 最初にgroupを決定する
@@ -2023,6 +2034,7 @@ lookup_native_axfr(
                 errno = EINVAL;
                 return 1;
         }
+	memset(&lookup_params, 0, sizeof(lookup_params_t));
         lookup->params = &lookup_params;
         if (shared_buffer_read(lookup->accessa->daemon_buffer, &lookup->params->shared_buffer_data, NULL)) {
                 LOG(LOG_LV_ERR, "failed in read shared_buffer");
@@ -2057,7 +2069,7 @@ lookup_record_is_exists_foreach(
         lookup_record_is_exists_foreach_cb_arg_t *lookup_record_is_exists_foreach_cb_arg = foreach_cb_arg;
         char *tmp_name_ptr, tmp_name[NI_MAXHOST];
 	size_t tmp_name_size;
-	int *wildcard;
+	int wildcard;
 	lookup_t *lookup = lookup_record_is_exists_foreach_cb_arg->lookup;
 	
 	ASSERT(lookup_record_is_exists_foreach_cb_arg != NULL);
@@ -2067,7 +2079,7 @@ lookup_record_is_exists_foreach(
 	ASSERT(value != NULL);
 	ASSERT(value_size > 0);
 
-	wildcard = (int *)value;
+	wildcard = *((int *)value);
 	// ドメインが一致するものを探す
 	strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
 	tmp_name_ptr = tmp_name;

@@ -381,6 +381,7 @@ watcher_forward_record_foreach_cb(
 	      address_hostname_current_status & address_hostname_preempt_status)) {
 		goto last;
 	}
+	LOG(LOG_LV_DEBUG, "active record idx = %s", idx);
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), addr, addr_size);
 	if (bhash_append(hostname,
 	    host,
@@ -559,6 +560,7 @@ watcher_reverse_record_foreach_cb(
 	      address_hostname_current_status & address_hostname_preempt_status)) {
 		goto last;
 	}
+	LOG(LOG_LV_DEBUG, "active record idx = %s", idx);
 	memcpy(((char *)entry) + offsetof(record_buffer_t, value), host, host_size);
 	if (bhash_append(address,
 	    (char *)addr_mask,
@@ -637,8 +639,8 @@ watcher_canonical_name_record_foreach_cb(
 		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.externalCommand", idx);
-	if (bson_helper_itr_get_bool(itr, &entry->external_command, p, config, "defaultexternalCommand")) {
-		LOG(LOG_LV_ERR, "failed in get record wildcard (index = %s)", idx);
+	if (bson_helper_itr_get_bool(itr, &entry->external_command, p, config, "defaultRecordExternalCommand")) {
+		LOG(LOG_LV_ERR, "failed in get record external command (index = %s)", idx);
 		goto last;
 	}
 	snprintf(p, sizeof(p),  "%s.executeScript", idx);
@@ -689,6 +691,7 @@ watcher_canonical_name_record_foreach_cb(
 	} else if (!(hostname_current_status & hostname_preempt_status)) {
 		goto last;
 	}
+	LOG(LOG_LV_DEBUG, "active record idx = %s", idx);
 	if (entry->execute_script_size > 0) {
 		memcpy(((char *)entry) + offsetof(record_buffer_t, value), execute_script, entry->execute_script_size);
 	}

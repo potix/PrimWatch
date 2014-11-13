@@ -8,6 +8,7 @@ test: all
 	src/test/src/command_test
 	src/test/src/string_util_test
 	src/test/src/config_test src/test/conf/primwatchd.conf
+	bash src/test/test.sh src/test
 
 rpm: dist
 	tar -zcvf scripts.tar.gz scripts

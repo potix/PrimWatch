@@ -5,3 +5,4 @@ NAME sub3.example.com group2
 ADDR 10.1.0.0/16 group2
 NAME sub4.example.com group3
 NAME sub5.example.com group4
+NAME sub7.example.com group7
