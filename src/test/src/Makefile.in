@@ -33,7 +33,7 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = string_util_test$(EXEEXT) address_util_test$(EXEEXT) \
-	bhash_test$(EXEEXT) command_test$(EXEEXT)
+	bhash_test$(EXEEXT) command_test$(EXEEXT) config_test$(EXEEXT)
 subdir = src/test/src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -69,6 +69,17 @@ command_test_OBJECTS = $(am_command_test_OBJECTS)
 command_test_LDADD = $(LDADD)
 command_test_LINK = $(CCLD) $(command_test_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
+am_config_test_OBJECTS = config_test-config_test.$(OBJEXT) \
+	config_test-json_parser.$(OBJEXT) \
+	config_test-config_manager.$(OBJEXT) \
+	config_test-bson_helper.$(OBJEXT) config_test-bson.$(OBJEXT) \
+	config_test-encoding.$(OBJEXT) config_test-numbers.$(OBJEXT) \
+	config_test-address_util.$(OBJEXT) \
+	config_test-string_util.$(OBJEXT) config_test-logger.$(OBJEXT)
+config_test_OBJECTS = $(am_config_test_OBJECTS)
+config_test_LDADD = $(LDADD)
+config_test_LINK = $(CCLD) $(config_test_CFLAGS) $(CFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_string_util_test_OBJECTS =  \
 	string_util_test-string_util_test.$(OBJEXT) \
 	string_util_test-string_util.$(OBJEXT) \
@@ -86,9 +97,11 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(address_util_test_SOURCES) $(bhash_test_SOURCES) \
-	$(command_test_SOURCES) $(string_util_test_SOURCES)
+	$(command_test_SOURCES) $(config_test_SOURCES) \
+	$(string_util_test_SOURCES)
 DIST_SOURCES = $(address_util_test_SOURCES) $(bhash_test_SOURCES) \
-	$(command_test_SOURCES) $(string_util_test_SOURCES)
+	$(command_test_SOURCES) $(config_test_SOURCES) \
+	$(string_util_test_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -178,13 +191,15 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 string_util_test_SOURCES = string_util_test.c ../../string_util.c ../../string_util.h ../../logger.c ../../logger.h ../../common_macro.h 
-string_util_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -Ibson -Idns -std=gnu99 -O2 -DPOWERDNS
+string_util_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -I../../dns -std=gnu99 -O2 -DPOWERDNS
 address_util_test_SOURCES = address_util_test.c ../../address_util.c ../../address_util.h ../../string_util.c ../../logger.c ../../string_util.h ../../logger.h ../../common_macro.h 
-address_util_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -Ibson -Idns -std=gnu99 -O2 -DPOWERDNS
+address_util_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -I../../dns -std=gnu99 -O2 -DPOWERDNS
 bhash_test_SOURCES = bhash_test.c ../../bhash.c ../../bhash.h ../../string_util.c ../../logger.c ../../string_util.h ../../logger.h ../../common_macro.h 
-bhash_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -Ibson -Idns -std=gnu99 -O2 -DPOWERDNS
+bhash_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -I../../dns -std=gnu99 -O2 -DPOWERDNS
 command_test_SOURCES = command_test.c ../../string_util.c ../../logger.c ../../string_util.h ../../logger.h ../../common_macro.h 
-command_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -Ibson -Idns -std=gnu99 -O2 -DPOWERDNS
+command_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -I../../dns -std=gnu99 -O2 -DPOWERDNS
+config_test_SOURCES = config_test.c ../../json_parser.c ../../config_manager.c ../../bson_helper.c ../../bson/bson.c ../../bson/encoding.c ../../bson/numbers.c ../../json_parser.h ../../address_util.c ../../config_manager.h ../../bson_helper.h ../../bson/bson.h ../../bson/encoding.h ../../bson/numbers.h ../../address_util.h ../../string_util.c ../../logger.c ../../string_util.h ../../logger.h ../../common_macro.h 
+config_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -Idns -std=gnu99 -O2 -DPOWERDNS
 all: all-am
 
 .SUFFIXES:
@@ -265,6 +280,9 @@ bhash_test$(EXEEXT): $(bhash_test_OBJECTS) $(bhash_test_DEPENDENCIES)
 command_test$(EXEEXT): $(command_test_OBJECTS) $(command_test_DEPENDENCIES) 
 	@rm -f command_test$(EXEEXT)
 	$(command_test_LINK) $(command_test_OBJECTS) $(command_test_LDADD) $(LIBS)
+config_test$(EXEEXT): $(config_test_OBJECTS) $(config_test_DEPENDENCIES) 
+	@rm -f config_test$(EXEEXT)
+	$(config_test_LINK) $(config_test_OBJECTS) $(config_test_LDADD) $(LIBS)
 string_util_test$(EXEEXT): $(string_util_test_OBJECTS) $(string_util_test_DEPENDENCIES) 
 	@rm -f string_util_test$(EXEEXT)
 	$(string_util_test_LINK) $(string_util_test_OBJECTS) $(string_util_test_LDADD) $(LIBS)
@@ -286,6 +304,16 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/command_test-command_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/command_test-logger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/command_test-string_util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-address_util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-bson.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-bson_helper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-config_manager.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-config_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-encoding.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-json_parser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-logger.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-numbers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config_test-string_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/string_util_test-logger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/string_util_test-string_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/string_util_test-string_util_test.Po@am__quote@
@@ -457,6 +485,146 @@ command_test-logger.obj: ../../logger.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../logger.c' object='command_test-logger.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(command_test_CFLAGS) $(CFLAGS) -c -o command_test-logger.obj `if test -f '../../logger.c'; then $(CYGPATH_W) '../../logger.c'; else $(CYGPATH_W) '$(srcdir)/../../logger.c'; fi`
+
+config_test-config_test.o: config_test.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-config_test.o -MD -MP -MF $(DEPDIR)/config_test-config_test.Tpo -c -o config_test-config_test.o `test -f 'config_test.c' || echo '$(srcdir)/'`config_test.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-config_test.Tpo $(DEPDIR)/config_test-config_test.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='config_test.c' object='config_test-config_test.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-config_test.o `test -f 'config_test.c' || echo '$(srcdir)/'`config_test.c
+
+config_test-config_test.obj: config_test.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-config_test.obj -MD -MP -MF $(DEPDIR)/config_test-config_test.Tpo -c -o config_test-config_test.obj `if test -f 'config_test.c'; then $(CYGPATH_W) 'config_test.c'; else $(CYGPATH_W) '$(srcdir)/config_test.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-config_test.Tpo $(DEPDIR)/config_test-config_test.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='config_test.c' object='config_test-config_test.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-config_test.obj `if test -f 'config_test.c'; then $(CYGPATH_W) 'config_test.c'; else $(CYGPATH_W) '$(srcdir)/config_test.c'; fi`
+
+config_test-json_parser.o: ../../json_parser.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-json_parser.o -MD -MP -MF $(DEPDIR)/config_test-json_parser.Tpo -c -o config_test-json_parser.o `test -f '../../json_parser.c' || echo '$(srcdir)/'`../../json_parser.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-json_parser.Tpo $(DEPDIR)/config_test-json_parser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../json_parser.c' object='config_test-json_parser.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-json_parser.o `test -f '../../json_parser.c' || echo '$(srcdir)/'`../../json_parser.c
+
+config_test-json_parser.obj: ../../json_parser.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-json_parser.obj -MD -MP -MF $(DEPDIR)/config_test-json_parser.Tpo -c -o config_test-json_parser.obj `if test -f '../../json_parser.c'; then $(CYGPATH_W) '../../json_parser.c'; else $(CYGPATH_W) '$(srcdir)/../../json_parser.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-json_parser.Tpo $(DEPDIR)/config_test-json_parser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../json_parser.c' object='config_test-json_parser.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-json_parser.obj `if test -f '../../json_parser.c'; then $(CYGPATH_W) '../../json_parser.c'; else $(CYGPATH_W) '$(srcdir)/../../json_parser.c'; fi`
+
+config_test-config_manager.o: ../../config_manager.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-config_manager.o -MD -MP -MF $(DEPDIR)/config_test-config_manager.Tpo -c -o config_test-config_manager.o `test -f '../../config_manager.c' || echo '$(srcdir)/'`../../config_manager.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-config_manager.Tpo $(DEPDIR)/config_test-config_manager.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../config_manager.c' object='config_test-config_manager.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-config_manager.o `test -f '../../config_manager.c' || echo '$(srcdir)/'`../../config_manager.c
+
+config_test-config_manager.obj: ../../config_manager.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-config_manager.obj -MD -MP -MF $(DEPDIR)/config_test-config_manager.Tpo -c -o config_test-config_manager.obj `if test -f '../../config_manager.c'; then $(CYGPATH_W) '../../config_manager.c'; else $(CYGPATH_W) '$(srcdir)/../../config_manager.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-config_manager.Tpo $(DEPDIR)/config_test-config_manager.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../config_manager.c' object='config_test-config_manager.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-config_manager.obj `if test -f '../../config_manager.c'; then $(CYGPATH_W) '../../config_manager.c'; else $(CYGPATH_W) '$(srcdir)/../../config_manager.c'; fi`
+
+config_test-bson_helper.o: ../../bson_helper.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-bson_helper.o -MD -MP -MF $(DEPDIR)/config_test-bson_helper.Tpo -c -o config_test-bson_helper.o `test -f '../../bson_helper.c' || echo '$(srcdir)/'`../../bson_helper.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-bson_helper.Tpo $(DEPDIR)/config_test-bson_helper.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bson_helper.c' object='config_test-bson_helper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-bson_helper.o `test -f '../../bson_helper.c' || echo '$(srcdir)/'`../../bson_helper.c
+
+config_test-bson_helper.obj: ../../bson_helper.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-bson_helper.obj -MD -MP -MF $(DEPDIR)/config_test-bson_helper.Tpo -c -o config_test-bson_helper.obj `if test -f '../../bson_helper.c'; then $(CYGPATH_W) '../../bson_helper.c'; else $(CYGPATH_W) '$(srcdir)/../../bson_helper.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-bson_helper.Tpo $(DEPDIR)/config_test-bson_helper.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bson_helper.c' object='config_test-bson_helper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-bson_helper.obj `if test -f '../../bson_helper.c'; then $(CYGPATH_W) '../../bson_helper.c'; else $(CYGPATH_W) '$(srcdir)/../../bson_helper.c'; fi`
+
+config_test-bson.o: ../../bson/bson.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-bson.o -MD -MP -MF $(DEPDIR)/config_test-bson.Tpo -c -o config_test-bson.o `test -f '../../bson/bson.c' || echo '$(srcdir)/'`../../bson/bson.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-bson.Tpo $(DEPDIR)/config_test-bson.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bson/bson.c' object='config_test-bson.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-bson.o `test -f '../../bson/bson.c' || echo '$(srcdir)/'`../../bson/bson.c
+
+config_test-bson.obj: ../../bson/bson.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-bson.obj -MD -MP -MF $(DEPDIR)/config_test-bson.Tpo -c -o config_test-bson.obj `if test -f '../../bson/bson.c'; then $(CYGPATH_W) '../../bson/bson.c'; else $(CYGPATH_W) '$(srcdir)/../../bson/bson.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-bson.Tpo $(DEPDIR)/config_test-bson.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bson/bson.c' object='config_test-bson.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-bson.obj `if test -f '../../bson/bson.c'; then $(CYGPATH_W) '../../bson/bson.c'; else $(CYGPATH_W) '$(srcdir)/../../bson/bson.c'; fi`
+
+config_test-encoding.o: ../../bson/encoding.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-encoding.o -MD -MP -MF $(DEPDIR)/config_test-encoding.Tpo -c -o config_test-encoding.o `test -f '../../bson/encoding.c' || echo '$(srcdir)/'`../../bson/encoding.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-encoding.Tpo $(DEPDIR)/config_test-encoding.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bson/encoding.c' object='config_test-encoding.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-encoding.o `test -f '../../bson/encoding.c' || echo '$(srcdir)/'`../../bson/encoding.c
+
+config_test-encoding.obj: ../../bson/encoding.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-encoding.obj -MD -MP -MF $(DEPDIR)/config_test-encoding.Tpo -c -o config_test-encoding.obj `if test -f '../../bson/encoding.c'; then $(CYGPATH_W) '../../bson/encoding.c'; else $(CYGPATH_W) '$(srcdir)/../../bson/encoding.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-encoding.Tpo $(DEPDIR)/config_test-encoding.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bson/encoding.c' object='config_test-encoding.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-encoding.obj `if test -f '../../bson/encoding.c'; then $(CYGPATH_W) '../../bson/encoding.c'; else $(CYGPATH_W) '$(srcdir)/../../bson/encoding.c'; fi`
+
+config_test-numbers.o: ../../bson/numbers.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-numbers.o -MD -MP -MF $(DEPDIR)/config_test-numbers.Tpo -c -o config_test-numbers.o `test -f '../../bson/numbers.c' || echo '$(srcdir)/'`../../bson/numbers.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-numbers.Tpo $(DEPDIR)/config_test-numbers.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bson/numbers.c' object='config_test-numbers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-numbers.o `test -f '../../bson/numbers.c' || echo '$(srcdir)/'`../../bson/numbers.c
+
+config_test-numbers.obj: ../../bson/numbers.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-numbers.obj -MD -MP -MF $(DEPDIR)/config_test-numbers.Tpo -c -o config_test-numbers.obj `if test -f '../../bson/numbers.c'; then $(CYGPATH_W) '../../bson/numbers.c'; else $(CYGPATH_W) '$(srcdir)/../../bson/numbers.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-numbers.Tpo $(DEPDIR)/config_test-numbers.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bson/numbers.c' object='config_test-numbers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-numbers.obj `if test -f '../../bson/numbers.c'; then $(CYGPATH_W) '../../bson/numbers.c'; else $(CYGPATH_W) '$(srcdir)/../../bson/numbers.c'; fi`
+
+config_test-address_util.o: ../../address_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-address_util.o -MD -MP -MF $(DEPDIR)/config_test-address_util.Tpo -c -o config_test-address_util.o `test -f '../../address_util.c' || echo '$(srcdir)/'`../../address_util.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-address_util.Tpo $(DEPDIR)/config_test-address_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../address_util.c' object='config_test-address_util.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-address_util.o `test -f '../../address_util.c' || echo '$(srcdir)/'`../../address_util.c
+
+config_test-address_util.obj: ../../address_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-address_util.obj -MD -MP -MF $(DEPDIR)/config_test-address_util.Tpo -c -o config_test-address_util.obj `if test -f '../../address_util.c'; then $(CYGPATH_W) '../../address_util.c'; else $(CYGPATH_W) '$(srcdir)/../../address_util.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-address_util.Tpo $(DEPDIR)/config_test-address_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../address_util.c' object='config_test-address_util.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-address_util.obj `if test -f '../../address_util.c'; then $(CYGPATH_W) '../../address_util.c'; else $(CYGPATH_W) '$(srcdir)/../../address_util.c'; fi`
+
+config_test-string_util.o: ../../string_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-string_util.o -MD -MP -MF $(DEPDIR)/config_test-string_util.Tpo -c -o config_test-string_util.o `test -f '../../string_util.c' || echo '$(srcdir)/'`../../string_util.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-string_util.Tpo $(DEPDIR)/config_test-string_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../string_util.c' object='config_test-string_util.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-string_util.o `test -f '../../string_util.c' || echo '$(srcdir)/'`../../string_util.c
+
+config_test-string_util.obj: ../../string_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-string_util.obj -MD -MP -MF $(DEPDIR)/config_test-string_util.Tpo -c -o config_test-string_util.obj `if test -f '../../string_util.c'; then $(CYGPATH_W) '../../string_util.c'; else $(CYGPATH_W) '$(srcdir)/../../string_util.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-string_util.Tpo $(DEPDIR)/config_test-string_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../string_util.c' object='config_test-string_util.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-string_util.obj `if test -f '../../string_util.c'; then $(CYGPATH_W) '../../string_util.c'; else $(CYGPATH_W) '$(srcdir)/../../string_util.c'; fi`
+
+config_test-logger.o: ../../logger.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-logger.o -MD -MP -MF $(DEPDIR)/config_test-logger.Tpo -c -o config_test-logger.o `test -f '../../logger.c' || echo '$(srcdir)/'`../../logger.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-logger.Tpo $(DEPDIR)/config_test-logger.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../logger.c' object='config_test-logger.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-logger.o `test -f '../../logger.c' || echo '$(srcdir)/'`../../logger.c
+
+config_test-logger.obj: ../../logger.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -MT config_test-logger.obj -MD -MP -MF $(DEPDIR)/config_test-logger.Tpo -c -o config_test-logger.obj `if test -f '../../logger.c'; then $(CYGPATH_W) '../../logger.c'; else $(CYGPATH_W) '$(srcdir)/../../logger.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/config_test-logger.Tpo $(DEPDIR)/config_test-logger.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../logger.c' object='config_test-logger.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(config_test_CFLAGS) $(CFLAGS) -c -o config_test-logger.obj `if test -f '../../logger.c'; then $(CYGPATH_W) '../../logger.c'; else $(CYGPATH_W) '$(srcdir)/../../logger.c'; fi`
 
 string_util_test-string_util_test.o: string_util_test.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(string_util_test_CFLAGS) $(CFLAGS) -MT string_util_test-string_util_test.o -MD -MP -MF $(DEPDIR)/string_util_test-string_util_test.Tpo -c -o string_util_test-string_util_test.o `test -f 'string_util_test.c' || echo '$(srcdir)/'`string_util_test.c

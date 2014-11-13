@@ -655,6 +655,7 @@ test: all
 	src/test/src/bhash_test
 	src/test/src/command_test
 	src/test/src/string_util_test
+	src/test/src/config_test src/test/conf/primwatchd.conf
 
 rpm: dist
 	tar -zcvf scripts.tar.gz scripts
