@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo 192.168.0.0/16 group5
+echo 10.0.0.0/8 group6
