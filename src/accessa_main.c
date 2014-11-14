@@ -130,13 +130,13 @@ accessa_primdns(int argc, char *argv[]) {
 		return EX_OSERR;
 	}
 	if (logger_set_foreground(ACCESSA_DEBUG)) {
-		logger_destroy();
 		fprintf(stderr, "failed in set foreground");
+		logger_destroy();
 		return EX_OSERR;
 	}
 	if (accessa_initialize(&accessa)) {
-		logger_destroy();
 		LOG(LOG_LV_WARNING, "failed in initialize accessa");
+		logger_destroy();
 		return EX_OSERR;
 	}
 	if (shared_buffer_read(accessa.daemon_buffer, &sb_data, NULL)) {
