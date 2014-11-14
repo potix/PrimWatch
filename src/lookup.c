@@ -1413,12 +1413,22 @@ lookup_group_roundrobin(
 
 static int
 lookup_group(
-	lookup_t *lookup)
+    lookup_t *lookup,
+    void (*output_foreach_cb)(
+        void *output_foreach_cb_arg,
+        const char *name,
+        const char *class,
+        const char *type,
+        unsigned long long ttl,
+        const char *id,
+        const char *content),
+    void *output_foreach_cb_arg)
 	
 {
 	int64_t group_select_algorithm;
 	int64_t group_members_count;
 	bson_iterator group_itr;
+	int i;
 
 	ASSERT(lookup != NULL);
 	// アルゴリズム情報を取得
@@ -1466,6 +1476,36 @@ lookup_group(
 	if (lookup_record(lookup, &group_itr)) {
 		LOG(LOG_LV_ERR, "failed in lookup record");
 		return 1;
+	}
+	for (i = 0; i < lookup->output.entry_count; i++) {
+		output_foreach_cb(
+		    output_foreach_cb_arg,
+		    lookup->output.entry[i].name,
+		    lookup->output.entry[i].class,
+		    lookup->output.entry[i].type,
+		    lookup->output.entry[i].ttl,
+		    lookup->output.entry[i].id,
+		    lookup->output.entry[i].content);
+	}
+	// AとAAAAレコードのときはCNAMEも返す
+	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_A ||
+	    lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA) {
+		lookup->output.entry_count = 0;
+		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_CNAME;
+		if (lookup_record(lookup, &group_itr)) {
+			LOG(LOG_LV_ERR, "failed in lookup record");
+			return 1;
+		}
+		for (i = 0; i < lookup->output.entry_count; i++) {
+			output_foreach_cb(
+			    output_foreach_cb_arg,
+			    lookup->output.entry[i].name,
+			    lookup->output.entry[i].class,
+			    "CNAME",
+			    lookup->output.entry[i].ttl,
+			    lookup->output.entry[i].id,
+			    lookup->output.entry[i].content);
+			}
 	}
 
 	return 0;
@@ -1976,23 +2016,44 @@ lookup_native(
 				LOG(LOG_LV_ERR, "failed in lookup record");
 				return 1;
 			}
+			for (i = 0; i < lookup->output.entry_count; i++) {
+				output_foreach_cb(
+				    output_foreach_cb_arg,
+				    lookup->output.entry[i].name,
+				    lookup->output.entry[i].class,
+				    lookup->output.entry[i].type,
+				    lookup->output.entry[i].ttl,
+				    lookup->output.entry[i].id,
+				    lookup->output.entry[i].content);
+			}
+			// AとAAAAレコードのときはCNAMEも返す
+			if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_A ||
+			    lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA) {
+				lookup->output.entry_count = 0;
+				lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_CNAME;
+				if (lookup_record(lookup, &group_itr)) {
+					LOG(LOG_LV_ERR, "failed in lookup record");
+					return 1;
+				}
+				for (i = 0; i < lookup->output.entry_count; i++) {
+					output_foreach_cb(
+					    output_foreach_cb_arg,
+					    lookup->output.entry[i].name,
+					    lookup->output.entry[i].class,
+					    "CNAME",
+					    lookup->output.entry[i].ttl,
+					    lookup->output.entry[i].id,
+					    lookup->output.entry[i].content);
+				}
+			}
 		} else {
 			// groupが見つかってないので、アルゴリズムからグループを決定する
 			// その後レコードを探す
-			if (lookup_group(lookup)) {
+			// 結果出力もやってしまう。
+			if (lookup_group(lookup, output_foreach_cb, output_foreach_cb_arg)) {
 				LOG(LOG_LV_ERR, "failed in lookup group");
 				return 1;
 			}
-		}
-		for (i = 0; i < lookup->output.entry_count; i++) {
-			output_foreach_cb(
-			    output_foreach_cb_arg,
-			    lookup->output.entry[i].name,
-			    lookup->output.entry[i].class,
-			    lookup->output.entry[i].type,
-			    lookup->output.entry[i].ttl,
-			    lookup->output.entry[i].id,
-			    lookup->output.entry[i].content);
 		}
 	} else {
 		if (group) {

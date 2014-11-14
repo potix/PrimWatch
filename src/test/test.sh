@@ -67,11 +67,11 @@ check 0 1 "hoge.sub1.example.com 60 IN CNAME h1.sub2.example.com"
 
 echo "test 3"
 query sub1.example.com A
-check 0 0 ""
+check 0 1 "sub1.example.com 60 IN CNAME h1.sub2.example.com"
 
 echo "test 4"
 query hoge.sub1.example.com A
-check 0 0 ""
+check 0 1 "hoge.sub1.example.com 60 IN CNAME h1.sub2.example.com"
 
 echo "test 5"
 query sub1.example.com PTR
@@ -131,6 +131,14 @@ check 0 1 "www.sub3.example.com 1800 IN CNAME h1.sub2.example.com"
 
 echo "test 19"
 query www.www.sub3.example.com CNAME
+check 3 0 ""
+
+echo "test 18"
+query www.sub3.example.com A
+check 0 1 "www.sub3.example.com 1800 IN CNAME h1.sub2.example.com"
+
+echo "test 19"
+query www.www.sub3.example.com A
 check 3 0 ""
 
 echo "test 20"
