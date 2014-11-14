@@ -1,4 +1,5 @@
 #include <sys/queue.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 

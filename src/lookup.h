@@ -35,7 +35,7 @@ struct lookup_input {
 
 struct lookup_output_entry {
 	unsigned long long sort_value;
-	char name[REVADDRSTRLEN];
+	char name[NI_MAXHOST];
 	const char *class;
 	const char *type;
 	unsigned long long ttl;

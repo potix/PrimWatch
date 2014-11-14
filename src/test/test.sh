@@ -65,6 +65,14 @@ echo "test 2"
 query hoge.sub1.example.com CNAME
 check 0 1 "hoge.sub1.example.com 60 IN CNAME h1.sub2.example.com"
 
+echo "test 4"
+query 12345678901234567890123456789012345678901234567890123456789123.sub1.example.com CNAME
+check 0 1 "12345678901234567890123456789012345678901234567890123456789123.sub1.example.com 60 IN CNAME h1.sub2.example.com"
+
+echo "test 4"
+query 12345678901234567890123456789012345678901234567890123456789123.happy-my-home-east-tokyo-japan.example.com CNAME
+check 0 1 "12345678901234567890123456789012345678901234567890123456789123.happy-my-home-east-tokyo-japan.example.com 60 IN CNAME h1.sub2.example.com"
+
 echo "test 3"
 query sub1.example.com A
 check 0 1 "sub1.example.com 60 IN CNAME h1.sub2.example.com"
@@ -72,6 +80,14 @@ check 0 1 "sub1.example.com 60 IN CNAME h1.sub2.example.com"
 echo "test 4"
 query hoge.sub1.example.com A
 check 0 1 "hoge.sub1.example.com 60 IN CNAME h1.sub2.example.com"
+
+echo "test 4"
+query 12345678901234567890123456789012345678901234567890123456789123.sub1.example.com A
+check 0 1 "12345678901234567890123456789012345678901234567890123456789123.sub1.example.com 60 IN CNAME h1.sub2.example.com"
+
+echo "test 4"
+query 12345678901234567890123456789012345678901234567890123456789123.happy-my-home-east-tokyo-japan.example.com A
+check 0 1 "12345678901234567890123456789012345678901234567890123456789123.happy-my-home-east-tokyo-japan.example.com 60 IN CNAME h1.sub2.example.com"
 
 echo "test 5"
 query sub1.example.com PTR
