@@ -1195,7 +1195,7 @@ lookup_record(
 	}
 	if (max_records <= 0) {
 		/* no record */
-		LOG(LOG_LV_INFO, "lookup dns record is empty (%s)", name);
+		LOG(LOG_LV_INFO, "lookup dns record is empty (name = %s, type = %d)", name, lookup->params->lookup_type);
 		return 0;
 	}
 	// 対象のハッシュデータ取り出し
