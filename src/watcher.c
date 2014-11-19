@@ -1021,6 +1021,9 @@ last:
 	if (ipv6hostname) {
 		bhash_destroy(ipv6hostname);
 	}
+	if (canonical_name) {
+		bhash_destroy(canonical_name);
+	}
 	if (group_object_start) {
 		bson_append_finish_object(status);
 	}
