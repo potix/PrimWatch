@@ -1,7 +1,7 @@
 PATH:=$(PATH):/usr/local/bin:/usr/bin:/bin
 make?=make
 package_name=primwatch
-package_version=0.1
+package_version=0.2
 install_prefix?=/usr/local
 sysconf_install_prefix?=/
 top_dir=$(shell pwd | sed 's/ /\\ /g')

@@ -224,6 +224,7 @@ logger_rotate(
 				    filename);
 				return 1;
 			}
+			g_logger->log_time = *cur_tm;
 			g_logger->log_state = LOG_ST_OPENED;
 			g_logger->log = fp;
 		}
@@ -238,6 +239,7 @@ logger_rotate(
 			    filename);
 			return 1;
 		}
+		g_logger->log_time = *cur_tm;
 		g_logger->log_state = LOG_ST_OPENED;
 		g_logger->log = fp;
 	}
@@ -369,7 +371,6 @@ logging_base(
 	    && g_logger->foreground) {
 		fprintf(stdout, log_fmt, logtime, loghead, logmesg);
 	}
-	g_logger->log_time = *tm;
 	g_logger->log_seq++;
 
 	return 0;
