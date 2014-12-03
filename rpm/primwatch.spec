@@ -70,6 +70,7 @@ rm -rf "%{_builddir}"
 %changelog
 * Tue Dec 2 2014 Hiroyuki Kakine <poti.dog@gmail.com> 0.2
   - fix logging
+  - fix taking over status
 * Mon Oct 20 2014 Hiroyuki Kakine <poti.dog@gmail.com> 0.1
   - first package version 0.1
 
