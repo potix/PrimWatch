@@ -1656,9 +1656,16 @@ watcher_polling_common_response(
 		return;
 	}
 	if (!target->reading) {
-		if (bhash_create(&target->tmp_elements, DEFAULT_HASH_SIZE, NULL, NULL)) {
-			LOG(LOG_LV_INFO, "failed in create new hash");
-			target->tmp_elements = NULL;
+                if (target->elements == NULL) {
+			if (bhash_create(&target->tmp_elements, DEFAULT_HASH_SIZE, NULL, NULL)) {
+				LOG(LOG_LV_INFO, "failed in create new hash");
+				target->tmp_elements = NULL;
+			}
+		} else {
+			if (bhash_clone(&target->tmp_elements, (char *)target->elements->bhash_data)) {
+				LOG(LOG_LV_INFO, "failed in clone new hash");
+				target->tmp_elements = NULL;
+			}
 		}
 		target->reading = 1;
 	}

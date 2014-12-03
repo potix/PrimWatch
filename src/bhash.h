@@ -37,7 +37,7 @@ int bhash_create(
 
 int bhash_create_wrap_bhash_data(
     bhash_t *bhash,
-    const char *hash_data,
+    const char *bhash_data,
     size_t hash_data_size);
 
 int bhash_clone(
