@@ -1965,8 +1965,8 @@ lookup_native(
 		lookup->params->lookup_type = LOOKUP_TYPE_NATIVE_ANY;
 	} else {
 		/* log */
-		LOG(LOG_LV_ERR, "unexpected type (type=%s, name=%s, class=%s)", lookup->input.type, lookup->input.name, lookup->input.class);
-		return 1;
+		LOG(LOG_LV_WARNING, "unexpected type (type=%s, name=%s, class=%s)", lookup->input.type, lookup->input.name, lookup->input.class);
+		return 0;
 	}
        	// PTRレコードの場合アドレスを検索しやすい形に変換しておく
 	if (lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_PTR ||
