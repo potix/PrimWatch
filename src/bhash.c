@@ -668,7 +668,6 @@ bhash_put_base(
 			}
 			match_kv_entry->next_kv_entry = 0;
 			bhash_data->total_kv_entry_count--;
-			bhash_data->free_kv_entry_start = KV_ENTRY_PTR_TO_KV_ENTRY_OFFSET(bhash_data, match_kv_entry);
 			if  (FREE_KV_ENTRY_START_OFFSET(bhash_data) == 0) {
 				match_kv_entry->next_free_kv_entry = 0;
 			} else {
