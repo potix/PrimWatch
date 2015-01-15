@@ -33,7 +33,8 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = string_util_test$(EXEEXT) address_util_test$(EXEEXT) \
-	bhash_test$(EXEEXT) command_test$(EXEEXT) config_test$(EXEEXT)
+	bhash_test$(EXEEXT) bhash_test2$(EXEEXT) command_test$(EXEEXT) \
+	config_test$(EXEEXT)
 subdir = src/test/src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -62,6 +63,13 @@ bhash_test_OBJECTS = $(am_bhash_test_OBJECTS)
 bhash_test_LDADD = $(LDADD)
 bhash_test_LINK = $(CCLD) $(bhash_test_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_bhash_test2_OBJECTS = bhash_test2-bhash_test2.$(OBJEXT) \
+	bhash_test2-bhash.$(OBJEXT) bhash_test2-string_util.$(OBJEXT) \
+	bhash_test2-logger.$(OBJEXT)
+bhash_test2_OBJECTS = $(am_bhash_test2_OBJECTS)
+bhash_test2_LDADD = $(LDADD)
+bhash_test2_LINK = $(CCLD) $(bhash_test2_CFLAGS) $(CFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_command_test_OBJECTS = command_test-command_test.$(OBJEXT) \
 	command_test-string_util.$(OBJEXT) \
 	command_test-logger.$(OBJEXT)
@@ -97,11 +105,11 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(address_util_test_SOURCES) $(bhash_test_SOURCES) \
-	$(command_test_SOURCES) $(config_test_SOURCES) \
-	$(string_util_test_SOURCES)
+	$(bhash_test2_SOURCES) $(command_test_SOURCES) \
+	$(config_test_SOURCES) $(string_util_test_SOURCES)
 DIST_SOURCES = $(address_util_test_SOURCES) $(bhash_test_SOURCES) \
-	$(command_test_SOURCES) $(config_test_SOURCES) \
-	$(string_util_test_SOURCES)
+	$(bhash_test2_SOURCES) $(command_test_SOURCES) \
+	$(config_test_SOURCES) $(string_util_test_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -196,6 +204,8 @@ address_util_test_SOURCES = address_util_test.c ../../address_util.c ../../addre
 address_util_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -I../../dns -std=gnu99 -O2 -DPOWERDNS
 bhash_test_SOURCES = bhash_test.c ../../bhash.c ../../bhash.h ../../string_util.c ../../logger.c ../../string_util.h ../../logger.h ../../common_macro.h 
 bhash_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -I../../dns -std=gnu99 -O2 -DPOWERDNS
+bhash_test2_SOURCES = bhash_test2.c ../../bhash.c ../../bhash.h ../../string_util.c ../../logger.c ../../string_util.h ../../logger.h ../../common_macro.h 
+bhash_test2_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -I../../dns -std=gnu99 -O2 -DPOWERDNS
 command_test_SOURCES = command_test.c ../../string_util.c ../../logger.c ../../string_util.h ../../logger.h ../../common_macro.h 
 command_test_CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-sign-compare -Wno-traditional -Wreturn-type -Wswitch -g3 -ggdb3 -pipe -I../../bson -I../../dns -std=gnu99 -O2 -DPOWERDNS
 config_test_SOURCES = config_test.c ../../json_parser.c ../../config_manager.c ../../bson_helper.c ../../bson/bson.c ../../bson/encoding.c ../../bson/numbers.c ../../json_parser.h ../../address_util.c ../../config_manager.h ../../bson_helper.h ../../bson/bson.h ../../bson/encoding.h ../../bson/numbers.h ../../address_util.h ../../string_util.c ../../logger.c ../../string_util.h ../../logger.h ../../common_macro.h 
@@ -277,6 +287,9 @@ address_util_test$(EXEEXT): $(address_util_test_OBJECTS) $(address_util_test_DEP
 bhash_test$(EXEEXT): $(bhash_test_OBJECTS) $(bhash_test_DEPENDENCIES) 
 	@rm -f bhash_test$(EXEEXT)
 	$(bhash_test_LINK) $(bhash_test_OBJECTS) $(bhash_test_LDADD) $(LIBS)
+bhash_test2$(EXEEXT): $(bhash_test2_OBJECTS) $(bhash_test2_DEPENDENCIES) 
+	@rm -f bhash_test2$(EXEEXT)
+	$(bhash_test2_LINK) $(bhash_test2_OBJECTS) $(bhash_test2_LDADD) $(LIBS)
 command_test$(EXEEXT): $(command_test_OBJECTS) $(command_test_DEPENDENCIES) 
 	@rm -f command_test$(EXEEXT)
 	$(command_test_LINK) $(command_test_OBJECTS) $(command_test_LDADD) $(LIBS)
@@ -301,6 +314,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bhash_test-bhash_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bhash_test-logger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bhash_test-string_util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bhash_test2-bhash.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bhash_test2-bhash_test2.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bhash_test2-logger.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bhash_test2-string_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/command_test-command_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/command_test-logger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/command_test-string_util.Po@am__quote@
@@ -443,6 +460,62 @@ bhash_test-logger.obj: ../../logger.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../logger.c' object='bhash_test-logger.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test_CFLAGS) $(CFLAGS) -c -o bhash_test-logger.obj `if test -f '../../logger.c'; then $(CYGPATH_W) '../../logger.c'; else $(CYGPATH_W) '$(srcdir)/../../logger.c'; fi`
+
+bhash_test2-bhash_test2.o: bhash_test2.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -MT bhash_test2-bhash_test2.o -MD -MP -MF $(DEPDIR)/bhash_test2-bhash_test2.Tpo -c -o bhash_test2-bhash_test2.o `test -f 'bhash_test2.c' || echo '$(srcdir)/'`bhash_test2.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bhash_test2-bhash_test2.Tpo $(DEPDIR)/bhash_test2-bhash_test2.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bhash_test2.c' object='bhash_test2-bhash_test2.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -c -o bhash_test2-bhash_test2.o `test -f 'bhash_test2.c' || echo '$(srcdir)/'`bhash_test2.c
+
+bhash_test2-bhash_test2.obj: bhash_test2.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -MT bhash_test2-bhash_test2.obj -MD -MP -MF $(DEPDIR)/bhash_test2-bhash_test2.Tpo -c -o bhash_test2-bhash_test2.obj `if test -f 'bhash_test2.c'; then $(CYGPATH_W) 'bhash_test2.c'; else $(CYGPATH_W) '$(srcdir)/bhash_test2.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bhash_test2-bhash_test2.Tpo $(DEPDIR)/bhash_test2-bhash_test2.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='bhash_test2.c' object='bhash_test2-bhash_test2.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -c -o bhash_test2-bhash_test2.obj `if test -f 'bhash_test2.c'; then $(CYGPATH_W) 'bhash_test2.c'; else $(CYGPATH_W) '$(srcdir)/bhash_test2.c'; fi`
+
+bhash_test2-bhash.o: ../../bhash.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -MT bhash_test2-bhash.o -MD -MP -MF $(DEPDIR)/bhash_test2-bhash.Tpo -c -o bhash_test2-bhash.o `test -f '../../bhash.c' || echo '$(srcdir)/'`../../bhash.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bhash_test2-bhash.Tpo $(DEPDIR)/bhash_test2-bhash.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bhash.c' object='bhash_test2-bhash.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -c -o bhash_test2-bhash.o `test -f '../../bhash.c' || echo '$(srcdir)/'`../../bhash.c
+
+bhash_test2-bhash.obj: ../../bhash.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -MT bhash_test2-bhash.obj -MD -MP -MF $(DEPDIR)/bhash_test2-bhash.Tpo -c -o bhash_test2-bhash.obj `if test -f '../../bhash.c'; then $(CYGPATH_W) '../../bhash.c'; else $(CYGPATH_W) '$(srcdir)/../../bhash.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bhash_test2-bhash.Tpo $(DEPDIR)/bhash_test2-bhash.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../bhash.c' object='bhash_test2-bhash.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -c -o bhash_test2-bhash.obj `if test -f '../../bhash.c'; then $(CYGPATH_W) '../../bhash.c'; else $(CYGPATH_W) '$(srcdir)/../../bhash.c'; fi`
+
+bhash_test2-string_util.o: ../../string_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -MT bhash_test2-string_util.o -MD -MP -MF $(DEPDIR)/bhash_test2-string_util.Tpo -c -o bhash_test2-string_util.o `test -f '../../string_util.c' || echo '$(srcdir)/'`../../string_util.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bhash_test2-string_util.Tpo $(DEPDIR)/bhash_test2-string_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../string_util.c' object='bhash_test2-string_util.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -c -o bhash_test2-string_util.o `test -f '../../string_util.c' || echo '$(srcdir)/'`../../string_util.c
+
+bhash_test2-string_util.obj: ../../string_util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -MT bhash_test2-string_util.obj -MD -MP -MF $(DEPDIR)/bhash_test2-string_util.Tpo -c -o bhash_test2-string_util.obj `if test -f '../../string_util.c'; then $(CYGPATH_W) '../../string_util.c'; else $(CYGPATH_W) '$(srcdir)/../../string_util.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bhash_test2-string_util.Tpo $(DEPDIR)/bhash_test2-string_util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../string_util.c' object='bhash_test2-string_util.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -c -o bhash_test2-string_util.obj `if test -f '../../string_util.c'; then $(CYGPATH_W) '../../string_util.c'; else $(CYGPATH_W) '$(srcdir)/../../string_util.c'; fi`
+
+bhash_test2-logger.o: ../../logger.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -MT bhash_test2-logger.o -MD -MP -MF $(DEPDIR)/bhash_test2-logger.Tpo -c -o bhash_test2-logger.o `test -f '../../logger.c' || echo '$(srcdir)/'`../../logger.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bhash_test2-logger.Tpo $(DEPDIR)/bhash_test2-logger.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../logger.c' object='bhash_test2-logger.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -c -o bhash_test2-logger.o `test -f '../../logger.c' || echo '$(srcdir)/'`../../logger.c
+
+bhash_test2-logger.obj: ../../logger.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -MT bhash_test2-logger.obj -MD -MP -MF $(DEPDIR)/bhash_test2-logger.Tpo -c -o bhash_test2-logger.obj `if test -f '../../logger.c'; then $(CYGPATH_W) '../../logger.c'; else $(CYGPATH_W) '$(srcdir)/../../logger.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/bhash_test2-logger.Tpo $(DEPDIR)/bhash_test2-logger.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../../logger.c' object='bhash_test2-logger.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bhash_test2_CFLAGS) $(CFLAGS) -c -o bhash_test2-logger.obj `if test -f '../../logger.c'; then $(CYGPATH_W) '../../logger.c'; else $(CYGPATH_W) '$(srcdir)/../../logger.c'; fi`
 
 command_test-command_test.o: command_test.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(command_test_CFLAGS) $(CFLAGS) -MT command_test-command_test.o -MD -MP -MF $(DEPDIR)/command_test-command_test.Tpo -c -o command_test-command_test.o `test -f 'command_test.c' || echo '$(srcdir)/'`command_test.c
