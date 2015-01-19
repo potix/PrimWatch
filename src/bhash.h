@@ -24,6 +24,11 @@ struct bhash_iterator{
 	bhash_kv_entry_t *kv_entry_start;
 };
 
+int bhash_compute_value(
+    const char *key,
+    size_t key_size,
+    int hash_size);
+
 int bhash_create(
     bhash_t **bhash,
     int hash_size,

@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/param.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -121,7 +122,8 @@ accessa_primdns(int argc, char *argv[]) {
 	accessa_t accessa;
 	const char *log_type;
 	const char *log_facility;
-	const char *log_path;
+	const char *log_prefix;
+	char log_path[MAXPATHLEN];
 	int64_t verbose_level;
 	char *sb_data;
 	
@@ -141,14 +143,17 @@ accessa_primdns(int argc, char *argv[]) {
 	}
 	if (shared_buffer_read(accessa.daemon_buffer, &sb_data, NULL)) {
 		LOG(LOG_LV_WARNING, "failed in read daemon buffer");
+		ret = EX_DATAERR;
 		goto last;
 	}
 	if (sb_data == NULL) {
 		LOG(LOG_LV_WARNING, "daemon buffer is empty");
+		ret = EX_DATAERR;
 		goto last;
 	}
 	if (bson_init_finished_data(&status, sb_data, 0) != BSON_OK) {
-		LOG(LOG_LV_WARNING, "failed in ");
+		LOG(LOG_LV_WARNING, "failed in finished bson data of status");
+		ret = EX_DATAERR;
 		goto last;
 	}
 	if (bson_helper_bson_get_string(&status, &log_type , "logType", NULL)) {
@@ -161,7 +166,7 @@ accessa_primdns(int argc, char *argv[]) {
 		ret = EX_DATAERR;
 		goto last;
 	}
-	if (bson_helper_bson_get_string(&status, &log_path , "logPath", NULL)) {
+	if (bson_helper_bson_get_string(&status, &log_prefix , "logPath", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get log path from status");
 		ret = EX_DATAERR;
 		goto last;
@@ -171,6 +176,7 @@ accessa_primdns(int argc, char *argv[]) {
 		ret = EX_DATAERR;
 		goto last;
 	}
+	snprintf(log_path, sizeof(log_path), "%s.accessa", log_prefix);
 	if (logger_open((log_level_t)verbose_level, log_type, PROGIDENT, LOG_PID, log_facility, log_path)) {
 		LOG(LOG_LV_ERR, "failed in open log");
 		ret = EX_OSERR;
@@ -192,7 +198,8 @@ accessa_powerdns(void) {
 	accessa_t accessa;
 	const char *log_type;
 	const char *log_facility;
-	const char *log_path;
+	const char *log_prefix;
+	char log_path[MAXPATHLEN];
 	int64_t verbose_level;
 	char *sb_data;
 	char *line_ptr, line_buff[MAX_PIPE_LINE_BUFF], *nl_ptr;
@@ -319,18 +326,21 @@ accessa_powerdns(void) {
 			LOG(LOG_LV_WARNING, "failed in read daemon buffer");
 			fprintf(stdout, "FAIL\n");
 			fflush(stdout);
+			ret = EX_DATAERR;
 			goto last;
 		}
 		if (sb_data == NULL) {
 			LOG(LOG_LV_WARNING, "daemon buffer is empty");
 			fprintf(stdout, "FAIL\n");
 			fflush(stdout);
+			ret = EX_DATAERR;
 			goto last;
 		}
 		if (bson_init_finished_data(&status, sb_data, 0) != BSON_OK) {
-			LOG(LOG_LV_WARNING, "failed in finish bson data of status");
+			LOG(LOG_LV_WARNING, "failed in finished bson data of status");
 			fprintf(stdout, "FAIL\n");
 			fflush(stdout);
+			ret = EX_DATAERR;
 			goto last;
 		}
 		if (bson_helper_bson_get_string(&status, &log_type , "logType", NULL)) {
@@ -347,7 +357,7 @@ accessa_powerdns(void) {
 			ret = EX_DATAERR;
 			goto last;
 		}
-		if (bson_helper_bson_get_string(&status, &log_path , "logPath", NULL)) {
+		if (bson_helper_bson_get_string(&status, &log_prefix , "logPath", NULL)) {
 			LOG(LOG_LV_ERR, "failed in get log path from status");
 			fprintf(stdout, "FAIL\n");
 			fflush(stdout);
@@ -361,6 +371,7 @@ accessa_powerdns(void) {
 			ret = EX_DATAERR;
 			goto last;
 		}
+		snprintf(log_path, sizeof(log_path), "%s.accessa", log_prefix);
 		if (logger_open((log_level_t)verbose_level, log_type, PROGIDENT, LOG_PID, log_facility, log_path)) {
 			LOG(LOG_LV_ERR, "failed in open log");
 			fprintf(stdout, "FAIL\n");

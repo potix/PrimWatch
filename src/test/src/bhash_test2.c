@@ -42,5 +42,22 @@ main(int argc, char*argv[])
 	ASSERT(bhash_destroy(bhash) == 0);
 	fprintf(stderr, "end\n");
 
+
+        fprintf(stderr, "value = %d\n", bhash_compute_value("hoge.test.localnet", sizeof("hoge.test.localnet"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("piyo.piyo.localnet", sizeof("piyo.piyo.localnet"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("hoge.piyo.piyo.localnet", sizeof("hoge.piyo.piyo.localnet"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("localnet", sizeof("localnet"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("a", sizeof("a"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("aa", sizeof("aa"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("aaa", sizeof("aaa"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("aaaa", sizeof("aaaa"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("aaaaa", sizeof("aaaaa"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("ab", sizeof("ab"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("abc", sizeof("abc"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("abcd", sizeof("abcd"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("abcde", sizeof("abcde"), 67));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("piyo.piyo.localnet", sizeof("piyo.piyo.localnet"), 127));
+        fprintf(stderr, "value = %d\n", bhash_compute_value("a", sizeof("a"), 127));
+
 	return 0;
 }

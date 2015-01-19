@@ -230,7 +230,8 @@ main(int argc, char *argv[]) {
 	primwatch_t primwatch;
 	const char *log_type;
 	const char *log_facility;
-	const char *log_path;
+	const char *log_prefix;
+	char log_path[MAXPATHLEN];
 	const char *pid_file_path;
 	const char *cntrl_addr;
 	const char *cntrl_port;
@@ -265,7 +266,7 @@ main(int argc, char *argv[]) {
 		ret = EX_DATAERR;
 		goto last;
 	}
-	if (config_manager_get_string(primwatch.config_manager, &log_path , "logPath", NULL)) {
+	if (config_manager_get_string(primwatch.config_manager, &log_prefix , "logPath", NULL)) {
 		LOG(LOG_LV_ERR, "failed in get log path from config");
 		ret = EX_DATAERR;
 		goto last;
@@ -290,6 +291,7 @@ main(int argc, char *argv[]) {
 		ret = EX_DATAERR;
 		goto last;
 	}
+	snprintf(log_path, sizeof(log_path), "%s.daemon", log_prefix);
 	if (logger_open((log_level_t)verbose_level, log_type, PROGIDENT, LOG_PID, log_facility, log_path)) {
 		LOG(LOG_LV_ERR, "failed in open log");
 		ret = EX_OSERR;

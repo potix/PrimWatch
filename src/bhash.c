@@ -83,10 +83,6 @@ static int bhash_glow_buffer(
     bhash_t *bhash,
     size_t key_align_size,
     size_t value_align_size);
-static int bhash_compute_value(
-    const char *key,
-    size_t key_size,
-    int hash_size);
 static int bhash_get_base(
     bhash_t *bhash,
     char **value,
@@ -142,7 +138,7 @@ bhash_glow_buffer(
 	return 0;
 }
 
-static int
+int
 bhash_compute_value(
     const char *key,
     size_t key_size,
@@ -159,7 +155,7 @@ bhash_compute_value(
 	}
 	value = key_size;
 	for (i = 0; i < key_size; i++) {
-		value = ((value << 5)  - 1) + key[i];
+		value = (value ^ (uint64_t)key[i]) + ((uint64_t)key[i] * 31);
 	}
 
 	return (int)(value % (uint64_t)hash_size);

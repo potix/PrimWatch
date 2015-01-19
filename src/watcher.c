@@ -196,7 +196,8 @@ static int watcher_polling_common_add_element(
     bhash_t *old_elements);
 static int watcher_set_polling_common(
     watcher_t *watcher,
-    watcher_target_type_t type);
+    watcher_target_type_t type,
+    int immediate);
 static void watcher_polling_common_response(
     int fd,
     short ev,
@@ -872,10 +873,10 @@ watcher_group_foreach_cb(
 	// ログ出力
 	if (new_group_status.previous_status == 0 && new_group_status.current_status == 1) {
 		// DOWN TO UP
-		LOG(LOG_LV_INFO, "%s status change down to up (group)", name);
+		LOG(LOG_LV_NOTICE, "%s change status down to up (group)", name);
 	} else if (new_group_status.previous_status == 1 && new_group_status.current_status == 0) {
 		// UP TO DOWN
-		LOG(LOG_LV_INFO, "%s status change up to down (group)", name);
+		LOG(LOG_LV_NOTICE, "%s change status up to down (group)", name);
 	}
 	// bhashに保存
 	if (bhash_replace(
@@ -1345,7 +1346,8 @@ fail:
 static int
 watcher_set_polling_common(
     watcher_t *watcher,
-    watcher_target_type_t target_type)
+    watcher_target_type_t target_type, 
+    int immediate)
 {
 	watcher_target_t *target = NULL;
         const char *default_path = "defaultPollingInterval";
@@ -1379,11 +1381,15 @@ watcher_set_polling_common(
 		ABORT("unknown target type");
 		return 1;
 	}
-	if (config_manager_get_long(watcher->config_manager, &interval, path, default_path)) {
-		LOG(LOG_LV_ERR, "failed in get polling interval (type = %d)", target_type);
-		return 1;
+	if (immediate) {
+		target->polling_interval.tv_sec = 0;
+	} else {
+		if (config_manager_get_long(watcher->config_manager, &interval, path, default_path)) {
+			LOG(LOG_LV_ERR, "failed in get polling interval (type = %d)", target_type);
+			return 1;
+		}
+		target->polling_interval.tv_sec = (long)interval;
 	}
-	target->polling_interval.tv_sec = (long)interval;
 	evtimer_set(&target->event, watcher_polling_common, target);
 	event_priority_set(&target->event, DEFAULT_EVENT_PRIORITY + 10);
 	event_base_set(watcher->event_base, &target->event);
@@ -1497,10 +1503,10 @@ watcher_polling_common_add_element(
 		// ログ出力
 		if (new_address_health_check_element.previous_status == 0 && new_address_health_check_element.current_status == 1) {
 			// DOWN TO UP
-			LOG(LOG_LV_INFO, "%s status change down to up (record)", key);
+			LOG(LOG_LV_NOTICE, "%s change status down to up (record)", key);
 		} else if (new_address_health_check_element.previous_status == 1 && new_address_health_check_element.current_status == 0) {
 			// UP TO DOWN
-			LOG(LOG_LV_INFO, "%s status change up to down (record)", key);
+			LOG(LOG_LV_NOTICE, "%s change status up to down (record)", key);
 		}
 		//データを更新
 		if (bhash_replace(
@@ -1542,10 +1548,10 @@ watcher_polling_common_add_element(
 		// ログ出力
 		if (new_hostname_health_check_element.previous_status == 0 && new_hostname_health_check_element.current_status == 1) {
 			// DOWN TO UP
-			LOG(LOG_LV_INFO, "%s status change down to up (record)", key);
+			LOG(LOG_LV_NOTICE, "%s change status down to up (record)", key);
 		} else if (new_hostname_health_check_element.previous_status == 1 && new_hostname_health_check_element.current_status == 0) {
 			// UP TO DOWN
-			LOG(LOG_LV_INFO, "%s status change up to down (record)", key);
+			LOG(LOG_LV_NOTICE, "%s change status up to down (record)", key);
 		}
 		//データを更新
 		if (bhash_replace(
@@ -1587,10 +1593,10 @@ watcher_polling_common_add_element(
 		// ログ出力
 		if (new_address_hostname_health_check_element.previous_status == 0 && new_address_hostname_health_check_element.current_status == 1) {
 			// DOWN TO UP
-			LOG(LOG_LV_INFO, "%s status change down to up (record)", key);
+			LOG(LOG_LV_NOTICE, "%s change status down to up (record)", key);
 		} else if (new_address_hostname_health_check_element.previous_status == 1 && new_address_hostname_health_check_element.current_status == 0) {
 			// UP TO DOWN
-			LOG(LOG_LV_INFO, "%s status change up to down (record)", key);
+			LOG(LOG_LV_NOTICE, "%s change status up to down (record)", key);
 		}
 		//データを更新
 		if (bhash_replace(
@@ -1823,7 +1829,7 @@ watcher_polling_common(
 	}
 	LOG(LOG_LV_DEBUG, "execute script (type = %d, script=%s)", target->type, execute_script);
 last:
-	watcher_set_polling_common(watcher, target->type);
+	watcher_set_polling_common(watcher, target->type, 0);
 }
 
 static int
@@ -1993,11 +1999,11 @@ watcher_polling_start(
 		errno = EINVAL;
 		return 1;
 	}
-	watcher_set_polling_common(watcher, TARGET_TYPE_DOMAIN_MAP);
-	watcher_set_polling_common(watcher, TARGET_TYPE_REMOTE_ADDRESS_MAP);
-	watcher_set_polling_common(watcher, TARGET_TYPE_ADDRESS_HEALTH_CHECK);
-	watcher_set_polling_common(watcher, TARGET_TYPE_HOSTNAME_HEALTH_CHECK);
-	watcher_set_polling_common(watcher, TARGET_TYPE_ADDRESS_HOSTNAME_HEALTH_CHECK);
+	watcher_set_polling_common(watcher, TARGET_TYPE_DOMAIN_MAP, 1);
+	watcher_set_polling_common(watcher, TARGET_TYPE_REMOTE_ADDRESS_MAP, 1);
+	watcher_set_polling_common(watcher, TARGET_TYPE_ADDRESS_HEALTH_CHECK, 1);
+	watcher_set_polling_common(watcher, TARGET_TYPE_HOSTNAME_HEALTH_CHECK, 1);
+	watcher_set_polling_common(watcher, TARGET_TYPE_ADDRESS_HOSTNAME_HEALTH_CHECK, 1);
 	watcher_set_polling_update_check(watcher);
 
 	return 0;
@@ -2278,7 +2284,7 @@ watcher_update_group_health_status(
 		group_status->current_status = current_status;
 	}
 	watcher->updated |= 0x100;
-	LOG(LOG_LV_INFO, "change current status to %s of %s entry of group health ", (current_status) ? "up" : "down", name);
+	LOG(LOG_LV_NOTICE, "change current status to %s of %s entry of group health ", (current_status) ? "up" : "down", name);
 
 	return 0;
 }
@@ -2328,7 +2334,7 @@ watcher_update_common_health_status(
 		health_status->current_status = current_status;
 	}
 	watcher->updated |= 0x100;
-	LOG(LOG_LV_INFO, "change current status to %s of %s entry of %s health ", (current_status) ? "up" : "down", name, target_name);
+	LOG(LOG_LV_NOTICE, "change current status to %s of %s entry of %s health ", (current_status) ? "up" : "down", name, target_name);
 
 	return 0;
 }
@@ -2406,7 +2412,7 @@ watcher_update_group_health_preempt_status(
 		group_status->preempt_status = preempt_status;
 	}
 	watcher->updated |= 0x100;
-	LOG(LOG_LV_INFO, "change preempt status to %s of %s entry of group health ", (preempt_status) ? "up" : "down", name);
+	LOG(LOG_LV_NOTICE, "change preempt status to %s of %s entry of group health ", (preempt_status) ? "up" : "down", name);
 
 	return 0;
 }
@@ -2456,7 +2462,7 @@ watcher_update_common_health_preempt_status(
 		health_status->preempt_status = preempt_status;
 	}
 	watcher->updated |= 0x100;
-	LOG(LOG_LV_INFO, "change preempt status to %s of %s entry of %s health ", (preempt_status) ? "up" : "down", name, target_name);
+	LOG(LOG_LV_NOTICE, "change preempt status to %s of %s entry of %s health ", (preempt_status) ? "up" : "down", name, target_name);
 
 	return 0;
 }
