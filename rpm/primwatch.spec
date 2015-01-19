@@ -68,8 +68,10 @@ rm -rf "${RPM_BUILD_ROOT}"
 rm -rf "%{_builddir}"
 
 %changelog
-* Thu Jan 15 2015 Hiroyuki Kakine <poti.dog@gmail.com> 0.3
+* Thu Jan 19 2015 Hiroyuki Kakine <poti.dog@gmail.com> 0.3
   - fix busy loop bug
+  - split to log file
+  - adjust log
 * Tue Dec 2 2014 Hiroyuki Kakine <poti.dog@gmail.com> 0.2
   - fix logging
   - fix taking over status
