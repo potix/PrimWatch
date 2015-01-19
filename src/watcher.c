@@ -1820,12 +1820,13 @@ watcher_polling_common(
 		LOG(LOG_LV_DEBUG, "failed in get script (type = %d)", target->type);
 		goto last;
 	}
+	LOG(LOG_LV_INFO, "execute script (%s)", execute_script);
 	if (executor_exec(
 	    watcher->executor,
 	    execute_script,
 	    watcher_polling_common_response,
 	    target)) {
-		LOG(LOG_LV_INFO, "failed in execute script (type = %d)", target->type);
+		LOG(LOG_LV_NOTICE, "failed in execute script (type = %d)", target->type);
 	}
 	LOG(LOG_LV_DEBUG, "execute script (type = %d, script=%s)", target->type, execute_script);
 last:

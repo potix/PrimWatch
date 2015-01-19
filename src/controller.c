@@ -463,7 +463,7 @@ fail:
 		controller->result_real_size += wlen;
 	}
 	controller->result[controller->result_real_size] = '\0';
-	LOG(LOG_LV_ERR, "%s", controller->result);
+	LOG(LOG_LV_WARNING, "%s", controller->result);
 	controller->result[controller->result_real_size] = '\n';
 	controller->result[controller->result_real_size + 1] = '\0';
 	controller->result_real_size += 1;
@@ -487,7 +487,7 @@ controller_on_recv_line(
 	ASSERT(controller != NULL);
 
 	if (parse_cmd_b(&parse_cmd, line)) {
-		LOG(LOG_LV_ERR, "failed in parse_command");
+		LOG(LOG_LV_WARNING, "failed in parse_command");
 		return 1;
 	}
 	controller_execute_command(controller, &parse_cmd);
