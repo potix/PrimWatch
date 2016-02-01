@@ -26,14 +26,13 @@ Prefix:         /
  Check system helth and dynamic generate record of DNS with PrimDNS or PowerDNS
 
 %prep 
-tar -zxvf %{SOURCE0}
 tar -zxvf %{SOURCE1} 
 
+%setup
+
 %build
-cd %{package_name}-%{package_version}
 ./configure --prefix=$RPM_BUILD_ROOT%{install_prefix} --sysconfdir=$RPM_BUILD_ROOT%{sysconf_install_prefix}/etc/primwatch
 make
-cd ..
 
 %install
 # directory
@@ -44,7 +43,6 @@ mkdir -p "${RPM_BUILD_ROOT}%{sysconf_install_prefix}/etc/sysconfig"
 mkdir -p "${RPM_BUILD_ROOT}%{sysconf_install_prefix}/etc/%{package_name}"
 
 # install
-cd "%{_builddir}/%{package_name}-%{package_version}"
 make install
 install -c -m 755 "%{_builddir}/scripts/healthcheck/healthcheck.py" "$RPM_BUILD_ROOT%{install_prefix}/bin/healthcheck.py"
 install -c -m 644 "%{_builddir}/scripts/conf/config.json" "$RPM_BUILD_ROOT%{sysconf_install_prefix}/etc/%{package_name}/healthcheck.conf"
