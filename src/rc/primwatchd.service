@@ -1,0 +1,11 @@
+[Unit]
+Description=primwatch
+after=syslog.target network.target
+
+[Service]
+EnvironmentFile=/etc/sysconfig/primwatchd
+ExecStart=/usr/sbin/primwatchd -F -c ${CONFIG_PATH} ${EXEC_CMD_ARGS}
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target
