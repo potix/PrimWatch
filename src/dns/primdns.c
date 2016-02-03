@@ -21,6 +21,9 @@
 #define NOTAUTH  "9"
 #define NOTZONE  "10"
 
+static void primdns_output_foreach(void *output_forech_arg, const char *name,
+    const char *class, const char *type, unsigned long long ttl, const char *id, const char *content);
+
 struct output_buffer {
 	char buf[65535];
 	int len;
