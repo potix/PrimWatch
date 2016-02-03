@@ -1050,7 +1050,7 @@ watcher_status_make(
 	char *bhash_data;
 	size_t bhash_data_size;
 	group_foreach_cb_arg_t group_foreach_cb_arg;
-	int group_object_start;
+	int group_object_start = 0;
 	const char *default_record_status;
 	int group_preempt;
 	bhash_t *all_forwards = NULL, *all_reverses = NULL;
@@ -1411,7 +1411,6 @@ watcher_polling_common_add_element(
 	watcher_status_element_t new_address_health_check_element, *old_address_health_check_element = NULL;
 	watcher_status_element_t new_hostname_health_check_element, *old_hostname_health_check_element = NULL;
 	watcher_status_element_t new_address_hostname_health_check_element, *old_address_hostname_health_check_element = NULL;
-	map_element_t *map_element;
 	v4v6_addr_mask_t addr_mask;
 	size_t key_size;
 	size_t value_size;
@@ -1419,7 +1418,6 @@ watcher_polling_common_add_element(
 	switch (target_type) {
         case TARGET_TYPE_DOMAIN_MAP:
 		value_size = strlen(value) + 1;
-		map_element = (map_element_t *)buffer;
 		memcpy(buffer + offsetof(map_element_t, value), value, value_size);
 		if (strcasecmp(option, "NAME") == 0) {
 			key_size = strlen(key) + 1;
@@ -1458,7 +1456,6 @@ watcher_polling_common_add_element(
 		break;
         case TARGET_TYPE_REMOTE_ADDRESS_MAP:
 		value_size = strlen(value) + 1;
-		map_element = (map_element_t *)buffer;
 		memcpy(buffer + offsetof(map_element_t, value), value, value_size); 
 		if (addrstr_to_addrmask_b(&addr_mask, key)) {
 			LOG(LOG_LV_INFO, "failed in convert string to address and mask %s entry (type = %d)", key, target_type);

@@ -49,7 +49,7 @@ accessa_initialize(
 
 	ASSERT(accessa != NULL);
 	srandom((int)time(NULL) + (int)getpid());
-	memset(accessa, 0, sizeof(accessa));
+	memset(accessa, 0, sizeof(accessa_t));
 	if (shared_buffer_create(&new_daemon_buffer)) {
 		LOG(LOG_LV_ERR, "failed in create shared buffer of daemon");
 		goto fail;
