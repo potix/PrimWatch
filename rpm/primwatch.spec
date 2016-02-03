@@ -60,7 +60,10 @@ install -c -m 644 "%{_builddir}/%{package_name}-%{package_version}/src/rc/primwa
 
 %files
 %defattr(0755,root,root,-)
-%{install_prefix}/bin
+%{install_prefix}/bin/healthcheck.py
+%{install_prefix}/sbin/primwatch_powerdns
+%{install_prefix}/sbin/primwatch_primdns
+%{install_prefix}/sbin/primwatchd 
 %if 7%{?rhl}
 %defattr(0644,root,root,-)
 %{sysconf_install_prefix}/etc/systemd/system/primwatchd.service
