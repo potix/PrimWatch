@@ -1,6 +1,6 @@
 iSUBDIRS=src/test/src
 
-YAJL_MAJOR = 1
+YAJL_MAJOR = 2
 
 bin_PROGRAMS = primwatchd primwatch_primdns primwatch_powerdns
 primwatchd_SOURCES = daemon_main.c string_util.c bhash.c config_manager.c json_parser.c shared_buffer.c watcher.c executor.c bson_helper.c bson/bson.c bson/encoding.c bson/numbers.c logger.c address_util.c controller.c tcp_server.c common_macro.h common_define.h config_manager.h bhash.h json_parser.h  string_util.h json_parser.h shared_buffer.h watcher.h executor.h bson_helper.h  bson/bson.h bson/encoding.h logger.h address_util.h common_struct.h controller.h tcp_server.h accessa.h
