@@ -817,7 +817,8 @@ lookup_record_match_foreach(
         char *tmp_name_ptr, tmp_name[NI_MAXHOST];
 	size_t tmp_name_size;
 	int match = 0;
-	int64_t record_members_count, record_select_algorithm;
+	int64_t record_select_algorithm;
+	int64_t record_members_count;
 	int record_rr_idx;
 	
 	ASSERT(lookup_record_match_foreach_arg != NULL);
@@ -1584,7 +1585,6 @@ lookup_all_record_foreach(
 	record_buffer_t *record_buffer;
         char *tmp_name_ptr, tmp_name[NI_MAXHOST];
 	int tmp_name_size;
-	int input_size;
         char tmp_addr[INET6_ADDRSTRLEN];
 
 	ASSERT(lookup_all_record_foreach_arg != NULL);
@@ -1614,7 +1614,6 @@ lookup_all_record_foreach(
 			    ((char *)record_buffer) + offsetof(record_buffer_t, value));
 		} else {
 			// ドメインが一致するものを探す
-			input_size = strlen(lookup->input.name) + 1;
 			strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
 			tmp_name_ptr = tmp_name;
 			while (1) {
@@ -1690,7 +1689,6 @@ lookup_all_record_foreach(
 			    ((char *)record_buffer) + offsetof(record_buffer_t, value) + record_buffer->execute_script_size);
 		} else {
 			// ドメインが一致するものを探す
-			input_size = strlen(lookup->input.name) + 1;
 			strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
 			tmp_name_ptr = tmp_name;
 			while (1) {

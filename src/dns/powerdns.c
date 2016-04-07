@@ -10,6 +10,9 @@
 #include "logger.h"
 #include "dns/powerdns.h"
 
+static void powerdns_output_foreach(void *output_forech_arg, const char *name,
+    const char *class, const char *type, unsigned long long ttl, const char *id, const char *content);
+
 void
 powerdns_output_foreach(
     void *output_forech_arg,

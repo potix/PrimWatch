@@ -368,7 +368,7 @@ logging_base(
 		fprintf(fp, log_fmt, logtime, loghead, logmesg);
 	}
 	if ((type == LOG_TYPE_VALUE_SYSLOG || type == LOG_TYPE_VALUE_FILE)
-	    && g_logger->foreground) {
+	    && g_logger->foreground && g_logger->verbose_level >= LOG_LV_DEBUG) {
 		fprintf(stdout, log_fmt, logtime, loghead, logmesg);
 	}
 	g_logger->log_seq++;
