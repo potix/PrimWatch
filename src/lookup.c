@@ -844,7 +844,7 @@ lookup_record_match_foreach(
 		while (1) {
 			tmp_name_size = strlen(tmp_name_ptr) + 1;
 			if (key_size == tmp_name_size
-			     && strncmp(key, tmp_name_ptr, tmp_name_size) == 0) {
+			     && strncasecmp(key, tmp_name_ptr, tmp_name_size) == 0) {
 				strlcpy(
 				    lookup->output.entry[lookup->output.entry_count].name,
 				    lookup->input.name,
@@ -1619,7 +1619,7 @@ lookup_all_record_foreach(
 			while (1) {
 				tmp_name_size = strlen(tmp_name_ptr) + 1;
 				if (tmp_name_size == key_size &&
-				     strncmp(tmp_name_ptr, key, tmp_name_size) == 0) {
+				     strncasecmp(tmp_name_ptr, key, tmp_name_size) == 0) {
 					lookup_all_group_foreach_arg->output_foreach_cb(
 					    lookup_all_group_foreach_arg->output_foreach_cb_arg,
 					    lookup->input.name,
@@ -1694,7 +1694,7 @@ lookup_all_record_foreach(
 			while (1) {
 				tmp_name_size = strlen(tmp_name_ptr) + 1;
 				if (tmp_name_size == key_size &&
-				     strncmp(tmp_name_ptr, key, tmp_name_size) == 0) {
+				     strncasecmp(tmp_name_ptr, key, tmp_name_size) == 0) {
 					/// XXXXXXXXXXXXXXXX execute script XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 					lookup_all_group_foreach_arg->output_foreach_cb(
 					    lookup_all_group_foreach_arg->output_foreach_cb_arg,
@@ -2146,7 +2146,7 @@ lookup_record_is_exists_foreach(
 	while (1) {
 		tmp_name_size = strlen(tmp_name_ptr) + 1;
 		if (key_size == tmp_name_size
-		     && strncmp(key, tmp_name_ptr, tmp_name_size) == 0) {
+		     && strncasecmp(key, tmp_name_ptr, tmp_name_size) == 0) {
 			strlcpy(
 			    lookup->output.entry[lookup->output.entry_count].name,
 			    lookup->input.name,
