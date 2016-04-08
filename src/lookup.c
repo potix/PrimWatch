@@ -688,7 +688,7 @@ lookup_record_is_exists_map(
             lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_AAAA ||
 	    lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_CNAME ||
             lookup->params->lookup_type == LOOKUP_TYPE_NATIVE_ANY) {
-		strlcpy(tmp_name, lookup->input.name, sizeof(tmp_name));
+		strlcpylower(tmp_name, lookup->input.name, sizeof(tmp_name));
 		tmp_name_ptr = tmp_name;
 		// domainMapからグループを取り出す
 		while (1) {
@@ -884,7 +884,6 @@ lookup_record_match_foreach(
 	if (match) {
 		switch (record_select_algorithm) {
 		case 0: /* random*/
-			// プライオリティの値をそのまま流用
 			lookup->output.entry[lookup->output.entry_count].sort_value = random();
 			break;
 		case 1: /* priority */

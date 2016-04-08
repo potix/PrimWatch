@@ -10,6 +10,11 @@ strlcpy(
     char *dst,
     const char *src,
     size_t siz);
+size_t
+strlcpylower(
+    char *dst,
+    const char *src,
+    size_t siz);
 #endif
 
 #if !defined(strlcat)

@@ -115,5 +115,10 @@ main(int argc, char*argv[]) {
 	ASSERT(strcmp(tuple.value[29], "30") == 0);
 	ASSERT(strcmp(tuple.value[30], "31") == 0);
 	ASSERT(strcmp(tuple.value[31], "32") == 0);
+
+	strlcpylower(buff, "HogeKjdL", sizeof(buff));
+	ASSERT(strcmp("hogekjdl", buff) == 0);
+	strlcpylower(buff, "aBCFErg", sizeof("aBCFErg"));
+	ASSERT(strcmp("abcferg", buff) == 0);
 }
 
