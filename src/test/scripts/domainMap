@@ -6,3 +6,7 @@ ADDR 10.1.0.0/16 group2
 NAME sub4.example.com group3
 NAME sub5.example.com group4
 NAME sub7.example.com group7
+NAME example.com group0
+NAME mix1.example.com group8
+NAME mix2.example.com group8
+ADDR 11.1.0.0/16 group8

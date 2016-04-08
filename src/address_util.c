@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -177,7 +179,7 @@ revaddrstr_to_addrmask_b(
 		return 1;
 	}
 	memset(addr_mask, 0, sizeof(v4v6_addr_mask_t));
-	if ((ptr = strstr(revaddr_str, "in-addr.arpa")) != NULL) {
+	if ((ptr = strcasestr(revaddr_str, "in-addr.arpa")) != NULL) {
 		a = (unsigned char *)&addr_mask->addr.in_addr.sin_addr;
 		addr_mask->addr.family = AF_INET;
 		last = 4 - 1;
@@ -185,12 +187,12 @@ revaddrstr_to_addrmask_b(
 		if (revfmt_type) {
 			*revfmt_type = REVFMT_TYPE_INADDR_ARPA;
 		}
-	} else if ((ptr = strstr(revaddr_str, "ip6")) != NULL) {
+	} else if ((ptr = strcasestr(revaddr_str, "ip6")) != NULL) {
 		addr_mask->addr.family = AF_INET6;
 		a = (unsigned char *)&addr_mask->addr.in_addr.sin6_addr;
 		last = 16 - 1;
 		addr_mask->mask = 128;
-		if (strstr(ptr, ".arpa") != NULL) {
+		if (strcasestr(ptr, ".arpa") != NULL) {
 			if (revfmt_type) {
 				*revfmt_type = REVFMT_TYPE_IP6_ARPA;
 			}
